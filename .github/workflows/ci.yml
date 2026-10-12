@@ -1,10 +1,18 @@
 name: Flutter checks
 on:
+  # Branches only: the nightly tag that this workflow moves is not a build.
   push:
+    branches: ['**']
   pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      # Moves the nightly tag and replaces its release assets.
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -20,8 +28,9 @@ jobs:
       - run: flutter gen-l10n
       - run: dart run pigeon --input pigeons/device_api.dart
       - run: dart run pigeon --input pigeons/control_api.dart
+      - run: dart run pigeon --input pigeons/ios_api.dart
       - run: dart run build_runner build --delete-conflicting-outputs
-      - run: dart format lib/data/database.g.dart lib/platform/android/device_api.g.dart lib/platform/android/control_api.g.dart lib/l10n/gen
+      - run: dart format lib/data/database.g.dart lib/platform/native/device_api.g.dart lib/platform/android/control_api.g.dart lib/platform/ios/ios_api.g.dart lib/l10n/gen
       - run: dart format --output=none --set-exit-if-changed lib test integration_test pigeons tool
       - run: flutter analyze
       # On Linux, flutter test loads PDFium from next to flutter_tester. Use the
@@ -43,6 +52,7 @@ jobs:
       - run: dart run tool/browser_runtime_check/emit_template.dart
       - run: node tool/browser_runtime_check/check.js
       # `full` (default flavor) includes screen control; `play` leaves it out.
+      # One APK per ABI: llama.cpp makes a universal APK about 130 MB.
       - name: Build Android release APKs
         env:
           KEYSTORE_BASE64: ${{ github.event_name == 'push' && secrets.KEYSTORE_BASE64 || '' }}
@@ -59,14 +69,63 @@ jobs:
             printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
             unset KEYSTORE_BASE64
           fi
-          flutter build apk --release
-          flutter build apk --release --flavor play
+          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --flavor play
+          mkdir -p dist
+          for flavor in full play; do
+            for abi in arm64-v8a armeabi-v7a x86_64; do
+              cp "build/app/outputs/flutter-apk/app-$abi-$flavor-release.apk" \
+                "dist/tako-$flavor-$abi.apk"
+            done
+          done
       - name: Remove Android release keystore
         if: ${{ always() && github.event_name == 'push' }}
         run: rm -f -- "$RUNNER_TEMP/tako-release.jks"
       - uses: actions/upload-artifact@v4
         with:
           name: tako-release-apk
-          path: |
-            build/app/outputs/flutter-apk/app-full-release.apk
-            build/app/outputs/flutter-apk/app-play-release.apk
+          path: dist/*.apk
+      # The `nightly` release always holds the latest build of main.
+      - name: Update the nightly release
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(sed -n 's/^version: //p' pubspec.yaml)"
+          notes="Built from ${GITHUB_SHA::7} on $(date -u '+%Y-%m-%d %H:%M UTC'), version $version.
+          Nightly builds follow every change on main and may be unstable.
+
+          Which APK:
+          - tako-full-arm64-v8a.apk: most phones.
+          - tako-full-armeabi-v7a.apk: older 32-bit phones; no on-device models.
+          - tako-full-x86_64.apk: emulators and Chromebooks.
+          - tako-play-*.apk: without screen control (no accessibility service)."
+          git tag -f nightly "$GITHUB_SHA"
+          git push -f origin refs/tags/nightly
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly --title "Nightly ($version)" --notes "$notes" --prerelease --latest=false
+          else
+            gh release create nightly --title "Nightly ($version)" --notes "$notes" --prerelease --latest=false --verify-tag
+          fi
+          gh release upload nightly dist/*.apk --clobber
+          # Drop assets that a build no longer produces.
+          for asset in $(gh release view nightly --json assets --jq '.assets[].name'); do
+            [[ -f "dist/$asset" ]] || gh release delete-asset nightly "$asset" --yes
+          done
+
+  # iOS is built, not signed or run: there is no device to test on yet.
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: dart run pigeon --input pigeons/device_api.dart
+      - run: dart run pigeon --input pigeons/ios_api.dart
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build ios --release --no-codesign

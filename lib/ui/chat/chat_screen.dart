@@ -11,10 +11,12 @@ import '../../app/app_info.dart';
 import '../../core/browser/browser_capability.dart';
 import '../../core/chat/content_block.dart';
 import '../../core/chat/message.dart';
+import '../../core/on_device/on_device_capability.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
 import '../render/message_markdown.dart';
+import '../settings/on_device_models_screen.dart';
 import '../settings/provider_editor.dart';
 import '../settings/settings_screen.dart';
 import 'chat_timeline.dart';
@@ -424,9 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             for (final p in app.providers)
               for (final model in p.models)
                 ListTile(
-                  leading: Icon(
-                    p.isLocal ? Icons.dns_outlined : Icons.cloud_outlined,
-                  ),
+                  leading: Icon(providerIcon(p)),
                   title: Text(model.id),
                   subtitle: app.providers.length > 1
                       ? Text(p.displayName)
@@ -692,6 +692,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     'imageUnavailable' => l.imageUnavailable,
     'unsupportedImage' => l.unsupportedImage,
     'toolStepLimit' => l.toolStepLimit,
+    'localModelMissing' => l.localModelMissing,
+    'localModelLoad' => l.localModelLoad,
     'noProviderSelected' => l.noProviderSelected,
     'providerRemoved' => l.providerRemoved,
     'emptyResponse' => l.emptyResponse,
@@ -929,6 +931,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  OnDeviceCapability get _onDevice =>
+      ref.read(appControllerProvider).services.onDevice;
+
   Widget _messageState(
     ChatMessage message,
     AppLocalizations l, {
@@ -949,7 +954,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: 8),
-              Text(l.streaming, style: Theme.of(context).textTheme.labelSmall),
+              ListenableBuilder(
+                listenable: _onDevice,
+                builder: (context, _) => Text(
+                  _onDevice.loadingModel == null ? l.streaming : l.loadingModel,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
             ],
           ),
         ),
@@ -1444,6 +1455,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         ),
                                         icon: const Icon(Icons.add),
                                         label: Text(l.addProvider),
+                                      ),
+                                    ),
+                                  if (app.providers.isEmpty &&
+                                      app.services.onDevice.isAvailable)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: TextButton.icon(
+                                        key: const ValueKey('setup-on-device'),
+                                        onPressed: () => Navigator.push<void>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const OnDeviceModelsScreen(),
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.smartphone_outlined,
+                                        ),
+                                        label: Text(l.useOnDeviceModel),
                                       ),
                                     ),
                                 ],

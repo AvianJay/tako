@@ -75,7 +75,8 @@ void main() {
     ApiType.messages: messagesErrorStream,
   };
 
-  for (final type in ApiType.values) {
+  // On-device models have their own tests in test/on_device.
+  for (final type in ApiType.values.where((t) => t != ApiType.onDevice)) {
     group(type.name, () {
       test(
         'streams split UTF-8, reasoning, two distinct tool calls and usage',
@@ -128,6 +129,7 @@ void main() {
             ApiType.chatCompletions => '/v1/chat/completions',
             ApiType.responses => '/v1/responses',
             ApiType.messages => '/v1/messages',
+            ApiType.onDevice => throw StateError('no endpoint'),
           });
           if (type == ApiType.messages) {
             expect(client.lastRequest!.headers['x-api-key'], 'fixture-key');

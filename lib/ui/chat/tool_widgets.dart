@@ -43,6 +43,8 @@ String toolLabel(String name, AppLocalizations l) => switch (name) {
   'type_text' => l.typeTextTool,
   'press_key' => l.pressKeyTool,
   'run_shell' => l.runShellTool,
+  'list_shortcuts' => l.listShortcutsTool,
+  'run_shortcut' => l.runShortcutTool,
   _ => name,
 };
 

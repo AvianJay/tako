@@ -5,10 +5,12 @@ import 'package:http/http.dart' as http;
 
 import '../chat/content_block.dart';
 import '../chat/message.dart';
+import '../on_device/on_device_capability.dart';
 import '../util/json.dart';
 import 'cancel_token.dart';
 import 'chat_completions/chat_completions_adapter.dart';
 import 'messages/messages_adapter.dart';
+import 'on_device/on_device_adapter.dart';
 import 'provider_config.dart';
 import 'provider_event.dart';
 import 'responses/responses_adapter.dart';
@@ -120,7 +122,12 @@ abstract class ProviderAdapter {
     String? apiKey,
     Map<String, String> secretHeaders = const {},
     http.Client Function()? clientFactory,
+    OnDeviceCapability? onDevice,
   }) => switch (config.apiType) {
+    ApiType.onDevice => OnDeviceAdapter(
+      config,
+      onDevice ?? UnavailableOnDevice(),
+    ),
     ApiType.chatCompletions => ChatCompletionsAdapter(
       config,
       apiKey: apiKey,

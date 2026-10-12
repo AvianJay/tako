@@ -12,10 +12,12 @@ import 'package:tako/core/chat/conversation.dart';
 import 'package:tako/core/chat/message.dart';
 import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/notifications/notification_capability.dart';
+import 'package:tako/core/on_device/on_device_capability.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/device_control_settings.dart';
 import 'package:tako/core/shell/shell_capability.dart';
+import 'package:tako/core/shortcuts/shortcuts_capability.dart';
 import 'package:tako/core/tools/device_tools.dart';
 import 'package:tako/core/tools/tool_settings.dart';
 import 'package:tako/data/database.dart';
@@ -94,6 +96,10 @@ class _Services implements AppServices {
   final _Shell shell = _Shell();
   @override
   final NotificationCapability notifications = UnavailableNotifications();
+  @override
+  final OnDeviceCapability onDevice = UnavailableOnDevice();
+  @override
+  final ShortcutsCapability shortcuts = UnavailableShortcuts();
   @override
   final BrowserCapability browser = UnavailableBrowser();
   @override

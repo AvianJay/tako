@@ -10,6 +10,14 @@ import '../../core/providers/providers.dart';
 import '../../core/util/ids.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../chat/tool_widgets.dart';
+import 'on_device_models_screen.dart';
+
+IconData providerIcon(ProviderConfig provider) =>
+    provider.apiType == ApiType.onDevice
+    ? Icons.smartphone_outlined
+    : provider.isLocal
+    ? Icons.dns_outlined
+    : Icons.cloud_outlined;
 
 class ProviderEditor extends ConsumerStatefulWidget {
   const ProviderEditor({super.key, this.provider});
@@ -91,6 +99,29 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     _loadModel(0);
   }
 
+  bool get _onDevice => _type == ApiType.onDevice;
+
+  /// Specs of a model: for on-device models, read from the GGUF file.
+  ModelSpec? _spec(String id) {
+    if (!_onDevice) return ModelCatalog.detect(id);
+    final model = ref
+        .read(appControllerProvider)
+        .services
+        .onDevice
+        .models
+        .where((m) => m.id == id.trim())
+        .firstOrNull;
+    if (model == null) return null;
+    final profile = model.profile();
+    return ModelSpec(
+      profile.capabilities.contextWindow!,
+      profile.maxOutputTokens,
+      tools: profile.capabilities.tools,
+      vision: profile.capabilities.vision,
+      reasoning: profile.capabilities.reasoning,
+    );
+  }
+
   void _detectModel() {
     if (_loadingModel) return;
     _searchProbeResult = null;
@@ -98,7 +129,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       setState(() {});
       return;
     }
-    final spec = ModelCatalog.detect(_model.text);
+    final spec = _spec(_model.text);
     setState(() {
       _context.text = '${spec?.contextWindow ?? 32768}';
       _output.text = '${spec?.maxOutputTokens ?? 4096}';
@@ -225,7 +256,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     id: _id,
     displayName: _name.text.trim(),
     apiType: _type,
-    baseUrl: _url.text.trim(),
+    baseUrl: _onDevice ? '' : _url.text.trim(),
     model: _model.text.trim(),
     models: _models,
     apiKeyRef: widget.provider?.apiKeyRef,
@@ -285,8 +316,10 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
   Future<void> _connect({required bool pickModel}) async {
     final l = AppLocalizations.of(context);
     try {
-      providerEndpoint(_url.text, 'models');
-      _headerValues();
+      if (!_onDevice) {
+        providerEndpoint(_url.text, 'models');
+        _headerValues();
+      }
     } catch (_) {
       setState(() {
         _feedback = l.invalidUrl;
@@ -305,7 +338,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
           .adapterFor(
             _config(),
             temporaryKey: _key.text.trim(),
-            temporaryHeaders: _headerValues(),
+            temporaryHeaders: _onDevice ? null : _headerValues(),
             removeKey: _removeKey,
             removeHeaders: _removeHeaders,
           );
@@ -393,7 +426,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
             _models.removeWhere((model) => model.id.isEmpty);
             for (final id in selected) {
               if (_models.any((model) => model.id == id)) continue;
-              final spec = ModelCatalog.detect(id);
+              final spec = _spec(id);
               _models.add(
                 ModelProfile(
                   id: id,
@@ -576,50 +609,71 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                   isExpanded: true,
                   initialValue: _type,
                   decoration: InputDecoration(labelText: l.apiType),
-                  items: const [
-                    DropdownMenuItem(
+                  items: [
+                    const DropdownMenuItem(
                       value: ApiType.chatCompletions,
                       child: Text('OpenAI Chat Completions'),
                     ),
-                    DropdownMenuItem(
+                    const DropdownMenuItem(
                       value: ApiType.responses,
                       child: Text('OpenAI Responses'),
                     ),
-                    DropdownMenuItem(
+                    const DropdownMenuItem(
                       value: ApiType.messages,
                       child: Text('Anthropic Messages'),
                     ),
+                    if (_onDevice ||
+                        ref
+                            .read(appControllerProvider)
+                            .services
+                            .onDevice
+                            .isAvailable)
+                      DropdownMenuItem(
+                        value: ApiType.onDevice,
+                        child: Text(l.onDeviceApi),
+                      ),
                   ],
                   onChanged: _working
                       ? null
                       : (value) => setState(() {
                           _type = value!;
                           _searchProbeResult = null;
+                          if (_onDevice) {
+                            _builtInSearch = false;
+                            _allowCustomSearchEndpoint = false;
+                          }
                         }),
                 ),
                 const SizedBox(height: 16),
-                field(
-                  _url,
-                  l.baseUrl,
-                  keyboardType: TextInputType.url,
-                  validate: (value) {
-                    try {
-                      providerEndpoint(value ?? '', 'models');
-                      return null;
-                    } catch (_) {
-                      return l.invalidUrl;
-                    }
-                  },
-                ),
-                field(
-                  _key,
-                  l.apiKey,
-                  secret: true,
-                  hint: widget.provider?.apiKeyRef == null
-                      ? l.keyHint
-                      : l.keyStored,
-                ),
-                if (widget.provider?.apiKeyRef != null)
+                if (_onDevice)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(l.onDeviceProviderHelp),
+                  ),
+                if (!_onDevice) ...[
+                  field(
+                    _url,
+                    l.baseUrl,
+                    keyboardType: TextInputType.url,
+                    validate: (value) {
+                      try {
+                        providerEndpoint(value ?? '', 'models');
+                        return null;
+                      } catch (_) {
+                        return l.invalidUrl;
+                      }
+                    },
+                  ),
+                  field(
+                    _key,
+                    l.apiKey,
+                    secret: true,
+                    hint: widget.provider?.apiKeyRef == null
+                        ? l.keyHint
+                        : l.keyStored,
+                  ),
+                ],
+                if (!_onDevice && widget.provider?.apiKeyRef != null)
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(l.removeKey),
@@ -701,22 +755,40 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                       icon: const Icon(Icons.list_alt),
                       label: Text(l.loadModels),
                     ),
-                    TextButton.icon(
-                      onPressed: _working
-                          ? null
-                          : () => _connect(pickModel: false),
-                      icon: const Icon(Icons.network_check),
-                      label: Text(l.testConnection),
-                    ),
+                    if (_onDevice)
+                      TextButton.icon(
+                        key: const ValueKey('manage-on-device-models'),
+                        onPressed: _working
+                            ? null
+                            : () => Navigator.push<void>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const OnDeviceModelsScreen(),
+                                ),
+                              ),
+                        icon: const Icon(Icons.memory),
+                        label: Text(l.manageOnDeviceModels),
+                      )
+                    else
+                      TextButton.icon(
+                        onPressed: _working
+                            ? null
+                            : () => _connect(pickModel: false),
+                        icon: const Icon(Icons.network_check),
+                        label: Text(l.testConnection),
+                      ),
                   ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    l.connectionHelp,
-                    style: Theme.of(context).textTheme.bodySmall,
+                if (_onDevice)
+                  const SizedBox(height: 12)
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      l.connectionHelp,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
-                ),
                 if (_working) const LinearProgressIndicator(),
                 if (_feedback != null)
                   Padding(
@@ -730,36 +802,38 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                       ),
                     ),
                   ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.localProvider),
-                  subtitle: Text(l.localDescription),
-                  value: _local,
-                  onChanged: _working
-                      ? null
-                      : (v) => setState(() {
-                          _local = v;
-                          _localOverride = true;
-                        }),
-                ),
-                const SizedBox(height: 16),
-                field(
-                  _headers,
-                  l.extraHeaders,
-                  secret: true,
-                  hint: widget.provider?.extraHeadersRef == null
-                      ? l.headersHint
-                      : l.headersStored,
-                  validate: (_) {
-                    try {
-                      _headerValues();
-                      return null;
-                    } catch (_) {
-                      return l.invalidJson;
-                    }
-                  },
-                ),
-                if (widget.provider?.extraHeadersRef != null)
+                if (!_onDevice) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l.localProvider),
+                    subtitle: Text(l.localDescription),
+                    value: _local,
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() {
+                            _local = v;
+                            _localOverride = true;
+                          }),
+                  ),
+                  const SizedBox(height: 16),
+                  field(
+                    _headers,
+                    l.extraHeaders,
+                    secret: true,
+                    hint: widget.provider?.extraHeadersRef == null
+                        ? l.headersHint
+                        : l.headersStored,
+                    validate: (_) {
+                      try {
+                        _headerValues();
+                        return null;
+                      } catch (_) {
+                        return l.invalidJson;
+                      }
+                    },
+                  ),
+                ],
+                if (!_onDevice && widget.provider?.extraHeadersRef != null)
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(l.removeHeaders),
@@ -776,7 +850,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(l.autoModelSpecs),
                   subtitle: Text(
-                    ModelCatalog.detect(_model.text) == null
+                    _spec(_model.text) == null
                         ? l.unknownModelSpecs
                         : l.knownModelSpecs,
                   ),
@@ -788,8 +862,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                           if (value) _detectModel();
                         },
                 ),
-                if (ModelCatalog.detect(_model.text)?.officialId
-                    case final officialId?)
+                if (_spec(_model.text)?.officialId case final officialId?)
                   if (officialId != _model.text.trim())
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -798,23 +871,24 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
-                SwitchListTile(
-                  key: const ValueKey('provider-native-search'),
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.builtInSearch),
-                  subtitle: Text(
-                    _nativeSearchProtocol
-                        ? l.builtInSearchHelp
-                        : l.nativeSearchProtocolHelp,
+                if (!_onDevice)
+                  SwitchListTile(
+                    key: const ValueKey('provider-native-search'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l.builtInSearch),
+                    subtitle: Text(
+                      _nativeSearchProtocol
+                          ? l.builtInSearchHelp
+                          : l.nativeSearchProtocolHelp,
+                    ),
+                    value: _nativeSearchProtocol && _builtInSearch,
+                    onChanged: _working || !_nativeSearchProtocol
+                        ? null
+                        : (v) => setState(() {
+                            _builtInSearch = v;
+                            if (v) _tools = true;
+                          }),
                   ),
-                  value: _nativeSearchProtocol && _builtInSearch,
-                  onChanged: _working || !_nativeSearchProtocol
-                      ? null
-                      : (v) => setState(() {
-                          _builtInSearch = v;
-                          if (v) _tools = true;
-                        }),
-                ),
                 if (_nativeSearchProtocol) ...[
                   SwitchListTile(
                     key: const ValueKey('provider-custom-search-endpoint'),

@@ -202,7 +202,7 @@ packages:
     source: hosted
     version: "0.3.5+5"
   crypto:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -233,6 +233,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.8.0"
+  dinja:
+    dependency: transitive
+    description:
+      name: dinja
+      sha256: "8bb2dfdb481901a0b360fec4a8ffd108d11c5441577f4ebd9309d3b667a1d0a6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   drift:
     dependency: "direct main"
     description:
@@ -772,6 +780,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
+  llamadart:
+    dependency: "direct main"
+    description:
+      name: llamadart
+      sha256: "0571325a1c9241d4ab624e124fe7b73ccc7847d97892833b56484b136ca53f5c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.11.1"
   logging:
     dependency: transitive
     description:

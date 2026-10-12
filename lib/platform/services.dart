@@ -13,17 +13,23 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/browser/browser_capability.dart';
 import '../core/files/workspace.dart';
 import '../core/notifications/notification_capability.dart';
+import '../core/on_device/on_device_capability.dart';
 import '../core/screen/screen_capability.dart';
 import '../core/shell/shell_capability.dart';
-import 'android/device_api.g.dart';
+import '../core/shortcuts/shortcuts_capability.dart';
 import 'android/device_control.dart';
-import 'android/device_tools.dart';
-import 'android/media_attachments.dart';
 import 'app_services.dart';
 import 'browser/webview_browser.dart';
 import 'device_tools_capability.dart';
+import 'ios/ios_api.g.dart';
+import 'ios/ios_shortcuts.dart';
 import 'media_attachment_capability.dart';
+import 'native/device_api.g.dart';
+import 'native/device_tools.dart';
+import 'native/media_attachments.dart';
+import 'on_device/llama_on_device.dart';
 import 'workspace/local_workspace.dart';
+import 'workspace/workspace_shell.dart';
 
 export 'app_services.dart';
 
@@ -38,22 +44,26 @@ class PlatformServices implements AppServices {
     }
   }
 
+  late final _workspace = LocalWorkspace();
   @override
-  late final WorkspaceCapability workspace = LocalWorkspace();
+  WorkspaceCapability get workspace => _workspace;
+  static final _mobile = Platform.isAndroid || Platform.isIOS;
+
   @override
-  late final MediaAttachmentCapability mediaAttachments = Platform.isAndroid
-      ? AndroidMediaAttachments(workspace)
+  late final MediaAttachmentCapability mediaAttachments = _mobile
+      ? NativeMediaAttachments(workspace)
       : const UnavailableMediaAttachments();
   @override
   late final DeviceToolsCapability deviceTools = Platform.isAndroid
-      ? AndroidDeviceTools()
+      ? NativeDeviceTools(platform: 'Android')
+      : Platform.isIOS
+      ? NativeDeviceTools(platform: 'iOS', tools: iosDeviceToolNames)
       : const UnavailableDeviceTools();
-  // TODO(ios): the same WebView browser on iOS.
   @override
-  late final BrowserCapability browser = Platform.isAndroid
+  late final BrowserCapability browser = _mobile
       ? WebViewBrowser(workspace: workspace)
       : UnavailableBrowser();
-  // TODO(ios): screen control, a shell and Shortcuts on iOS.
+  // TODO(ios): screen control through an external automation service.
   @override
   late final ScreenCapability screen = Platform.isAndroid
       ? AndroidScreen()
@@ -61,11 +71,31 @@ class PlatformServices implements AppServices {
   @override
   late final ShellCapability shell = Platform.isAndroid
       ? AndroidShell()
+      : Platform.isIOS
+      ? WorkspaceShell(root: _workspace.root)
       : UnavailableShell();
   @override
   late final NotificationCapability notifications = Platform.isAndroid
       ? AndroidNotifications()
       : UnavailableNotifications();
+  @override
+  late final OnDeviceCapability onDevice = LlamaOnDevice(
+    directory: () async {
+      final models = Directory(
+        p.join((await getApplicationSupportDirectory()).path, 'models'),
+      );
+      if (Platform.isIOS) {
+        // Gigabytes of downloadable files do not belong in iCloud backups.
+        await models.create(recursive: true);
+        await IosApi().excludeFromBackup(models.path).catchError((_) {});
+      }
+      return models;
+    },
+  );
+  @override
+  late final ShortcutsCapability shortcuts = Platform.isIOS
+      ? IosShortcuts()
+      : UnavailableShortcuts();
   @override
   bool get isAvailable => Platform.isAndroid;
 
@@ -82,21 +112,23 @@ class PlatformServices implements AppServices {
 
   @override
   Future<DeviceContext> deviceContext() async {
-    if (!Platform.isAndroid) {
+    if (!_mobile) {
       return const DeviceContext(platform: 'unavailable');
     }
+    final platform = Platform.isIOS ? 'iOS' : 'Android';
     try {
       final snapshot = await DeviceApi().snapshot();
       return DeviceContext(
+        platform: platform,
         osVersion: snapshot.osVersion,
         model: snapshot.model,
         batteryPercent: snapshot.batteryPercent,
         network: snapshot.network,
       );
     } on PlatformException {
-      return const DeviceContext();
+      return DeviceContext(platform: platform);
     } on MissingPluginException {
-      return const DeviceContext();
+      return DeviceContext(platform: platform);
     }
   }
 

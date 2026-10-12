@@ -65,6 +65,13 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
     _sync();
   }
 
+  /// The system is short of memory: an idle on-device model is most of what
+  /// Tako holds, and it loads again for the next response.
+  @override
+  void didHaveMemoryPressure() {
+    if (!_app.busy) unawaited(_app.services.onDevice.unload());
+  }
+
   void _sync() {
     if (!mounted) return;
     final l = AppLocalizations.of(context);

@@ -13,10 +13,12 @@ import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/memory/memory.dart';
 import 'package:tako/core/memory/settings.dart';
 import 'package:tako/core/notifications/notification_capability.dart';
+import 'package:tako/core/on_device/on_device_capability.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/shell/shell_capability.dart';
+import 'package:tako/core/shortcuts/shortcuts_capability.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/app_services.dart';
 import 'package:tako/platform/device_tools_capability.dart';
@@ -48,6 +50,10 @@ class _Services implements AppServices {
   final ShellCapability shell = UnavailableShell();
   @override
   final NotificationCapability notifications = UnavailableNotifications();
+  @override
+  final OnDeviceCapability onDevice = UnavailableOnDevice();
+  @override
+  final ShortcutsCapability shortcuts = UnavailableShortcuts();
   @override
   Future<void> refreshDeviceControl() async {}
   @override

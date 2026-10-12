@@ -14,6 +14,7 @@ import '../core/chat/message.dart';
 import '../core/chat/response_accumulator.dart';
 import '../core/memory/memory.dart';
 import '../core/memory/settings.dart';
+import '../core/on_device/on_device_capability.dart';
 import '../core/permissions/permission_gate.dart';
 import '../core/prompt/context_budget.dart';
 import '../core/prompt/context_envelope.dart';
@@ -31,6 +32,7 @@ import '../core/tools/notification_tools.dart';
 import '../core/tools/screen_tools.dart';
 import '../core/tools/search_tools.dart';
 import '../core/tools/shell_tools.dart';
+import '../core/tools/shortcut_tools.dart';
 import '../core/tools/tool.dart';
 import '../core/tools/tool_executor.dart';
 import '../core/tools/tool_registry.dart';
@@ -70,6 +72,7 @@ class AppController extends ChangeNotifier {
              config,
              apiKey: key,
              secretHeaders: headers,
+             onDevice: services.onDevice,
            )),
        _extraTools = extraTools ?? const [],
        chats = ChatRepository(database),
@@ -434,6 +437,7 @@ class AppController extends ChangeNotifier {
       maxChars: toolSettings.maxOutputChars,
       timeoutSeconds: () => controlSettings.shellTimeoutSeconds,
     ),
+    ...createShortcutTools(services.shortcuts),
     ..._extraTools,
   ], disabledTools: toolSettings.disabled);
 
@@ -571,8 +575,16 @@ class AppController extends ChangeNotifier {
       controlSettings = DeviceControlSettings.fromJson(
         stored(DeviceControlSettings.settingsKey),
       );
+      services.onDevice.preferSpeed =
+          asBool(stored(_onDeviceKey)['preferSpeed']) ?? false;
+      services.shortcuts.names = [
+        for (final name in asList(stored(_shortcutsKey)['names']) ?? const [])
+          if (name is String) name,
+      ];
       // Before the current chat's prompt is checked against available tools.
       await refreshDeviceControl();
+      // Model files and interrupted downloads, for settings and the picker.
+      unawaited(services.onDevice.refresh().catchError((_) {}));
       toolRegistry = _makeRegistry();
       selectedProviderId = preferences['provider'];
       selectedModelId = preferences['model'];
@@ -712,7 +724,7 @@ class AppController extends ChangeNotifier {
             ScreenObservationMode.elements,
           ),
       'screen_vision': tools.contains('read_screen') && _screenVision(provider),
-      'shortcuts': false,
+      'shortcuts': tools.contains('run_shortcut'),
       'shell': tools.contains('run_shell'),
       'shell_env': services.shell.environment,
       'user_notes': userNotes,
@@ -835,7 +847,9 @@ class AppController extends ChangeNotifier {
     bool removeKey = false,
     bool removeHeaders = false,
   }) => _mutate(() async {
-    providerEndpoint(config.baseUrl, 'models');
+    if (config.apiType != ApiType.onDevice) {
+      providerEndpoint(config.baseUrl, 'models');
+    }
     final keyRef = config.apiKeyRef ?? 'provider.${config.id}.key';
     final headersRef =
         config.extraHeadersRef ?? 'provider.${config.id}.headers';
@@ -870,6 +884,79 @@ class AppController extends ChangeNotifier {
       selectedProviderId = providers.firstOrNull?.id;
     }
     await settings.setString('provider', selectedProviderId);
+  });
+
+  static const _shortcutsKey = 'shortcuts.settings';
+  static const _onDeviceKey = 'onDevice.settings';
+
+  /// Whether on-device models may use more CPU cores at the cost of a
+  /// smooth phone.
+  Future<void> saveOnDevicePreferSpeed(bool value) => _mutate(() async {
+    await settings.setString(_onDeviceKey, jsonEncode({'preferSpeed': value}));
+    services.onDevice.preferSpeed = value;
+  });
+
+  /// The Shortcuts the model may list and run, by exact name.
+  Future<void> saveShortcutNames(List<String> names) => _mutate(() async {
+    final unique = {
+      for (final name in names)
+        if (name.trim().isNotEmpty) name.trim(),
+    }.toList();
+    await settings.setString(_shortcutsKey, jsonEncode({'names': unique}));
+    services.shortcuts.names = unique;
+  });
+
+  /// Chats with [model] from now on, through the on-device provider, which
+  /// is created on first use.
+  Future<void> useOnDeviceModel(
+    LocalModel model, {
+    required String providerName,
+  }) => _mutate(() async {
+    final existing = providers
+        .where((p) => p.apiType == ApiType.onDevice)
+        .firstOrNull;
+    final provider = existing == null
+        ? ProviderConfig(
+            id: newId(),
+            displayName: providerName,
+            apiType: ApiType.onDevice,
+            baseUrl: '',
+            model: model.id,
+            models: [model.profile()],
+          )
+        : existing.models.any((m) => m.id == model.id)
+        ? existing
+        : existing.copyWith(models: [...existing.models, model.profile()]);
+    if (!identical(provider, existing)) {
+      await providerRepository.save(provider);
+      providers = await providerRepository.list();
+    }
+    await _selectProvider(provider.id, model: model.id);
+  });
+
+  /// Deletes the model file and drops it from on-device providers that have
+  /// other models left.
+  Future<void> deleteOnDeviceModel(String id) => _mutate(() async {
+    await services.onDevice.delete(id);
+    for (final provider in providers) {
+      if (provider.apiType != ApiType.onDevice || provider.models.length < 2) {
+        continue;
+      }
+      final models = provider.models.where((m) => m.id != id).toList();
+      if (models.length == provider.models.length) continue;
+      await providerRepository.save(
+        provider.copyWith(
+          models: models,
+          model: provider.model == id ? models.first.id : provider.model,
+        ),
+      );
+    }
+    providers = await providerRepository.list();
+    if (selectedProvider case final selected?
+        when selected.apiType == ApiType.onDevice && selected.model == id) {
+      final provider = providers.firstWhere((p) => p.id == selected.id);
+      await _selectProvider(provider.id, model: provider.models.first.id);
+    }
   });
 
   Future<ProviderAdapter> adapterFor(
@@ -1661,7 +1748,13 @@ class AppController extends ChangeNotifier {
           if (token.isCancelled) break;
           accumulator.add(event);
           if (event is ProviderError) {
-            error = event.toString();
+            error = switch (event.code) {
+              'model_missing' when provider.apiType == ApiType.onDevice =>
+                'localModelMissing',
+              'model_load' when provider.apiType == ApiType.onDevice =>
+                'localModelLoad',
+              _ => event.toString(),
+            };
             status = MessageStatus.error;
           }
           if (event is Done) {

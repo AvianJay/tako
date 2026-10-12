@@ -323,7 +323,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get welcomeBody => '提問、探索，或一起理清思緒。對話保存在這台裝置上。';
 
   @override
-  String get setupBody => '新增雲端供應商或本機伺服器，即可開始聊天。由你決定訊息送往哪裡。';
+  String get setupBody => '新增雲端供應商、本機伺服器或裝置上模型，即可開始聊天。由你決定訊息送往哪裡。';
 
   @override
   String get messageHint => '想問什麼？';
@@ -561,7 +561,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get privacyBody =>
-      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。';
+      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。';
 
   @override
   String get about => '關於';
@@ -1174,6 +1174,214 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deleteScreenshotsHelp => '回溯並刪除之後的訊息時也一樣。無痕聊天一律刪除。';
+
+  @override
+  String get onDeviceModels => '裝置上模型';
+
+  @override
+  String get onDeviceModelsHelp => '在這支手機上直接執行 GGUF 模型';
+
+  @override
+  String get onDeviceApi => '裝置上（llama.cpp）';
+
+  @override
+  String get onDeviceProviderHelp => '使用已放在這支手機上的模型。不需要網址或金鑰。';
+
+  @override
+  String get manageOnDeviceModels => '管理裝置上模型';
+
+  @override
+  String get onDeviceUnavailable => '這台裝置無法執行裝置上模型。需要 64 位元的 Android 或 iOS 裝置。';
+
+  @override
+  String get onDeviceIntro =>
+      '模型完全在這支手機上執行，對話不會傳到任何地方。模型越大，回答越好，但需要更多記憶體，速度也較慢。';
+
+  @override
+  String onDeviceStorage(String size) {
+    return '模型占用 $size';
+  }
+
+  @override
+  String get installedModels => '已安裝';
+
+  @override
+  String get noLocalModels => '還沒有模型。下載推薦模型，或匯入 GGUF 檔案。';
+
+  @override
+  String get modelDownloads => '下載中';
+
+  @override
+  String get recommendedModels => '推薦模型';
+
+  @override
+  String get recommendedModelsHelp =>
+      '從 Hugging Face 下載，完成後會核對檔案的 SHA-256。只有在你按下下載時才會連線。';
+
+  @override
+  String get otherModels => '其他模型';
+
+  @override
+  String get otherModelsHelp => 'llama.cpp 支援的 GGUF 模型都可以使用。小模型可能無法正確使用工具。';
+
+  @override
+  String get importModel => '匯入 GGUF 檔案';
+
+  @override
+  String get importingModel => '正在匯入⋯';
+
+  @override
+  String get downloadFromUrl => '從網址下載';
+
+  @override
+  String modelAdded(String name) {
+    return '已加入 $name';
+  }
+
+  @override
+  String get modelDownloadStarted => '已開始下載';
+
+  @override
+  String modelSelected(String name) {
+    return '已切換到 $name';
+  }
+
+  @override
+  String deleteModelBody(String name) {
+    return '要刪除 $name 嗎？之後可以再下載或匯入。';
+  }
+
+  @override
+  String get inMemory => '已載入';
+
+  @override
+  String get useInChat => '在聊天中使用';
+
+  @override
+  String get addProjector => '加入視覺投影檔';
+
+  @override
+  String get removeProjector => '移除視覺投影檔';
+
+  @override
+  String get unloadModel => '從記憶體卸載';
+
+  @override
+  String get verifyingDownload => '正在核對檔案⋯';
+
+  @override
+  String get downloadPaused => '已暫停';
+
+  @override
+  String get pauseDownload => '暫停';
+
+  @override
+  String get resumeDownload => '繼續下載';
+
+  @override
+  String get recommendedFast => '最快，大多數手機都能執行';
+
+  @override
+  String get recommendedBalanced => '速度與品質兼顧';
+
+  @override
+  String get recommendedBest => '回答最好，需要較新的手機';
+
+  @override
+  String get recommendedVision => '可以看圖片，下載時選擇加入看圖功能';
+
+  @override
+  String memoryNeeded(int gb) {
+    return '建議 $gb GB 以上記憶體';
+  }
+
+  @override
+  String downloadWithVision(String size) {
+    return '下載並加入看圖功能（$size）';
+  }
+
+  @override
+  String get modelUrl => '網址';
+
+  @override
+  String get modelUrlHelp =>
+      'GGUF 檔案的直接連結，例如 Hugging Face 上的「resolve」連結。Tako 只會連線到這個網址；區域網路以外只接受 HTTPS。';
+
+  @override
+  String get modelErrorNotGguf => '這不是 GGUF 模型檔。';
+
+  @override
+  String get modelErrorIsProjector => '這是視覺投影檔。請在模型的選單中選「加入視覺投影檔」。';
+
+  @override
+  String get modelErrorNotProjector => '這不是視覺投影檔。';
+
+  @override
+  String get modelErrorExists => '已經有同名的模型。';
+
+  @override
+  String get modelErrorUrl => '只接受 HTTPS 網址；區域網路內可以用 HTTP。';
+
+  @override
+  String get modelErrorChecksum => '檔案內容和預期不符，已刪除。';
+
+  @override
+  String get modelErrorSize => '檔案大小和預期不符。';
+
+  @override
+  String get modelErrorNoSpace => '儲存空間不足。';
+
+  @override
+  String get modelErrorNetwork => '連線中斷。可以繼續下載。';
+
+  @override
+  String modelErrorHttp(String status) {
+    return '伺服器回應 HTTP $status。';
+  }
+
+  @override
+  String get loadingModel => '正在載入模型⋯';
+
+  @override
+  String get localModelMissing => '這個模型檔案已不在手機上。請到「裝置上模型」重新下載或匯入。';
+
+  @override
+  String get localModelLoad =>
+      '無法載入模型。可能是記憶體不足，或這個版本的 llama.cpp 不支援它。請試試較小的模型或較短的上下文。';
+
+  @override
+  String get shortcuts => '捷徑';
+
+  @override
+  String get shortcutsHelp => '讓 Tako 執行你指定的捷徑';
+
+  @override
+  String get shortcutsIntro =>
+      'iOS 不允許 App 讀取你的捷徑清單。請輸入要讓 Tako 使用的捷徑名稱，需與「捷徑」App 中的名稱完全相同。每次執行前都會先詢問你。';
+
+  @override
+  String get addShortcut => '新增捷徑';
+
+  @override
+  String get shortcutName => '捷徑名稱';
+
+  @override
+  String get noShortcuts => '還沒有新增捷徑。';
+
+  @override
+  String get listShortcutsTool => '列出捷徑';
+
+  @override
+  String get runShortcutTool => '執行捷徑';
+
+  @override
+  String get useOnDeviceModel => '在手機上執行模型';
+
+  @override
+  String get preferSpeed => '優先速度';
+
+  @override
+  String get preferSpeedHelp => '使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -1495,7 +1703,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get welcomeBody => '提問、探索，或一起理清思緒。對話保存在這台裝置上。';
 
   @override
-  String get setupBody => '新增雲端供應商或本機伺服器，即可開始聊天。由你決定訊息送往哪裡。';
+  String get setupBody => '新增雲端供應商、本機伺服器或裝置上模型，即可開始聊天。由你決定訊息送往哪裡。';
 
   @override
   String get messageHint => '想問什麼？';
@@ -1733,7 +1941,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get privacyBody =>
-      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。';
+      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。';
 
   @override
   String get about => '關於';
@@ -2346,4 +2554,212 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get deleteScreenshotsHelp => '回溯並刪除之後的訊息時也一樣。無痕聊天一律刪除。';
+
+  @override
+  String get onDeviceModels => '裝置上模型';
+
+  @override
+  String get onDeviceModelsHelp => '在這支手機上直接執行 GGUF 模型';
+
+  @override
+  String get onDeviceApi => '裝置上（llama.cpp）';
+
+  @override
+  String get onDeviceProviderHelp => '使用已放在這支手機上的模型。不需要網址或金鑰。';
+
+  @override
+  String get manageOnDeviceModels => '管理裝置上模型';
+
+  @override
+  String get onDeviceUnavailable => '這台裝置無法執行裝置上模型。需要 64 位元的 Android 或 iOS 裝置。';
+
+  @override
+  String get onDeviceIntro =>
+      '模型完全在這支手機上執行，對話不會傳到任何地方。模型越大，回答越好，但需要更多記憶體，速度也較慢。';
+
+  @override
+  String onDeviceStorage(String size) {
+    return '模型占用 $size';
+  }
+
+  @override
+  String get installedModels => '已安裝';
+
+  @override
+  String get noLocalModels => '還沒有模型。下載推薦模型，或匯入 GGUF 檔案。';
+
+  @override
+  String get modelDownloads => '下載中';
+
+  @override
+  String get recommendedModels => '推薦模型';
+
+  @override
+  String get recommendedModelsHelp =>
+      '從 Hugging Face 下載，完成後會核對檔案的 SHA-256。只有在你按下下載時才會連線。';
+
+  @override
+  String get otherModels => '其他模型';
+
+  @override
+  String get otherModelsHelp => 'llama.cpp 支援的 GGUF 模型都可以使用。小模型可能無法正確使用工具。';
+
+  @override
+  String get importModel => '匯入 GGUF 檔案';
+
+  @override
+  String get importingModel => '正在匯入⋯';
+
+  @override
+  String get downloadFromUrl => '從網址下載';
+
+  @override
+  String modelAdded(String name) {
+    return '已加入 $name';
+  }
+
+  @override
+  String get modelDownloadStarted => '已開始下載';
+
+  @override
+  String modelSelected(String name) {
+    return '已切換到 $name';
+  }
+
+  @override
+  String deleteModelBody(String name) {
+    return '要刪除 $name 嗎？之後可以再下載或匯入。';
+  }
+
+  @override
+  String get inMemory => '已載入';
+
+  @override
+  String get useInChat => '在聊天中使用';
+
+  @override
+  String get addProjector => '加入視覺投影檔';
+
+  @override
+  String get removeProjector => '移除視覺投影檔';
+
+  @override
+  String get unloadModel => '從記憶體卸載';
+
+  @override
+  String get verifyingDownload => '正在核對檔案⋯';
+
+  @override
+  String get downloadPaused => '已暫停';
+
+  @override
+  String get pauseDownload => '暫停';
+
+  @override
+  String get resumeDownload => '繼續下載';
+
+  @override
+  String get recommendedFast => '最快，大多數手機都能執行';
+
+  @override
+  String get recommendedBalanced => '速度與品質兼顧';
+
+  @override
+  String get recommendedBest => '回答最好，需要較新的手機';
+
+  @override
+  String get recommendedVision => '可以看圖片，下載時選擇加入看圖功能';
+
+  @override
+  String memoryNeeded(int gb) {
+    return '建議 $gb GB 以上記憶體';
+  }
+
+  @override
+  String downloadWithVision(String size) {
+    return '下載並加入看圖功能（$size）';
+  }
+
+  @override
+  String get modelUrl => '網址';
+
+  @override
+  String get modelUrlHelp =>
+      'GGUF 檔案的直接連結，例如 Hugging Face 上的「resolve」連結。Tako 只會連線到這個網址；區域網路以外只接受 HTTPS。';
+
+  @override
+  String get modelErrorNotGguf => '這不是 GGUF 模型檔。';
+
+  @override
+  String get modelErrorIsProjector => '這是視覺投影檔。請在模型的選單中選「加入視覺投影檔」。';
+
+  @override
+  String get modelErrorNotProjector => '這不是視覺投影檔。';
+
+  @override
+  String get modelErrorExists => '已經有同名的模型。';
+
+  @override
+  String get modelErrorUrl => '只接受 HTTPS 網址；區域網路內可以用 HTTP。';
+
+  @override
+  String get modelErrorChecksum => '檔案內容和預期不符，已刪除。';
+
+  @override
+  String get modelErrorSize => '檔案大小和預期不符。';
+
+  @override
+  String get modelErrorNoSpace => '儲存空間不足。';
+
+  @override
+  String get modelErrorNetwork => '連線中斷。可以繼續下載。';
+
+  @override
+  String modelErrorHttp(String status) {
+    return '伺服器回應 HTTP $status。';
+  }
+
+  @override
+  String get loadingModel => '正在載入模型⋯';
+
+  @override
+  String get localModelMissing => '這個模型檔案已不在手機上。請到「裝置上模型」重新下載或匯入。';
+
+  @override
+  String get localModelLoad =>
+      '無法載入模型。可能是記憶體不足，或這個版本的 llama.cpp 不支援它。請試試較小的模型或較短的上下文。';
+
+  @override
+  String get shortcuts => '捷徑';
+
+  @override
+  String get shortcutsHelp => '讓 Tako 執行你指定的捷徑';
+
+  @override
+  String get shortcutsIntro =>
+      'iOS 不允許 App 讀取你的捷徑清單。請輸入要讓 Tako 使用的捷徑名稱，需與「捷徑」App 中的名稱完全相同。每次執行前都會先詢問你。';
+
+  @override
+  String get addShortcut => '新增捷徑';
+
+  @override
+  String get shortcutName => '捷徑名稱';
+
+  @override
+  String get noShortcuts => '還沒有新增捷徑。';
+
+  @override
+  String get listShortcutsTool => '列出捷徑';
+
+  @override
+  String get runShortcutTool => '執行捷徑';
+
+  @override
+  String get useOnDeviceModel => '在手機上執行模型';
+
+  @override
+  String get preferSpeed => '優先速度';
+
+  @override
+  String get preferSpeedHelp => '使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。';
 }

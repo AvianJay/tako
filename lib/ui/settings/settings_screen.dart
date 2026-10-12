@@ -4,15 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_controller.dart';
 import '../../app/app_info.dart';
 import '../../core/browser/browser_settings.dart';
+import '../../core/providers/provider_config.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
 import '../files/files_screen.dart';
 import '../memory/memory_screen.dart';
 import 'device_control_screen.dart';
+import 'on_device_models_screen.dart';
 import 'personalization_screen.dart';
 import 'provider_editor.dart';
 import 'search_settings_screen.dart';
+import 'shortcuts_screen.dart';
 import 'tool_settings_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -94,6 +97,32 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              if (app.services.onDevice.isAvailable)
+                ListTile(
+                  key: const ValueKey('settings-on-device'),
+                  title: Text(l.onDeviceModels),
+                  subtitle: Text(l.onDeviceModelsHelp),
+                  leading: const Icon(Icons.memory),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const OnDeviceModelsScreen(),
+                    ),
+                  ),
+                ),
+              if (app.services.shortcuts.isAvailable)
+                ListTile(
+                  key: const ValueKey('settings-shortcuts'),
+                  title: Text(l.shortcuts),
+                  subtitle: Text(l.shortcutsHelp),
+                  leading: const Icon(Icons.bolt_outlined),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ShortcutsScreen()),
+                  ),
+                ),
               if (app.services.isAvailable)
                 ListTile(
                   key: const ValueKey('settings-device-control'),
@@ -160,12 +189,11 @@ class SettingsScreen extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     contentPadding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
-                    leading: Icon(
-                      p.isLocal ? Icons.dns_outlined : Icons.cloud_outlined,
-                    ),
+                    leading: Icon(providerIcon(p)),
                     title: Text(p.displayName),
                     subtitle: Text(
-                      '${p.models.map((model) => model.id).join(', ')}\n${p.baseUrl}',
+                      '${p.models.map((model) => model.id).join(', ')}\n'
+                      '${p.apiType == ApiType.onDevice ? l.onDeviceApi : p.baseUrl}',
                     ),
                     isThreeLine: true,
                     onTap: app.busy

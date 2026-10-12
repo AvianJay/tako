@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tako/app/app_controller.dart';
 import 'package:tako/core/browser/browser_capability.dart';
 import 'package:tako/core/notifications/notification_capability.dart';
+import 'package:tako/core/on_device/on_device_capability.dart';
 import 'package:tako/core/providers/cancel_token.dart';
 import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/shell/shell_capability.dart';
+import 'package:tako/core/shortcuts/shortcuts_capability.dart';
 import 'package:tako/core/tools/tool.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/l10n/gen/app_localizations.dart';
@@ -22,6 +24,10 @@ class _NoServices implements AppServices {
   final ShellCapability shell = UnavailableShell();
   @override
   final NotificationCapability notifications = UnavailableNotifications();
+  @override
+  final OnDeviceCapability onDevice = UnavailableOnDevice();
+  @override
+  final ShortcutsCapability shortcuts = UnavailableShortcuts();
   @override
   Future<void> refreshDeviceControl() async {}
   @override

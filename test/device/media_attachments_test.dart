@@ -8,19 +8,19 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'package:tako/core/chat/content_block.dart';
 import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/providers/cancel_token.dart';
-import 'package:tako/platform/android/media_attachments.dart';
 import 'package:tako/platform/media_attachment_capability.dart';
+import 'package:tako/platform/native/media_attachments.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Picker picker;
   late _Workspace workspace;
-  late AndroidMediaAttachments media;
+  late NativeMediaAttachments media;
 
   setUp(() {
     picker = _Picker();
     workspace = _Workspace();
-    media = AndroidMediaAttachments(workspace, picker: picker);
+    media = NativeMediaAttachments(workspace, picker: picker);
   });
 
   test('opts into Android Photo Picker before opening a picker', () {
@@ -28,7 +28,7 @@ void main() {
     final android = ImagePickerAndroid()..useAndroidPhotoPicker = false;
     ImagePickerPlatform.instance = android;
     try {
-      AndroidMediaAttachments(workspace, picker: picker);
+      NativeMediaAttachments(workspace, picker: picker);
       expect(android.useAndroidPhotoPicker, isTrue);
     } finally {
       ImagePickerPlatform.instance = previous;

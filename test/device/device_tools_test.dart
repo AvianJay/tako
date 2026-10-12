@@ -7,9 +7,9 @@ import 'package:tako/core/providers/cancel_token.dart';
 import 'package:tako/core/tools/device_tools.dart';
 import 'package:tako/core/tools/tool.dart';
 import 'package:tako/core/tools/tool_registry.dart';
-import 'package:tako/platform/android/device_api.g.dart';
-import 'package:tako/platform/android/device_tools.dart';
 import 'package:tako/platform/device_tools_capability.dart';
+import 'package:tako/platform/native/device_api.g.dart';
+import 'package:tako/platform/native/device_tools.dart';
 
 class FakeDevice implements DeviceToolsCapability {
   final calls = <String>[];
@@ -73,7 +73,7 @@ void main() {
       final api = FakeApi()..write = Completer<void>();
       final cancel = CancelToken();
       final registry = ToolRegistry(
-        createDeviceTools(AndroidDeviceTools(api: api)),
+        createDeviceTools(NativeDeviceTools(platform: 'Android', api: api)),
       );
       final pending = registry.get('clipboard_write')!.run({
         'text': 'sample',
@@ -238,7 +238,7 @@ void main() {
     'stopping pending location calls native cancellation and ignores late result',
     () async {
       final api = FakeApi();
-      final device = AndroidDeviceTools(api: api);
+      final device = NativeDeviceTools(platform: 'Android', api: api);
       final cancel = CancelToken();
       final pending = device.invoke('get_location', {}, cancel: cancel);
       final check = expectLater(pending, throwsA(isA<RequestCancelled>()));
@@ -260,7 +260,8 @@ void main() {
   test('finished calls remove native cancellation listeners', () async {
     final api = FakeApi();
     final cancel = CancelToken();
-    await AndroidDeviceTools(
+    await NativeDeviceTools(
+      platform: 'Android',
       api: api,
     ).invoke('clipboard_read', {}, cancel: cancel);
     cancel.cancel();
@@ -275,7 +276,7 @@ void main() {
         details: 'private account',
       );
     final registry = ToolRegistry(
-      createDeviceTools(AndroidDeviceTools(api: api)),
+      createDeviceTools(NativeDeviceTools(platform: 'Android', api: api)),
     );
     final result = await registry.get('clipboard_read')!.run({}, context());
     expect(jsonDecode(result.content), {'error': 'device_operation_failed'});
@@ -286,7 +287,9 @@ void main() {
     'external clock actions report launch without claiming completion',
     () async {
       final registry = ToolRegistry(
-        createDeviceTools(AndroidDeviceTools(api: FakeApi())),
+        createDeviceTools(
+          NativeDeviceTools(platform: 'Android', api: FakeApi()),
+        ),
       );
       final result = await registry.get('set_timer')!.run({
         'seconds': 60,

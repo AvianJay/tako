@@ -411,7 +411,7 @@ class DeviceEventDraft {
     required this.title,
     required this.startMillis,
     required this.endMillis,
-    this.description,
+    this.notes,
     this.location,
   });
 
@@ -423,7 +423,7 @@ class DeviceEventDraft {
 
   int endMillis;
 
-  String? description;
+  String? notes;
 
   String? location;
 
@@ -433,7 +433,7 @@ class DeviceEventDraft {
       title,
       startMillis,
       endMillis,
-      description,
+      notes,
       location,
     ];
   }
@@ -449,7 +449,7 @@ class DeviceEventDraft {
       title: result[1]! as String,
       startMillis: result[2]! as int,
       endMillis: result[3]! as int,
-      description: result[4] as String?,
+      notes: result[4] as String?,
       location: result[5] as String?,
     );
   }
@@ -467,7 +467,7 @@ class DeviceEventDraft {
         _deepEquals(title, other.title) &&
         _deepEquals(startMillis, other.startMillis) &&
         _deepEquals(endMillis, other.endMillis) &&
-        _deepEquals(description, other.description) &&
+        _deepEquals(notes, other.notes) &&
         _deepEquals(location, other.location);
   }
 
@@ -477,7 +477,7 @@ class DeviceEventDraft {
 
   @override
   String toString() {
-    return 'DeviceEventDraft(calendarId: $calendarId, title: $title, startMillis: $startMillis, endMillis: $endMillis, description: $description, location: $location)';
+    return 'DeviceEventDraft(calendarId: $calendarId, title: $title, startMillis: $startMillis, endMillis: $endMillis, notes: $notes, location: $location)';
   }
 }
 

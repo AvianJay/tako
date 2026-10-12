@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import '../core/browser/browser_capability.dart';
 import '../core/files/workspace.dart';
 import '../core/notifications/notification_capability.dart';
+import '../core/on_device/on_device_capability.dart';
 import '../core/screen/screen_capability.dart';
 import '../core/shell/shell_capability.dart';
+import '../core/shortcuts/shortcuts_capability.dart';
 import 'capabilities.dart';
 import 'device_tools_capability.dart';
 import 'media_attachment_capability.dart';
@@ -34,6 +36,8 @@ abstract interface class AppServices implements Capability {
   ScreenCapability get screen;
   ShellCapability get shell;
   NotificationCapability get notifications;
+  OnDeviceCapability get onDevice;
+  ShortcutsCapability get shortcuts;
 
   /// Re-reads device-control availability, which the user changes in system
   /// settings. Never reads private data.

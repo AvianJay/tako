@@ -1,7 +1,7 @@
 name: tako
 description: "Tako: a local-first personal AI assistant."
 publish_to: 'none'
-version: 0.4.2+11
+version: 0.5.0+12
 
 environment:
   sdk: ^3.11.4
@@ -33,6 +33,10 @@ dependencies:
   share_plus: ^13.3.1
   url_launcher: ^6.3.3
   flutter_inappwebview: 6.1.5
+  # On-device models. Pinned: its build hook downloads the matching llama.cpp
+  # release, configured under `hooks` below.
+  llamadart: 0.11.1
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -52,3 +56,13 @@ flutter:
   generate: true
   assets:
     - assets/prompts/
+
+hooks:
+  user_defines:
+    llamadart:
+      # GGUF models through llama.cpp only. Android runs them on the CPU:
+      # Vulkan is experimental there and adds 26 MB per ABI.
+      llamadart_native_runtimes: llama_cpp
+      llamadart_native_backends:
+        platforms:
+          android: [cpu]

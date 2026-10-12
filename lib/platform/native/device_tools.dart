@@ -7,16 +7,36 @@ import '../../core/tools/device_tools.dart' show matchApps, similarApps;
 import '../device_tools_capability.dart';
 import 'device_api.g.dart';
 
+/// Device tools of the Android or iOS host app. iOS has no public way to
+/// set alarms or timers or to open other apps by name.
+const iosDeviceToolNames = {
+  'get_device_status',
+  'get_location',
+  'clipboard_read',
+  'clipboard_write',
+  'calendar_list',
+  'calendar_add',
+  'open_url',
+};
+
 /// The native bridge is called only by Tool.run after PermissionGate.
-class AndroidDeviceTools implements DeviceToolsCapability {
-  AndroidDeviceTools({DeviceApi? api}) : _api = api ?? DeviceApi();
+class NativeDeviceTools implements DeviceToolsCapability {
+  NativeDeviceTools({
+    required this.platform,
+    this.tools = deviceToolNames,
+    DeviceApi? api,
+  }) : _api = api ?? DeviceApi();
+
+  /// `Android` or `iOS`, as get_device_status reports it.
+  final String platform;
+  final Set<String> tools;
   final DeviceApi _api;
   static int _sequence = 0;
 
   @override
   bool get isAvailable => true;
   @override
-  bool supports(String tool) => deviceToolNames.contains(tool);
+  bool supports(String tool) => tools.contains(tool);
 
   @override
   Future<Map<String, Object?>> invoke(
@@ -67,7 +87,7 @@ class AndroidDeviceTools implements DeviceToolsCapability {
       case 'get_device_status':
         final snapshot = await _api.snapshot();
         return {
-          'platform': 'Android',
+          'platform': platform,
           'os_version': snapshot.osVersion,
           'model': snapshot.model,
           if (snapshot.batteryPercent != null)
@@ -125,7 +145,7 @@ class AndroidDeviceTools implements DeviceToolsCapability {
             title: args['title'] as String,
             startMillis: _millis(args['start']),
             endMillis: _millis(args['end']),
-            description: args['description'] as String?,
+            notes: args['description'] as String?,
             location: args['location'] as String?,
           ),
         );

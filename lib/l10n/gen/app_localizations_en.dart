@@ -348,7 +348,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get setupBody =>
-      'Add a cloud provider or a local server to start chatting. You choose where your messages go.';
+      'Add a cloud provider, a local server, or an on-device model to start chatting. You choose where your messages go.';
 
   @override
   String get messageHint => 'Ask anything';
@@ -595,7 +595,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyBody =>
-      'Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.';
+      'Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider; with an on-device model they never leave this phone. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.';
 
   @override
   String get about => 'About';
@@ -1236,4 +1236,224 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deleteScreenshotsHelp =>
       'Also when a rewind deletes later messages. Incognito chats always remove theirs.';
+
+  @override
+  String get onDeviceModels => 'On-device models';
+
+  @override
+  String get onDeviceModelsHelp => 'Run GGUF models on this phone';
+
+  @override
+  String get onDeviceApi => 'On-device (llama.cpp)';
+
+  @override
+  String get onDeviceProviderHelp =>
+      'Uses models stored on this phone. No URL or key needed.';
+
+  @override
+  String get manageOnDeviceModels => 'Manage on-device models';
+
+  @override
+  String get onDeviceUnavailable =>
+      'This device can\'t run on-device models. They need a 64-bit Android or iOS device.';
+
+  @override
+  String get onDeviceIntro =>
+      'Models run entirely on this phone; your chats aren\'t sent anywhere. Larger models answer better but need more memory and run slower.';
+
+  @override
+  String onDeviceStorage(String size) {
+    return 'Models use $size';
+  }
+
+  @override
+  String get installedModels => 'Installed';
+
+  @override
+  String get noLocalModels =>
+      'No models yet. Download a recommended model or import a GGUF file.';
+
+  @override
+  String get modelDownloads => 'Downloading';
+
+  @override
+  String get recommendedModels => 'Recommended models';
+
+  @override
+  String get recommendedModelsHelp =>
+      'Downloaded from Hugging Face and checked against their SHA-256. Tako connects only when you start a download.';
+
+  @override
+  String get otherModels => 'Other models';
+
+  @override
+  String get otherModelsHelp =>
+      'Any GGUF model that llama.cpp supports works. Small models may not use tools correctly.';
+
+  @override
+  String get importModel => 'Import GGUF file';
+
+  @override
+  String get importingModel => 'Importing…';
+
+  @override
+  String get downloadFromUrl => 'Download from URL';
+
+  @override
+  String modelAdded(String name) {
+    return 'Added $name';
+  }
+
+  @override
+  String get modelDownloadStarted => 'Download started';
+
+  @override
+  String modelSelected(String name) {
+    return 'Switched to $name';
+  }
+
+  @override
+  String deleteModelBody(String name) {
+    return 'Delete $name? You can download or import it again later.';
+  }
+
+  @override
+  String get inMemory => 'Loaded';
+
+  @override
+  String get useInChat => 'Use in chat';
+
+  @override
+  String get addProjector => 'Add vision projector';
+
+  @override
+  String get removeProjector => 'Remove vision projector';
+
+  @override
+  String get unloadModel => 'Unload from memory';
+
+  @override
+  String get verifyingDownload => 'Checking the file…';
+
+  @override
+  String get downloadPaused => 'Paused';
+
+  @override
+  String get pauseDownload => 'Pause';
+
+  @override
+  String get resumeDownload => 'Resume download';
+
+  @override
+  String get recommendedFast => 'Fastest; runs on most phones';
+
+  @override
+  String get recommendedBalanced => 'Balances speed and quality';
+
+  @override
+  String get recommendedBest => 'Best answers; needs a recent phone';
+
+  @override
+  String get recommendedVision =>
+      'Sees images when downloaded with image input';
+
+  @override
+  String memoryNeeded(int gb) {
+    return '$gb GB+ memory recommended';
+  }
+
+  @override
+  String downloadWithVision(String size) {
+    return 'Download with image input ($size)';
+  }
+
+  @override
+  String get modelUrl => 'URL';
+
+  @override
+  String get modelUrlHelp =>
+      'A direct link to a GGUF file, such as a Hugging Face \"resolve\" link. Tako connects only to this address, and only over HTTPS outside your local network.';
+
+  @override
+  String get modelErrorNotGguf => 'This is not a GGUF model file.';
+
+  @override
+  String get modelErrorIsProjector =>
+      'This is a vision projector. Add it from a model\'s menu with \"Add vision projector\".';
+
+  @override
+  String get modelErrorNotProjector => 'This is not a vision projector.';
+
+  @override
+  String get modelErrorExists => 'A model with this name already exists.';
+
+  @override
+  String get modelErrorUrl =>
+      'Only HTTPS URLs, or HTTP inside your local network.';
+
+  @override
+  String get modelErrorChecksum =>
+      'The file doesn\'t match what was expected and was deleted.';
+
+  @override
+  String get modelErrorSize =>
+      'The file size doesn\'t match what was expected.';
+
+  @override
+  String get modelErrorNoSpace => 'Not enough storage.';
+
+  @override
+  String get modelErrorNetwork =>
+      'The connection was interrupted. You can resume the download.';
+
+  @override
+  String modelErrorHttp(String status) {
+    return 'The server answered HTTP $status.';
+  }
+
+  @override
+  String get loadingModel => 'Loading the model…';
+
+  @override
+  String get localModelMissing =>
+      'This model file is no longer on the phone. Download or import it again under On-device models.';
+
+  @override
+  String get localModelLoad =>
+      'Couldn\'t load the model. The phone may be out of memory, or this llama.cpp version may not support it. Try a smaller model or a shorter context.';
+
+  @override
+  String get shortcuts => 'Shortcuts';
+
+  @override
+  String get shortcutsHelp => 'Let Tako run Shortcuts you choose';
+
+  @override
+  String get shortcutsIntro =>
+      'iOS doesn\'t let apps list your Shortcuts. Enter the names of the ones Tako may use, exactly as they appear in the Shortcuts app. Tako asks before every run.';
+
+  @override
+  String get addShortcut => 'Add Shortcut';
+
+  @override
+  String get shortcutName => 'Shortcut name';
+
+  @override
+  String get noShortcuts => 'No Shortcuts yet.';
+
+  @override
+  String get listShortcutsTool => 'List Shortcuts';
+
+  @override
+  String get runShortcutTool => 'Run Shortcut';
+
+  @override
+  String get useOnDeviceModel => 'Run a model on this phone';
+
+  @override
+  String get preferSpeed => 'Prefer speed';
+
+  @override
+  String get preferSpeedHelp =>
+      'Uses more processor cores: faster answers, but the phone may stutter. When off, one core is left for the system so the phone stays smooth.';
 }

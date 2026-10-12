@@ -447,7 +447,7 @@ data class DeviceEventDraft (
   val title: String,
   val startMillis: Long,
   val endMillis: Long,
-  val description: String? = null,
+  val notes: String? = null,
   val location: String? = null
 )
  {
@@ -457,9 +457,9 @@ data class DeviceEventDraft (
       val title = pigeonVar_list[1] as String
       val startMillis = pigeonVar_list[2] as Long
       val endMillis = pigeonVar_list[3] as Long
-      val description = pigeonVar_list[4] as String?
+      val notes = pigeonVar_list[4] as String?
       val location = pigeonVar_list[5] as String?
-      return DeviceEventDraft(calendarId, title, startMillis, endMillis, description, location)
+      return DeviceEventDraft(calendarId, title, startMillis, endMillis, notes, location)
     }
   }
   fun toList(): List<Any?> {
@@ -468,7 +468,7 @@ data class DeviceEventDraft (
       title,
       startMillis,
       endMillis,
-      description,
+      notes,
       location,
     )
   }
@@ -480,7 +480,7 @@ data class DeviceEventDraft (
       return true
     }
     val other = other as DeviceEventDraft
-    return DeviceApiPigeonUtils.deepEquals(this.calendarId, other.calendarId) && DeviceApiPigeonUtils.deepEquals(this.title, other.title) && DeviceApiPigeonUtils.deepEquals(this.startMillis, other.startMillis) && DeviceApiPigeonUtils.deepEquals(this.endMillis, other.endMillis) && DeviceApiPigeonUtils.deepEquals(this.description, other.description) && DeviceApiPigeonUtils.deepEquals(this.location, other.location)
+    return DeviceApiPigeonUtils.deepEquals(this.calendarId, other.calendarId) && DeviceApiPigeonUtils.deepEquals(this.title, other.title) && DeviceApiPigeonUtils.deepEquals(this.startMillis, other.startMillis) && DeviceApiPigeonUtils.deepEquals(this.endMillis, other.endMillis) && DeviceApiPigeonUtils.deepEquals(this.notes, other.notes) && DeviceApiPigeonUtils.deepEquals(this.location, other.location)
   }
 
   override fun hashCode(): Int {
@@ -489,12 +489,12 @@ data class DeviceEventDraft (
     result = 31 * result + DeviceApiPigeonUtils.deepHash(this.title)
     result = 31 * result + DeviceApiPigeonUtils.deepHash(this.startMillis)
     result = 31 * result + DeviceApiPigeonUtils.deepHash(this.endMillis)
-    result = 31 * result + DeviceApiPigeonUtils.deepHash(this.description)
+    result = 31 * result + DeviceApiPigeonUtils.deepHash(this.notes)
     result = 31 * result + DeviceApiPigeonUtils.deepHash(this.location)
     return result
   }
   override fun toString(): String {
-    return "DeviceEventDraft(calendarId=$calendarId, title=$title, startMillis=$startMillis, endMillis=$endMillis, description=$description, location=$location)"
+    return "DeviceEventDraft(calendarId=$calendarId, title=$title, startMillis=$startMillis, endMillis=$endMillis, notes=$notes, location=$location)"
   }
 }
 

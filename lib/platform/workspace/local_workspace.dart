@@ -37,7 +37,11 @@ class LocalWorkspace implements WorkspaceCapability {
   final Random _random = Random.secure();
 
   @override
-  bool get isAvailable => Platform.isAndroid || _rootDirectory != null;
+  bool get isAvailable =>
+      Platform.isAndroid || Platform.isIOS || _rootDirectory != null;
+
+  /// The workspace folder, for the built-in shell.
+  Future<Directory> root() async => (await _guard).root;
 
   Future<WorkspacePathGuard> get _guard => _guardFuture ??= () async {
     final root =

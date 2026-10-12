@@ -19,7 +19,12 @@ final class ProviderRepository {
 
   Future<void> save(ProviderConfig config) async {
     // Reject embedded URL credentials/query keys before persistence.
-    providerEndpoint(config.baseUrl, 'models');
+    // On-device providers have no URL.
+    if (config.apiType != ApiType.onDevice) {
+      providerEndpoint(config.baseUrl, 'models');
+    } else if (config.baseUrl.isNotEmpty) {
+      throw const FormatException('Invalid provider URL');
+    }
     await database
         .into(database.providerRecords)
         .insertOnConflictUpdate(

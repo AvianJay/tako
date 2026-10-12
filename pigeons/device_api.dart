@@ -3,9 +3,10 @@ import 'package:pigeon/pigeon.dart';
 @ConfigurePigeon(
   PigeonOptions(
     dartPackageName: 'tako',
-    dartOut: 'lib/platform/android/device_api.g.dart',
+    dartOut: 'lib/platform/native/device_api.g.dart',
     kotlinOut: 'android/app/src/main/kotlin/tw/avianjay/tako/DeviceApi.g.kt',
     kotlinOptions: KotlinOptions(package: 'tw.avianjay.tako'),
+    swiftOut: 'ios/Runner/DeviceApi.g.swift',
   ),
 )
 class DeviceSnapshot {
@@ -81,14 +82,14 @@ class DeviceEventDraft {
     required this.title,
     required this.startMillis,
     required this.endMillis,
-    this.description,
+    this.notes,
     this.location,
   });
   int calendarId;
   String title;
   int startMillis;
   int endMillis;
-  String? description;
+  String? notes;
   String? location;
 }
 

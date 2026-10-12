@@ -113,7 +113,7 @@
   "noProviders": "連接你的模型",
   "welcome": "留一點空間，好好想想。",
   "welcomeBody": "提問、探索，或一起理清思緒。對話保存在這台裝置上。",
-  "setupBody": "新增雲端供應商或本機伺服器，即可開始聊天。由你決定訊息送往哪裡。",
+  "setupBody": "新增雲端供應商、本機伺服器或裝置上模型，即可開始聊天。由你決定訊息送往哪裡。",
   "messageHint": "想問什麼？",
   "send": "傳送",
   "stop": "停止",
@@ -192,7 +192,7 @@
   "textSize": "文字大小",
   "language": "語言",
   "privacy": "以本機為本",
-  "privacyBody": "對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。",
+  "privacyBody": "對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。",
   "about": "關於",
   "developerContext": "已儲存的上下文",
   "noChats": "你的對話會顯示在這裡。",
@@ -530,5 +530,117 @@
         "type": "String"
       }
     }
-  }
+  },
+  "onDeviceModels": "裝置上模型",
+  "onDeviceModelsHelp": "在這支手機上直接執行 GGUF 模型",
+  "onDeviceApi": "裝置上（llama.cpp）",
+  "onDeviceProviderHelp": "使用已放在這支手機上的模型。不需要網址或金鑰。",
+  "manageOnDeviceModels": "管理裝置上模型",
+  "onDeviceUnavailable": "這台裝置無法執行裝置上模型。需要 64 位元的 Android 或 iOS 裝置。",
+  "onDeviceIntro": "模型完全在這支手機上執行，對話不會傳到任何地方。模型越大，回答越好，但需要更多記憶體，速度也較慢。",
+  "onDeviceStorage": "模型占用 {size}",
+  "@onDeviceStorage": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "installedModels": "已安裝",
+  "noLocalModels": "還沒有模型。下載推薦模型，或匯入 GGUF 檔案。",
+  "modelDownloads": "下載中",
+  "recommendedModels": "推薦模型",
+  "recommendedModelsHelp": "從 Hugging Face 下載，完成後會核對檔案的 SHA-256。只有在你按下下載時才會連線。",
+  "otherModels": "其他模型",
+  "otherModelsHelp": "llama.cpp 支援的 GGUF 模型都可以使用。小模型可能無法正確使用工具。",
+  "importModel": "匯入 GGUF 檔案",
+  "importingModel": "正在匯入⋯",
+  "downloadFromUrl": "從網址下載",
+  "modelAdded": "已加入 {name}",
+  "@modelAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadStarted": "已開始下載",
+  "modelSelected": "已切換到 {name}",
+  "@modelSelected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteModelBody": "要刪除 {name} 嗎？之後可以再下載或匯入。",
+  "@deleteModelBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inMemory": "已載入",
+  "useInChat": "在聊天中使用",
+  "addProjector": "加入視覺投影檔",
+  "removeProjector": "移除視覺投影檔",
+  "unloadModel": "從記憶體卸載",
+  "verifyingDownload": "正在核對檔案⋯",
+  "downloadPaused": "已暫停",
+  "pauseDownload": "暫停",
+  "resumeDownload": "繼續下載",
+  "recommendedFast": "最快，大多數手機都能執行",
+  "recommendedBalanced": "速度與品質兼顧",
+  "recommendedBest": "回答最好，需要較新的手機",
+  "recommendedVision": "可以看圖片，下載時選擇加入看圖功能",
+  "memoryNeeded": "建議 {gb} GB 以上記憶體",
+  "@memoryNeeded": {
+    "placeholders": {
+      "gb": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadWithVision": "下載並加入看圖功能（{size}）",
+  "@downloadWithVision": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "modelUrl": "網址",
+  "modelUrlHelp": "GGUF 檔案的直接連結，例如 Hugging Face 上的「resolve」連結。Tako 只會連線到這個網址；區域網路以外只接受 HTTPS。",
+  "modelErrorNotGguf": "這不是 GGUF 模型檔。",
+  "modelErrorIsProjector": "這是視覺投影檔。請在模型的選單中選「加入視覺投影檔」。",
+  "modelErrorNotProjector": "這不是視覺投影檔。",
+  "modelErrorExists": "已經有同名的模型。",
+  "modelErrorUrl": "只接受 HTTPS 網址；區域網路內可以用 HTTP。",
+  "modelErrorChecksum": "檔案內容和預期不符，已刪除。",
+  "modelErrorSize": "檔案大小和預期不符。",
+  "modelErrorNoSpace": "儲存空間不足。",
+  "modelErrorNetwork": "連線中斷。可以繼續下載。",
+  "modelErrorHttp": "伺服器回應 HTTP {status}。",
+  "@modelErrorHttp": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "loadingModel": "正在載入模型⋯",
+  "localModelMissing": "這個模型檔案已不在手機上。請到「裝置上模型」重新下載或匯入。",
+  "localModelLoad": "無法載入模型。可能是記憶體不足，或這個版本的 llama.cpp 不支援它。請試試較小的模型或較短的上下文。",
+  "shortcuts": "捷徑",
+  "shortcutsHelp": "讓 Tako 執行你指定的捷徑",
+  "shortcutsIntro": "iOS 不允許 App 讀取你的捷徑清單。請輸入要讓 Tako 使用的捷徑名稱，需與「捷徑」App 中的名稱完全相同。每次執行前都會先詢問你。",
+  "addShortcut": "新增捷徑",
+  "shortcutName": "捷徑名稱",
+  "noShortcuts": "還沒有新增捷徑。",
+  "listShortcutsTool": "列出捷徑",
+  "runShortcutTool": "執行捷徑",
+  "useOnDeviceModel": "在手機上執行模型",
+  "preferSpeed": "優先速度",
+  "preferSpeedHelp": "使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。"
 }

@@ -1,6 +1,7 @@
 import '../util/json.dart';
 
-enum ApiType { chatCompletions, responses, messages }
+/// [onDevice] runs a GGUF model inside the app and has no base URL.
+enum ApiType { chatCompletions, responses, messages, onDevice }
 
 enum ReasoningMode { off, enabled, adaptive }
 
@@ -108,7 +109,9 @@ class ProviderConfig {
   }) : _models = models == null || models.isEmpty
            ? null
            : List.unmodifiable(models),
-       isLocal = isLocal ?? isLocalHost(Uri.tryParse(baseUrl)?.host ?? '');
+       isLocal = apiType == ApiType.onDevice
+           ? true
+           : isLocal ?? isLocalHost(Uri.tryParse(baseUrl)?.host ?? '');
 
   factory ProviderConfig.fromJson(JsonMap json) => ProviderConfig(
     id: asString(json['id']) ?? '',

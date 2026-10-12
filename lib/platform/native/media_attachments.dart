@@ -12,12 +12,12 @@ import '../../core/files/workspace.dart';
 import '../../core/providers/cancel_token.dart';
 import '../media_attachment_capability.dart';
 
-/// Uses the Android Photo Picker (with the system document-picker fallback on
-/// older devices) and the camera app. No broad media or camera permission is
-/// needed by Tako. The picker plugin supplies temporary files, not permanent
-/// references to the user's photo library.
-class AndroidMediaAttachments implements MediaAttachmentCapability {
-  AndroidMediaAttachments(this._workspace, {ImagePicker? picker})
+/// Uses the system photo picker (on Android the Photo Picker, with the
+/// document-picker fallback on older devices) and the camera. No broad media
+/// permission is needed by Tako. The picker plugin supplies temporary files,
+/// not permanent references to the user's photo library.
+class NativeMediaAttachments implements MediaAttachmentCapability {
+  NativeMediaAttachments(this._workspace, {ImagePicker? picker})
     : _picker = picker ?? ImagePicker() {
     final implementation = ImagePickerPlatform.instance;
     if (implementation is ImagePickerAndroid) {

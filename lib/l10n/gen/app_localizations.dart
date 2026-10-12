@@ -720,7 +720,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupBody.
   ///
   /// In zh, this message translates to:
-  /// **'新增雲端供應商或本機伺服器，即可開始聊天。由你決定訊息送往哪裡。'**
+  /// **'新增雲端供應商、本機伺服器或裝置上模型，即可開始聊天。由你決定訊息送往哪裡。'**
   String get setupBody;
 
   /// No description provided for @messageHint.
@@ -1194,7 +1194,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyBody.
   ///
   /// In zh, this message translates to:
-  /// **'對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。'**
+  /// **'對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。'**
   String get privacyBody;
 
   /// No description provided for @about.
@@ -2306,6 +2306,384 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'回溯並刪除之後的訊息時也一樣。無痕聊天一律刪除。'**
   String get deleteScreenshotsHelp;
+
+  /// No description provided for @onDeviceModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'裝置上模型'**
+  String get onDeviceModels;
+
+  /// No description provided for @onDeviceModelsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'在這支手機上直接執行 GGUF 模型'**
+  String get onDeviceModelsHelp;
+
+  /// No description provided for @onDeviceApi.
+  ///
+  /// In zh, this message translates to:
+  /// **'裝置上（llama.cpp）'**
+  String get onDeviceApi;
+
+  /// No description provided for @onDeviceProviderHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用已放在這支手機上的模型。不需要網址或金鑰。'**
+  String get onDeviceProviderHelp;
+
+  /// No description provided for @manageOnDeviceModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理裝置上模型'**
+  String get manageOnDeviceModels;
+
+  /// No description provided for @onDeviceUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'這台裝置無法執行裝置上模型。需要 64 位元的 Android 或 iOS 裝置。'**
+  String get onDeviceUnavailable;
+
+  /// No description provided for @onDeviceIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型完全在這支手機上執行，對話不會傳到任何地方。模型越大，回答越好，但需要更多記憶體，速度也較慢。'**
+  String get onDeviceIntro;
+
+  /// No description provided for @onDeviceStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型占用 {size}'**
+  String onDeviceStorage(String size);
+
+  /// No description provided for @installedModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'已安裝'**
+  String get installedModels;
+
+  /// No description provided for @noLocalModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'還沒有模型。下載推薦模型，或匯入 GGUF 檔案。'**
+  String get noLocalModels;
+
+  /// No description provided for @modelDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'下載中'**
+  String get modelDownloads;
+
+  /// No description provided for @recommendedModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'推薦模型'**
+  String get recommendedModels;
+
+  /// No description provided for @recommendedModelsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'從 Hugging Face 下載，完成後會核對檔案的 SHA-256。只有在你按下下載時才會連線。'**
+  String get recommendedModelsHelp;
+
+  /// No description provided for @otherModels.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他模型'**
+  String get otherModels;
+
+  /// No description provided for @otherModelsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'llama.cpp 支援的 GGUF 模型都可以使用。小模型可能無法正確使用工具。'**
+  String get otherModelsHelp;
+
+  /// No description provided for @importModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'匯入 GGUF 檔案'**
+  String get importModel;
+
+  /// No description provided for @importingModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在匯入⋯'**
+  String get importingModel;
+
+  /// No description provided for @downloadFromUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'從網址下載'**
+  String get downloadFromUrl;
+
+  /// No description provided for @modelAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入 {name}'**
+  String modelAdded(String name);
+
+  /// No description provided for @modelDownloadStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已開始下載'**
+  String get modelDownloadStarted;
+
+  /// No description provided for @modelSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已切換到 {name}'**
+  String modelSelected(String name);
+
+  /// No description provided for @deleteModelBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'要刪除 {name} 嗎？之後可以再下載或匯入。'**
+  String deleteModelBody(String name);
+
+  /// No description provided for @inMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'已載入'**
+  String get inMemory;
+
+  /// No description provided for @useInChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'在聊天中使用'**
+  String get useInChat;
+
+  /// No description provided for @addProjector.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入視覺投影檔'**
+  String get addProjector;
+
+  /// No description provided for @removeProjector.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除視覺投影檔'**
+  String get removeProjector;
+
+  /// No description provided for @unloadModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'從記憶體卸載'**
+  String get unloadModel;
+
+  /// No description provided for @verifyingDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在核對檔案⋯'**
+  String get verifyingDownload;
+
+  /// No description provided for @downloadPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暫停'**
+  String get downloadPaused;
+
+  /// No description provided for @pauseDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'暫停'**
+  String get pauseDownload;
+
+  /// No description provided for @resumeDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'繼續下載'**
+  String get resumeDownload;
+
+  /// No description provided for @recommendedFast.
+  ///
+  /// In zh, this message translates to:
+  /// **'最快，大多數手機都能執行'**
+  String get recommendedFast;
+
+  /// No description provided for @recommendedBalanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'速度與品質兼顧'**
+  String get recommendedBalanced;
+
+  /// No description provided for @recommendedBest.
+  ///
+  /// In zh, this message translates to:
+  /// **'回答最好，需要較新的手機'**
+  String get recommendedBest;
+
+  /// No description provided for @recommendedVision.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以看圖片，下載時選擇加入看圖功能'**
+  String get recommendedVision;
+
+  /// No description provided for @memoryNeeded.
+  ///
+  /// In zh, this message translates to:
+  /// **'建議 {gb} GB 以上記憶體'**
+  String memoryNeeded(int gb);
+
+  /// No description provided for @downloadWithVision.
+  ///
+  /// In zh, this message translates to:
+  /// **'下載並加入看圖功能（{size}）'**
+  String downloadWithVision(String size);
+
+  /// No description provided for @modelUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'網址'**
+  String get modelUrl;
+
+  /// No description provided for @modelUrlHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'GGUF 檔案的直接連結，例如 Hugging Face 上的「resolve」連結。Tako 只會連線到這個網址；區域網路以外只接受 HTTPS。'**
+  String get modelUrlHelp;
+
+  /// No description provided for @modelErrorNotGguf.
+  ///
+  /// In zh, this message translates to:
+  /// **'這不是 GGUF 模型檔。'**
+  String get modelErrorNotGguf;
+
+  /// No description provided for @modelErrorIsProjector.
+  ///
+  /// In zh, this message translates to:
+  /// **'這是視覺投影檔。請在模型的選單中選「加入視覺投影檔」。'**
+  String get modelErrorIsProjector;
+
+  /// No description provided for @modelErrorNotProjector.
+  ///
+  /// In zh, this message translates to:
+  /// **'這不是視覺投影檔。'**
+  String get modelErrorNotProjector;
+
+  /// No description provided for @modelErrorExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'已經有同名的模型。'**
+  String get modelErrorExists;
+
+  /// No description provided for @modelErrorUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'只接受 HTTPS 網址；區域網路內可以用 HTTP。'**
+  String get modelErrorUrl;
+
+  /// No description provided for @modelErrorChecksum.
+  ///
+  /// In zh, this message translates to:
+  /// **'檔案內容和預期不符，已刪除。'**
+  String get modelErrorChecksum;
+
+  /// No description provided for @modelErrorSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'檔案大小和預期不符。'**
+  String get modelErrorSize;
+
+  /// No description provided for @modelErrorNoSpace.
+  ///
+  /// In zh, this message translates to:
+  /// **'儲存空間不足。'**
+  String get modelErrorNoSpace;
+
+  /// No description provided for @modelErrorNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'連線中斷。可以繼續下載。'**
+  String get modelErrorNetwork;
+
+  /// No description provided for @modelErrorHttp.
+  ///
+  /// In zh, this message translates to:
+  /// **'伺服器回應 HTTP {status}。'**
+  String modelErrorHttp(String status);
+
+  /// No description provided for @loadingModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在載入模型⋯'**
+  String get loadingModel;
+
+  /// No description provided for @localModelMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'這個模型檔案已不在手機上。請到「裝置上模型」重新下載或匯入。'**
+  String get localModelMissing;
+
+  /// No description provided for @localModelLoad.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法載入模型。可能是記憶體不足，或這個版本的 llama.cpp 不支援它。請試試較小的模型或較短的上下文。'**
+  String get localModelLoad;
+
+  /// No description provided for @shortcuts.
+  ///
+  /// In zh, this message translates to:
+  /// **'捷徑'**
+  String get shortcuts;
+
+  /// No description provided for @shortcutsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'讓 Tako 執行你指定的捷徑'**
+  String get shortcutsHelp;
+
+  /// No description provided for @shortcutsIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'iOS 不允許 App 讀取你的捷徑清單。請輸入要讓 Tako 使用的捷徑名稱，需與「捷徑」App 中的名稱完全相同。每次執行前都會先詢問你。'**
+  String get shortcutsIntro;
+
+  /// No description provided for @addShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增捷徑'**
+  String get addShortcut;
+
+  /// No description provided for @shortcutName.
+  ///
+  /// In zh, this message translates to:
+  /// **'捷徑名稱'**
+  String get shortcutName;
+
+  /// No description provided for @noShortcuts.
+  ///
+  /// In zh, this message translates to:
+  /// **'還沒有新增捷徑。'**
+  String get noShortcuts;
+
+  /// No description provided for @listShortcutsTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'列出捷徑'**
+  String get listShortcutsTool;
+
+  /// No description provided for @runShortcutTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行捷徑'**
+  String get runShortcutTool;
+
+  /// No description provided for @useOnDeviceModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'在手機上執行模型'**
+  String get useOnDeviceModel;
+
+  /// No description provided for @preferSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'優先速度'**
+  String get preferSpeed;
+
+  /// No description provided for @preferSpeedHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。'**
+  String get preferSpeedHelp;
 }
 
 class _AppLocalizationsDelegate

@@ -113,7 +113,7 @@
   "noProviders": "Connect your model",
   "welcome": "A little space to think.",
   "welcomeBody": "Ask, explore, or work something out. Your conversations stay on this device.",
-  "setupBody": "Add a cloud provider or a local server to start chatting. You choose where your messages go.",
+  "setupBody": "Add a cloud provider, a local server, or an on-device model to start chatting. You choose where your messages go.",
   "messageHint": "Ask anything",
   "send": "Send",
   "stop": "Stop",
@@ -192,7 +192,7 @@
   "textSize": "Text size",
   "language": "Language",
   "privacy": "Local first",
-  "privacyBody": "Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.",
+  "privacyBody": "Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider; with an on-device model they never leave this phone. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.",
   "about": "About",
   "developerContext": "Stored context",
   "noChats": "Your conversations will appear here.",
@@ -530,5 +530,117 @@
         "type": "String"
       }
     }
-  }
+  },
+  "onDeviceModels": "On-device models",
+  "onDeviceModelsHelp": "Run GGUF models on this phone",
+  "onDeviceApi": "On-device (llama.cpp)",
+  "onDeviceProviderHelp": "Uses models stored on this phone. No URL or key needed.",
+  "manageOnDeviceModels": "Manage on-device models",
+  "onDeviceUnavailable": "This device can't run on-device models. They need a 64-bit Android or iOS device.",
+  "onDeviceIntro": "Models run entirely on this phone; your chats aren't sent anywhere. Larger models answer better but need more memory and run slower.",
+  "onDeviceStorage": "Models use {size}",
+  "@onDeviceStorage": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "installedModels": "Installed",
+  "noLocalModels": "No models yet. Download a recommended model or import a GGUF file.",
+  "modelDownloads": "Downloading",
+  "recommendedModels": "Recommended models",
+  "recommendedModelsHelp": "Downloaded from Hugging Face and checked against their SHA-256. Tako connects only when you start a download.",
+  "otherModels": "Other models",
+  "otherModelsHelp": "Any GGUF model that llama.cpp supports works. Small models may not use tools correctly.",
+  "importModel": "Import GGUF file",
+  "importingModel": "Importing…",
+  "downloadFromUrl": "Download from URL",
+  "modelAdded": "Added {name}",
+  "@modelAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadStarted": "Download started",
+  "modelSelected": "Switched to {name}",
+  "@modelSelected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteModelBody": "Delete {name}? You can download or import it again later.",
+  "@deleteModelBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inMemory": "Loaded",
+  "useInChat": "Use in chat",
+  "addProjector": "Add vision projector",
+  "removeProjector": "Remove vision projector",
+  "unloadModel": "Unload from memory",
+  "verifyingDownload": "Checking the file…",
+  "downloadPaused": "Paused",
+  "pauseDownload": "Pause",
+  "resumeDownload": "Resume download",
+  "recommendedFast": "Fastest; runs on most phones",
+  "recommendedBalanced": "Balances speed and quality",
+  "recommendedBest": "Best answers; needs a recent phone",
+  "recommendedVision": "Sees images when downloaded with image input",
+  "memoryNeeded": "{gb} GB+ memory recommended",
+  "@memoryNeeded": {
+    "placeholders": {
+      "gb": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadWithVision": "Download with image input ({size})",
+  "@downloadWithVision": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "modelUrl": "URL",
+  "modelUrlHelp": "A direct link to a GGUF file, such as a Hugging Face \"resolve\" link. Tako connects only to this address, and only over HTTPS outside your local network.",
+  "modelErrorNotGguf": "This is not a GGUF model file.",
+  "modelErrorIsProjector": "This is a vision projector. Add it from a model's menu with \"Add vision projector\".",
+  "modelErrorNotProjector": "This is not a vision projector.",
+  "modelErrorExists": "A model with this name already exists.",
+  "modelErrorUrl": "Only HTTPS URLs, or HTTP inside your local network.",
+  "modelErrorChecksum": "The file doesn't match what was expected and was deleted.",
+  "modelErrorSize": "The file size doesn't match what was expected.",
+  "modelErrorNoSpace": "Not enough storage.",
+  "modelErrorNetwork": "The connection was interrupted. You can resume the download.",
+  "modelErrorHttp": "The server answered HTTP {status}.",
+  "@modelErrorHttp": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "loadingModel": "Loading the model…",
+  "localModelMissing": "This model file is no longer on the phone. Download or import it again under On-device models.",
+  "localModelLoad": "Couldn't load the model. The phone may be out of memory, or this llama.cpp version may not support it. Try a smaller model or a shorter context.",
+  "shortcuts": "Shortcuts",
+  "shortcutsHelp": "Let Tako run Shortcuts you choose",
+  "shortcutsIntro": "iOS doesn't let apps list your Shortcuts. Enter the names of the ones Tako may use, exactly as they appear in the Shortcuts app. Tako asks before every run.",
+  "addShortcut": "Add Shortcut",
+  "shortcutName": "Shortcut name",
+  "noShortcuts": "No Shortcuts yet.",
+  "listShortcutsTool": "List Shortcuts",
+  "runShortcutTool": "Run Shortcut",
+  "useOnDeviceModel": "Run a model on this phone",
+  "preferSpeed": "Prefer speed",
+  "preferSpeedHelp": "Uses more processor cores: faster answers, but the phone may stutter. When off, one core is left for the system so the phone stays smooth."
 }

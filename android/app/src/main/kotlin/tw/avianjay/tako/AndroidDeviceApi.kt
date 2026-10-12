@@ -272,7 +272,7 @@ class AndroidDeviceApi(private val activity: Activity) : DeviceApi {
         try {
             validRange(draft.startMillis, draft.endMillis)
             if (draft.calendarId <= 0 || draft.title.isBlank() || draft.title.length > 500 ||
-                (draft.description?.length ?: 0) > 4000 || (draft.location?.length ?: 0) > 500) throw error("invalid_arguments")
+                (draft.notes?.length ?: 0) > 4000 || (draft.location?.length ?: 0) > 500) throw error("invalid_arguments")
         } catch (cause: Throwable) { finish(pending, Result.failure(sanitized(cause))); return }
         withPermissions(pending, arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)) {
             worker.execute {
@@ -289,7 +289,7 @@ class AndroidDeviceApi(private val activity: Activity) : DeviceApi {
                         put(CalendarContract.Events.DTSTART, draft.startMillis)
                         put(CalendarContract.Events.DTEND, draft.endMillis)
                         put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
-                        put(CalendarContract.Events.DESCRIPTION, draft.description)
+                        put(CalendarContract.Events.DESCRIPTION, draft.notes)
                         put(CalendarContract.Events.EVENT_LOCATION, draft.location)
                     }
                     synchronized(pending) {
