@@ -1,6 +1,6 @@
 import '../util/json.dart';
 
-/// [onDevice] runs a GGUF model inside the app and has no base URL.
+/// [onDevice] runs a local model through llama.cpp or AICore, without a URL.
 enum ApiType { chatCompletions, responses, messages, onDevice }
 
 enum ReasoningMode { off, enabled, adaptive }

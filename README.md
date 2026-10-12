@@ -3,6 +3,7 @@
 A local-first AI assistant for Android, built with Flutter. Bring your own model:
 
 - run a GGUF model on the phone itself with llama.cpp;
+- use Gemini Nano through Android AICore on compatible devices;
 - use a local server such as llama-server in Termux;
 - or use any OpenAI-compatible, OpenAI Responses or Anthropic Messages endpoint.
 
@@ -24,6 +25,22 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
   - Downloads can be paused and resumed. Model files live outside the workspace, so file tools never see them.
   - By default llama.cpp leaves a CPU core free so the phone stays smooth; **Prefer speed** uses more cores.
   - The chat with the model never leaves the phone.
+  - **Gemini Nano (Android):** in **On-device models**, tap **Set up Gemini Nano**,
+    then select it for chat. Uses `com.google.mlkit:genai-prompt:1.0.0-beta4`
+    over the Android AICore system service. Tako queries the actual availability
+    and token limit of the stable and preview models; installing AICore alone
+    does not guarantee support. The preview model requires enrollment in
+    [AICore Developer Preview](https://developers.google.com/ml-kit/genai/aicore-dev-preview).
+    AICore manages downloads and updates; setup may need internet access.
+    Requests without tool definitions stream normally. When the selected model supports structured
+    output, Tako enables tools through an app-level protocol over ML Kit's
+    `@Generable` responses. Requests with tools wait for a complete response, validate
+    all requested names and JSON objects, then use the same argument checks,
+    approvals, audit log and agent loop as other providers. Malformed or
+    truncated requests never execute tools. This is not a native `tools=` SDK
+    interface. Image input and thinking are not enabled by this integration.
+    See [ML Kit Prompt API](https://developers.google.com/ml-kit/genai/prompt/android/get-started)
+    and [structured output](https://developers.google.com/ml-kit/genai/prompt/android/structured-output).
 - **Tools**, with a permission gate and an audit log:
   - **Web:** search through SearXNG, Tavily, Brave, Serper or DDGS, or the provider's built-in search, plus page fetching.
   - **Files:** a workspace whose earlier versions are kept when a file is replaced.

@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     private var screen: ScreenApiHost? = null
     private var notifications: NotificationApiHost? = null
     private var shell: ShellApiHost? = null
+    private var aicore: AicoreApiHost? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -24,6 +25,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        aicore = AicoreApiHost(messenger)
         deviceTools = AndroidDeviceApi(this)
         DeviceApi.setUp(messenger, deviceTools)
         val broker = PermissionBroker(this)
@@ -54,6 +56,7 @@ class MainActivity : FlutterActivity() {
         permissions?.dispose()
         AlertNotifications.clearSession(this)
         deviceTools?.dispose()
+        aicore?.dispose()
         deviceTools = null
         super.onDestroy()
     }

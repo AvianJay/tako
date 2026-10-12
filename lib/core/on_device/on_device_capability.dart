@@ -6,20 +6,36 @@ import '../../platform/capabilities.dart';
 import '../providers/providers.dart';
 import 'gguf.dart';
 
-/// A GGUF model file on this device.
+/// A model file or a model managed by the device's system service.
 class LocalModel {
   const LocalModel({
     required this.id,
     required this.sizeBytes,
-    required this.info,
+    required GgufInfo this.info,
     this.projector,
     this.catalogId,
-  });
+  }) : _systemProfile = null,
+       _name = null;
 
-  /// The file name. Provider settings and chats use it as the model ID.
+  const LocalModel.system({
+    required this.id,
+    required String name,
+    required ModelProfile profile,
+  }) : sizeBytes = 0,
+       info = null,
+       projector = null,
+       catalogId = null,
+       _name = name,
+       _systemProfile = profile;
+
+  /// The file name or a reserved system model ID, shared by settings and chats.
   final String id;
   final int sizeBytes;
-  final GgufInfo info;
+  final GgufInfo? info;
+  final String? _name;
+  final ModelProfile? _systemProfile;
+  bool get isSystem => _systemProfile != null;
+  String get displayName => _name ?? info?.name ?? id;
 
   /// File name of the vision projector loaded with this model.
   final String? projector;
@@ -29,19 +45,59 @@ class LocalModel {
 
   /// Settings for a newly added model. Memory grows with the context, so it
   /// starts small; thinking is slow on a phone, so it starts off.
-  ModelProfile profile() => ModelProfile(
-    id: id,
-    autoDetect: true,
-    capabilities: ProviderCapabilities(
-      tools: info.supportsTools,
-      vision: projector != null,
-      reasoning: info.supportsThinking,
-      contextWindow: min(info.contextLength ?? defaultContext, defaultContext),
-    ),
-    maxOutputTokens: 2048,
-  );
+  ModelProfile profile() =>
+      _systemProfile ??
+      ModelProfile(
+        id: id,
+        autoDetect: true,
+        capabilities: ProviderCapabilities(
+          tools: info!.supportsTools,
+          vision: projector != null,
+          reasoning: info!.supportsThinking,
+          contextWindow: min(
+            info!.contextLength ?? defaultContext,
+            defaultContext,
+          ),
+        ),
+        maxOutputTokens: 2048,
+      );
 
   static const defaultContext = 8192;
+}
+
+const aicoreModel = LocalModel.system(
+  id: 'aicore:gemini-nano',
+  name: 'Gemini Nano (AICore)',
+  // A conservative chat budget; the service rejects requests beyond its limit.
+  profile: ModelProfile(
+    id: 'aicore:gemini-nano',
+    autoDetect: true,
+    capabilities: ProviderCapabilities(contextWindow: 4096),
+    maxOutputTokens: 1024,
+  ),
+);
+
+const aicorePreviewModel = LocalModel.system(
+  id: 'aicore:gemini-nano-preview',
+  name: 'Gemini Nano (AICore Preview)',
+  profile: ModelProfile(
+    id: 'aicore:gemini-nano-preview',
+    autoDetect: true,
+    capabilities: ProviderCapabilities(contextWindow: 4096),
+    maxOutputTokens: 1024,
+  ),
+);
+
+bool isAicoreModel(String id) =>
+    id == aicoreModel.id || id == aicorePreviewModel.id;
+
+enum SystemModelState { unavailable, available, preparing, ready, failed }
+
+class SystemModelStatus {
+  const SystemModelStatus(this.state, {this.error, this.model = aicoreModel});
+  final SystemModelState state;
+  final String? error;
+  final LocalModel model;
 }
 
 enum DownloadState { running, verifying, paused, failed }
@@ -89,9 +145,17 @@ class OnDeviceException implements Exception {
   String toString() => code;
 }
 
-/// Runs GGUF models with llama.cpp inside the app, and manages the model files.
+/// Runs local models and manages files owned by the app.
 /// Models live outside the workspace, so file tools never see them.
 abstract class OnDeviceCapability extends ChangeNotifier implements Capability {
+  /// Null on platforms without an AICore integration. Checking availability
+  /// never downloads a model; preparation is explicitly started by the user.
+  SystemModelStatus? get systemModelStatus => null;
+  List<SystemModelStatus> get systemModelStatuses => [?systemModelStatus];
+  Future<void> prepareSystemModel({
+    String modelId = 'aicore:gemini-nano',
+  }) async => throw const OnDeviceException('aicore_unavailable');
+
   /// Models, not projectors: a projector belongs to its model.
   List<LocalModel> get models;
   List<ModelDownload> get downloads;
@@ -143,7 +207,8 @@ abstract class OnDeviceCapability extends ChangeNotifier implements Capability {
   Future<void> unload();
 
   /// [config] names the model and its context, output and thinking settings.
-  /// A model that is not in the folder ends with a `model_missing` error.
+  /// A missing file model ends with a `model_missing` error. System models
+  /// are addressed by their reserved IDs and prepared by the system service.
   Stream<ProviderEvent> generate(
     ProviderConfig config,
     ChatRequest request, {

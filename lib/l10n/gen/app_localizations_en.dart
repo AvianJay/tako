@@ -1241,10 +1241,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onDeviceModels => 'On-device models';
 
   @override
-  String get onDeviceModelsHelp => 'Run GGUF models on this phone';
+  String get onDeviceModelsHelp => 'Run local models on this phone';
 
   @override
-  String get onDeviceApi => 'On-device (llama.cpp)';
+  String get onDeviceApi => 'On-device (llama.cpp / AICore)';
+
+  @override
+  String get aicoreHelp =>
+      'Chat with the model managed by Android AICore. Setup may need an internet connection. Compatible models can use Tako\'s tools with the usual permission checks.';
+
+  @override
+  String get aicorePreviewHelp =>
+      'Preview models require enrollment in Google\'s AICore Developer Preview. Availability depends on this device and may change.';
+
+  @override
+  String get aicoreToolsUnavailable =>
+      'This AICore model doesn\'t provide the structured responses Tako needs for tools. Choose a compatible preview model or turn off tools for this model.';
+
+  @override
+  String get aicoreInvalidTools =>
+      'The model returned an incomplete or invalid tool request. This reply did not execute any tools. Try again.';
+
+  @override
+  String get aicoreBackground =>
+      'Keep Tako in the foreground while AICore generates a reply.';
+
+  @override
+  String get aicorePrepare => 'Set up Gemini Nano';
+
+  @override
+  String get aicorePreparing =>
+      'AICore is downloading or preparing Gemini Nano…';
+
+  @override
+  String get aicoreManaged => 'Model managed by Android AICore';
+
+  @override
+  String get aicoreUnavailable =>
+      'This model isn\'t available through this device\'s AICore service. Update Android AICore and check device support. Preview models also require AICore Developer Preview enrollment.';
+
+  @override
+  String get aicoreUpdate =>
+      'Update Android and the Android AICore app, then try again.';
+
+  @override
+  String get aicoreRequestTooLarge =>
+      'This conversation is too long for Gemini Nano. Start a new chat or shorten the system prompt.';
+
+  @override
+  String get aicoreBusy => 'AICore is busy. Wait a moment and try again.';
+
+  @override
+  String get aicoreFailed =>
+      'AICore couldn\'t prepare or run this model. Update Android AICore, check device support, then try again.';
 
   @override
   String get onDeviceProviderHelp =>

@@ -1179,10 +1179,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onDeviceModels => '裝置上模型';
 
   @override
-  String get onDeviceModelsHelp => '在這支手機上直接執行 GGUF 模型';
+  String get onDeviceModelsHelp => '在這支手機上直接執行本地模型';
 
   @override
-  String get onDeviceApi => '裝置上（llama.cpp）';
+  String get onDeviceApi => '裝置上（llama.cpp / AICore）';
+
+  @override
+  String get aicoreHelp =>
+      '與 Android AICore 管理的模型聊天，首次設定可能需要網路連線。相容模型可使用 Tako 的工具，並沿用原有的權限檢查。';
+
+  @override
+  String get aicorePreviewHelp =>
+      '預覽版模型需要加入 Google 的 AICore Developer Preview，能否使用取決於裝置，且可能隨版本變動。';
+
+  @override
+  String get aicoreToolsUnavailable =>
+      '這個 AICore 模型無法提供 Tako 工具所需的結構化回覆。請選用相容的預覽版模型，或關閉這個模型的工具能力。';
+
+  @override
+  String get aicoreInvalidTools => '模型回傳了不完整或無效的工具請求，這次回覆未執行任何工具。請再試一次。';
+
+  @override
+  String get aicoreBackground => '請讓 Tako 保持在前景，讓 AICore 繼續生成回覆。';
+
+  @override
+  String get aicorePrepare => '設定 Gemini Nano';
+
+  @override
+  String get aicorePreparing => 'AICore 正在下載或準備 Gemini Nano…';
+
+  @override
+  String get aicoreManaged => '模型由 Android AICore 管理';
+
+  @override
+  String get aicoreUnavailable =>
+      '這台裝置的 AICore 服務無法提供這個模型。請更新 Android AICore 並確認裝置支援；預覽版模型還需要加入 AICore Developer Preview。';
+
+  @override
+  String get aicoreUpdate => '請更新 Android 系統及 Android AICore 應用程式後再試。';
+
+  @override
+  String get aicoreRequestTooLarge =>
+      '這段對話超過 Gemini Nano 可處理的長度。請開啟新對話或縮短系統提示詞。';
+
+  @override
+  String get aicoreBusy => 'AICore 正忙碌，請稍候再試。';
+
+  @override
+  String get aicoreFailed => 'AICore 無法準備或執行這個模型。請更新 Android AICore、確認裝置支援後再試。';
 
   @override
   String get onDeviceProviderHelp => '使用已放在這支手機上的模型。不需要網址或金鑰。';
@@ -2559,10 +2603,54 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get onDeviceModels => '裝置上模型';
 
   @override
-  String get onDeviceModelsHelp => '在這支手機上直接執行 GGUF 模型';
+  String get onDeviceModelsHelp => '在這支手機上直接執行本地模型';
 
   @override
-  String get onDeviceApi => '裝置上（llama.cpp）';
+  String get onDeviceApi => '裝置上（llama.cpp / AICore）';
+
+  @override
+  String get aicoreHelp =>
+      '與 Android AICore 管理的模型聊天，首次設定可能需要網路連線。相容模型可使用 Tako 的工具，並沿用原有的權限檢查。';
+
+  @override
+  String get aicorePreviewHelp =>
+      '預覽版模型需要加入 Google 的 AICore Developer Preview，能否使用取決於裝置，且可能隨版本變動。';
+
+  @override
+  String get aicoreToolsUnavailable =>
+      '這個 AICore 模型無法提供 Tako 工具所需的結構化回覆。請選用相容的預覽版模型，或關閉這個模型的工具能力。';
+
+  @override
+  String get aicoreInvalidTools => '模型回傳了不完整或無效的工具請求，這次回覆未執行任何工具。請再試一次。';
+
+  @override
+  String get aicoreBackground => '請讓 Tako 保持在前景，讓 AICore 繼續生成回覆。';
+
+  @override
+  String get aicorePrepare => '設定 Gemini Nano';
+
+  @override
+  String get aicorePreparing => 'AICore 正在下載或準備 Gemini Nano…';
+
+  @override
+  String get aicoreManaged => '模型由 Android AICore 管理';
+
+  @override
+  String get aicoreUnavailable =>
+      '這台裝置的 AICore 服務無法提供這個模型。請更新 Android AICore 並確認裝置支援；預覽版模型還需要加入 AICore Developer Preview。';
+
+  @override
+  String get aicoreUpdate => '請更新 Android 系統及 Android AICore 應用程式後再試。';
+
+  @override
+  String get aicoreRequestTooLarge =>
+      '這段對話超過 Gemini Nano 可處理的長度。請開啟新對話或縮短系統提示詞。';
+
+  @override
+  String get aicoreBusy => 'AICore 正忙碌，請稍候再試。';
+
+  @override
+  String get aicoreFailed => 'AICore 無法準備或執行這個模型。請更新 Android AICore、確認裝置支援後再試。';
 
   @override
   String get onDeviceProviderHelp => '使用已放在這支手機上的模型。不需要網址或金鑰。';

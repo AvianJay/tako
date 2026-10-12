@@ -25,7 +25,7 @@ class OnDeviceAdapter implements ProviderAdapter {
     await onDevice.refresh();
     return [
       for (final model in onDevice.models)
-        ModelInfo(id: model.id, displayName: model.info.name ?? model.id),
+        ModelInfo(id: model.id, displayName: model.displayName),
     ];
   }
 }

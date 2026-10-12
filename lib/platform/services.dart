@@ -17,6 +17,7 @@ import '../core/on_device/on_device_capability.dart';
 import '../core/screen/screen_capability.dart';
 import '../core/shell/shell_capability.dart';
 import '../core/shortcuts/shortcuts_capability.dart';
+import 'android/aicore_on_device.dart';
 import 'android/device_control.dart';
 import 'app_services.dart';
 import 'browser/webview_browser.dart';
@@ -27,6 +28,7 @@ import 'media_attachment_capability.dart';
 import 'native/device_api.g.dart';
 import 'native/device_tools.dart';
 import 'native/media_attachments.dart';
+import 'on_device/combined_on_device.dart';
 import 'on_device/llama_on_device.dart';
 import 'workspace/local_workspace.dart';
 import 'workspace/workspace_shell.dart';
@@ -79,7 +81,10 @@ class PlatformServices implements AppServices {
       ? AndroidNotifications()
       : UnavailableNotifications();
   @override
-  late final OnDeviceCapability onDevice = LlamaOnDevice(
+  late final OnDeviceCapability onDevice = Platform.isAndroid
+      ? CombinedOnDevice(files: _fileModels, system: AicoreOnDevice())
+      : _fileModels;
+  late final _fileModels = LlamaOnDevice(
     directory: () async {
       final models = Directory(
         p.join((await getApplicationSupportDirectory()).path, 'models'),

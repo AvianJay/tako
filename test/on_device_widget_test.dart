@@ -27,7 +27,53 @@ const _qwen = LocalModel(
   ),
 );
 
+const _nano = LocalModel.system(
+  id: 'aicore:gemini-nano',
+  name: 'Gemini Nano (AICore)',
+  profile: ModelProfile(
+    id: 'aicore:gemini-nano',
+    autoDetect: true,
+    capabilities: ProviderCapabilities(tools: true, contextWindow: 8192),
+    maxOutputTokens: 1024,
+  ),
+);
+
 class _OnDevice extends OnDeviceCapability {
+  @override
+  SystemModelStatus? systemModelStatus;
+  SystemModelStatus? previewStatus;
+  @override
+  List<SystemModelStatus> get systemModelStatuses => [
+    ?systemModelStatus,
+    ?previewStatus,
+  ];
+  int preparations = 0;
+  @override
+  Future<void> prepareSystemModel({
+    String modelId = 'aicore:gemini-nano',
+  }) async {
+    preparations++;
+    final model = modelId == aicorePreviewModel.id
+        ? LocalModel.system(
+            id: modelId,
+            name: aicorePreviewModel.displayName,
+            profile: ModelProfile(
+              id: modelId,
+              capabilities: _nano.profile().capabilities,
+            ),
+          )
+        : _nano;
+    final status = SystemModelStatus(SystemModelState.ready, model: model);
+    if (modelId == aicorePreviewModel.id) {
+      previewStatus = status;
+    } else {
+      systemModelStatus = status;
+    }
+    models = [model, ...models];
+    loadedModel = modelId;
+    notifyListeners();
+  }
+
   @override
   List<LocalModel> models = [_qwen];
   @override
@@ -168,6 +214,108 @@ Future<void> _waitFor(WidgetTester tester, bool Function() ready) async {
 }
 
 void main() {
+  testWidgets(
+    'AICore setup detects tool support without offering file actions',
+    (tester) async {
+      final onDevice = _OnDevice()
+        ..systemModelStatus = const SystemModelStatus(
+          SystemModelState.available,
+        );
+      final app = await _boot(
+        tester,
+        onDevice,
+        home: const OnDeviceModelsScreen(),
+      );
+      await tester.tap(find.byKey(const ValueKey('prepare-aicore')));
+      await tester.pumpAndSettle();
+      expect(onDevice.preparations, 1);
+      final model = find.byKey(ValueKey('local-model-${aicoreModel.id}'));
+      await tester.scrollUntilVisible(model, 100);
+      await tester.tap(
+        find.byKey(ValueKey('local-model-menu-${aicoreModel.id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Delete'), findsNothing);
+      expect(find.text('Add vision projector'), findsNothing);
+      expect(find.text('Unload from memory'), findsOne);
+      await tester.tap(find.text('Use in chat'));
+      await _waitFor(tester, () => app.providers.isNotEmpty);
+      expect(app.selectedProvider!.model, aicoreModel.id);
+      expect(app.selectedProvider!.baseUrl, '');
+      expect(app.selectedProvider!.isLocal, isTrue);
+      expect(app.selectedProvider!.capabilities.tools, isTrue);
+      expect(app.selectedProvider!.capabilities.vision, isFalse);
+      expect(app.selectedProvider!.capabilities.reasoning, isFalse);
+    },
+  );
+
+  testWidgets('AICore preview setup selects the preview provider with tools', (
+    tester,
+  ) async {
+    final onDevice = _OnDevice()
+      ..previewStatus = const SystemModelStatus(
+        SystemModelState.available,
+        model: aicorePreviewModel,
+      );
+    final app = await _boot(
+      tester,
+      onDevice,
+      home: const OnDeviceModelsScreen(),
+    );
+    expect(find.textContaining('Preview models require enrollment'), findsOne);
+    await tester.tap(find.byKey(const ValueKey('prepare-aicore-preview')));
+    await tester.pumpAndSettle();
+    final model = find.byKey(ValueKey('local-model-${aicorePreviewModel.id}'));
+    await tester.scrollUntilVisible(model, 100);
+    await tester.tap(model);
+    await _waitFor(tester, () => app.providers.isNotEmpty);
+    expect(app.selectedProvider!.model, aicorePreviewModel.id);
+    expect(app.selectedProvider!.capabilities.tools, isTrue);
+  });
+
+  testWidgets('reselecting AICore refreshes the saved capability profile', (
+    tester,
+  ) async {
+    final onDevice = _OnDevice();
+    final app = await _boot(tester, onDevice);
+    await tester.runAsync(() async {
+      await app.useOnDeviceModel(
+        const LocalModel.system(
+          id: 'aicore:gemini-nano',
+          name: 'Old AICore profile',
+          profile: ModelProfile(
+            id: 'aicore:gemini-nano',
+            autoDetect: true,
+            maxOutputTokens: 2048,
+          ),
+        ),
+        providerName: 'Local',
+      );
+      expect(app.selectedProvider!.capabilities.tools, isFalse);
+      await app.useOnDeviceModel(_nano, providerName: 'Local');
+    });
+    expect(app.selectedProvider!.capabilities.tools, isTrue);
+    expect(app.selectedProvider!.capabilities.contextWindow, 8192);
+    expect(app.selectedProvider!.maxOutputTokens, 2048);
+    expect(app.providers.single.models, hasLength(1));
+  });
+
+  testWidgets(
+    'unavailable AICore explains requirements alongside GGUF models',
+    (tester) async {
+      final onDevice = _OnDevice()
+        ..systemModelStatus = const SystemModelStatus(
+          SystemModelState.unavailable,
+        );
+      await _boot(tester, onDevice, home: const OnDeviceModelsScreen());
+      expect(find.textContaining("This model isn't available"), findsOne);
+      expect(find.byKey(const ValueKey('prepare-aicore')), findsNothing);
+      final gguf = find.byKey(ValueKey('local-model-${_qwen.id}'));
+      await tester.scrollUntilVisible(gguf, 100);
+      expect(gguf, findsOne);
+    },
+  );
+
   testWidgets('a recommended model downloads with its projector, checked', (
     tester,
   ) async {
@@ -284,7 +432,7 @@ void main() {
 
   testWidgets('deleting a model removes it from the provider', (tester) async {
     final onDevice = _OnDevice();
-    final other = LocalModel(id: 'Other.gguf', sizeBytes: 1, info: _qwen.info);
+    final other = LocalModel(id: 'Other.gguf', sizeBytes: 1, info: _qwen.info!);
     onDevice.models = [_qwen, other];
     final app = await _boot(tester, onDevice);
     await tester.runAsync(() async {
@@ -304,7 +452,7 @@ void main() {
     await tester.enterText(find.byType(TextFormField).first, 'Phone');
     await tester.tap(find.text('OpenAI Chat Completions'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('On-device (llama.cpp)').last);
+    await tester.tap(find.text('On-device (llama.cpp / AICore)').last);
     await tester.pumpAndSettle();
     expect(find.text('Base URL'), findsNothing);
     expect(find.text('API key'), findsNothing);

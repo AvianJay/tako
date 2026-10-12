@@ -8,8 +8,7 @@ import '../../core/on_device/on_device_capability.dart';
 import '../../core/on_device/recommended_models.dart';
 import '../../l10n/gen/app_localizations.dart';
 
-/// GGUF models that run inside the app: what is installed, downloads, and
-/// ways to add more.
+/// Models that run on this device: system models, files and downloads.
 class OnDeviceModelsScreen extends ConsumerStatefulWidget {
   const OnDeviceModelsScreen({super.key});
   @override
@@ -99,7 +98,7 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
       () => _app.useOnDeviceModel(model, providerName: l.onDeviceModels),
     );
     if (mounted) {
-      _say(l.modelSelected(model.info.name ?? model.id));
+      _say(l.modelSelected(model.displayName));
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
@@ -144,6 +143,9 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
+                  for (final status in _models.systemModelStatuses)
+                    if (status.state != SystemModelState.ready)
+                      _systemModel(status, l),
                   if (!_models.isAvailable)
                     Text(l.onDeviceUnavailable)
                   else ...[
@@ -228,6 +230,55 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
     );
   }
 
+  Widget _systemModel(SystemModelStatus status, AppLocalizations l) {
+    final preparing = status.state == SystemModelState.preparing;
+    final unavailable = status.state == SystemModelState.unavailable;
+    return Card(
+      key: ValueKey('aicore-model-${status.model.id}'),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              status.model.displayName,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(l.aicoreHelp),
+            if (status.model.id == aicorePreviewModel.id) ...[
+              const SizedBox(height: 8),
+              Text(l.aicorePreviewHelp),
+            ],
+            const SizedBox(height: 8),
+            if (unavailable)
+              Text(l.aicoreUnavailable)
+            else if (preparing) ...[
+              Text(l.aicorePreparing),
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ] else ...[
+              if (status.error case final error?)
+                Text(onDeviceErrorText(error, l)),
+              FilledButton.icon(
+                key: ValueKey(
+                  status.model.id == aicoreModel.id
+                      ? 'prepare-aicore'
+                      : 'prepare-aicore-preview',
+                ),
+                onPressed: () => _run(
+                  () => _models.prepareSystemModel(modelId: status.model.id),
+                ),
+                icon: const Icon(Icons.download_outlined),
+                label: Text(l.aicorePrepare),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _installed(LocalModel model, AppLocalizations l) {
     final loaded = _models.loadedModel == model.id;
     return Card(
@@ -235,13 +286,16 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
         key: ValueKey('local-model-${model.id}'),
         contentPadding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
         leading: Icon(loaded ? Icons.memory : Icons.smartphone_outlined),
-        title: Text(model.info.name ?? model.id),
+        title: Text(model.displayName),
         subtitle: Text(
           [
             model.id,
-            formatBytes(model.sizeBytes),
-            if (model.info.supportsTools) l.toolsCapability,
-            if (model.info.supportsThinking) l.reasoningCapability,
+            if (model.isSystem)
+              l.aicoreManaged
+            else
+              formatBytes(model.sizeBytes),
+            if (model.profile().capabilities.tools) l.toolsCapability,
+            if (model.profile().capabilities.reasoning) l.reasoningCapability,
             if (model.projector != null) l.visionCapability,
             if (loaded) l.inMemory,
           ].join(' · '),
@@ -258,16 +312,17 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
           },
           itemBuilder: (context) => [
             PopupMenuItem(value: 'use', child: Text(l.useInChat)),
-            if (model.projector == null)
+            if (!model.isSystem && model.projector == null)
               PopupMenuItem(value: 'projector', child: Text(l.addProjector))
-            else
+            else if (!model.isSystem)
               PopupMenuItem(
                 value: 'no-projector',
                 child: Text(l.removeProjector),
               ),
             if (loaded)
               PopupMenuItem(value: 'unload', child: Text(l.unloadModel)),
-            PopupMenuItem(value: 'delete', child: Text(l.delete)),
+            if (!model.isSystem)
+              PopupMenuItem(value: 'delete', child: Text(l.delete)),
           ],
         ),
       ),
@@ -468,6 +523,15 @@ class _UrlDialogState extends State<_UrlDialog> {
 }
 
 String onDeviceErrorText(String code, AppLocalizations l) => switch (code) {
+  'aicore_unavailable' => l.aicoreUnavailable,
+  'aicore_update' => l.aicoreUpdate,
+  'aicore_request_too_large' => l.aicoreRequestTooLarge,
+  'aicore_busy' => l.aicoreBusy,
+  'aicore_failed' => l.aicoreFailed,
+  'aicore_text_only' => l.aicoreHelp,
+  'aicore_tools_unavailable' => l.aicoreToolsUnavailable,
+  'aicore_invalid_tools' => l.aicoreInvalidTools,
+  'aicore_background' => l.aicoreBackground,
   'not_gguf' => l.modelErrorNotGguf,
   'is_projector' => l.modelErrorIsProjector,
   'not_projector' => l.modelErrorNotProjector,

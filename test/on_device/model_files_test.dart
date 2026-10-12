@@ -107,7 +107,7 @@ void main() {
     final installed = files.models.single;
     expect(installed.id, 'Model Q4.gguf');
     expect(installed.catalogId, 'fixture');
-    expect(installed.info.supportsTools, isTrue);
+    expect(installed.info!.supportsTools, isTrue);
     expect(installed.sizeBytes, model.length);
     expect(File(p.join(folder.path, 'Model Q4.gguf')).readAsBytesSync(), model);
     expect(server.requests.single.headers['range'], isNull);

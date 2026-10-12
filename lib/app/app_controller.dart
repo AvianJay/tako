@@ -915,6 +915,23 @@ class AppController extends ChangeNotifier {
     final existing = providers
         .where((p) => p.apiType == ApiType.onDevice)
         .firstOrNull;
+    final detected = model.profile();
+    final previous = existing?.models
+        .where((m) => m.id == model.id)
+        .firstOrNull;
+    final profile = model.isSystem && previous != null
+        ? ModelProfile(
+            id: model.id,
+            capabilities: previous.autoDetect
+                ? detected.capabilities
+                : previous.capabilities,
+            maxOutputTokens: previous.maxOutputTokens,
+            reasoningMode: previous.reasoningMode,
+            thinkingBudgetTokens: previous.thinkingBudgetTokens,
+            reasoningEffort: previous.reasoningEffort,
+            autoDetect: previous.autoDetect,
+          )
+        : detected;
     final provider = existing == null
         ? ProviderConfig(
             id: newId(),
@@ -922,11 +939,19 @@ class AppController extends ChangeNotifier {
             apiType: ApiType.onDevice,
             baseUrl: '',
             model: model.id,
-            models: [model.profile()],
+            models: [profile],
+          )
+        : model.isSystem
+        ? existing.copyWith(
+            models: [
+              for (final saved in existing.models)
+                if (saved.id != model.id) saved,
+              profile,
+            ],
           )
         : existing.models.any((m) => m.id == model.id)
         ? existing
-        : existing.copyWith(models: [...existing.models, model.profile()]);
+        : existing.copyWith(models: [...existing.models, profile]);
     if (!identical(provider, existing)) {
       await providerRepository.save(provider);
       providers = await providerRepository.list();
@@ -1753,6 +1778,17 @@ class AppController extends ChangeNotifier {
                 'localModelMissing',
               'model_load' when provider.apiType == ApiType.onDevice =>
                 'localModelLoad',
+              'aicore_unavailable' => 'aicoreUnavailable',
+              'aicore_update' => 'aicoreUpdate',
+              'aicore_request_too_large' => 'aicoreRequestTooLarge',
+              'aicore_busy' => 'aicoreBusy',
+              'aicore_failed' => 'aicoreFailed',
+              'aicore_text_only' => 'aicoreHelp',
+              'aicore_tools_unavailable' => 'aicoreToolsUnavailable',
+              'aicore_invalid_tools' => 'aicoreInvalidTools',
+              'aicore_background' => 'aicoreBackground',
+              'no_space' when isAicoreModel(provider.model) =>
+                'modelErrorNoSpace',
               _ => event.toString(),
             };
             status = MessageStatus.error;

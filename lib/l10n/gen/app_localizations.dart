@@ -2316,14 +2316,92 @@ abstract class AppLocalizations {
   /// No description provided for @onDeviceModelsHelp.
   ///
   /// In zh, this message translates to:
-  /// **'在這支手機上直接執行 GGUF 模型'**
+  /// **'在這支手機上直接執行本地模型'**
   String get onDeviceModelsHelp;
 
   /// No description provided for @onDeviceApi.
   ///
   /// In zh, this message translates to:
-  /// **'裝置上（llama.cpp）'**
+  /// **'裝置上（llama.cpp / AICore）'**
   String get onDeviceApi;
+
+  /// No description provided for @aicoreHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'與 Android AICore 管理的模型聊天，首次設定可能需要網路連線。相容模型可使用 Tako 的工具，並沿用原有的權限檢查。'**
+  String get aicoreHelp;
+
+  /// No description provided for @aicorePreviewHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'預覽版模型需要加入 Google 的 AICore Developer Preview，能否使用取決於裝置，且可能隨版本變動。'**
+  String get aicorePreviewHelp;
+
+  /// No description provided for @aicoreToolsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'這個 AICore 模型無法提供 Tako 工具所需的結構化回覆。請選用相容的預覽版模型，或關閉這個模型的工具能力。'**
+  String get aicoreToolsUnavailable;
+
+  /// No description provided for @aicoreInvalidTools.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型回傳了不完整或無效的工具請求，這次回覆未執行任何工具。請再試一次。'**
+  String get aicoreInvalidTools;
+
+  /// No description provided for @aicoreBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'請讓 Tako 保持在前景，讓 AICore 繼續生成回覆。'**
+  String get aicoreBackground;
+
+  /// No description provided for @aicorePrepare.
+  ///
+  /// In zh, this message translates to:
+  /// **'設定 Gemini Nano'**
+  String get aicorePrepare;
+
+  /// No description provided for @aicorePreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'AICore 正在下載或準備 Gemini Nano…'**
+  String get aicorePreparing;
+
+  /// No description provided for @aicoreManaged.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型由 Android AICore 管理'**
+  String get aicoreManaged;
+
+  /// No description provided for @aicoreUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'這台裝置的 AICore 服務無法提供這個模型。請更新 Android AICore 並確認裝置支援；預覽版模型還需要加入 AICore Developer Preview。'**
+  String get aicoreUnavailable;
+
+  /// No description provided for @aicoreUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'請更新 Android 系統及 Android AICore 應用程式後再試。'**
+  String get aicoreUpdate;
+
+  /// No description provided for @aicoreRequestTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'這段對話超過 Gemini Nano 可處理的長度。請開啟新對話或縮短系統提示詞。'**
+  String get aicoreRequestTooLarge;
+
+  /// No description provided for @aicoreBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'AICore 正忙碌，請稍候再試。'**
+  String get aicoreBusy;
+
+  /// No description provided for @aicoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'AICore 無法準備或執行這個模型。請更新 Android AICore、確認裝置支援後再試。'**
+  String get aicoreFailed;
 
   /// No description provided for @onDeviceProviderHelp.
   ///
