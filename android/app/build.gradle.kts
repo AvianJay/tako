@@ -5,6 +5,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystorePath = providers.environmentVariable("KEYSTORE_PATH").orNull?.takeIf { it.isNotEmpty() }
+val keystoreAlias = providers.environmentVariable("KEYSTORE_ALIAS").orNull?.takeIf { it.isNotEmpty() }
+val keystorePassword = providers.environmentVariable("KEYSTORE_PASSWORD").orNull?.takeIf { it.isNotEmpty() }
+val hasReleaseSigning = keystorePath != null || keystoreAlias != null || keystorePassword != null
+require(!hasReleaseSigning || (keystorePath != null && keystoreAlias != null && keystorePassword != null)) {
+    "Release signing requires KEYSTORE_PATH, KEYSTORE_ALIAS, and KEYSTORE_PASSWORD."
+}
+
 android {
     namespace = "tw.avianjay.tako"
     compileSdk = flutter.compileSdkVersion
@@ -43,11 +51,21 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(keystorePath))
+                storePassword = keystorePassword
+                keyAlias = keystoreAlias
+                keyPassword = keystorePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Local and pull-request builds use the debug key when no signing environment is set.
+            signingConfig = signingConfigs.getByName(if (hasReleaseSigning) "release" else "debug")
         }
     }
 }

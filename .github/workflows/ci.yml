@@ -43,8 +43,27 @@ jobs:
       - run: dart run tool/browser_runtime_check/emit_template.dart
       - run: node tool/browser_runtime_check/check.js
       # `full` (default flavor) includes screen control; `play` leaves it out.
-      - run: flutter build apk --release
-      - run: flutter build apk --release --flavor play
+      - name: Build Android release APKs
+        env:
+          KEYSTORE_BASE64: ${{ github.event_name == 'push' && secrets.KEYSTORE_BASE64 || '' }}
+          KEYSTORE_ALIAS: ${{ github.event_name == 'push' && secrets.KEYSTORE_ALIAS || '' }}
+          KEYSTORE_PASSWORD: ${{ github.event_name == 'push' && secrets.KEYSTORE_PASSWORD || '' }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ -z "$KEYSTORE_BASE64" || -z "$KEYSTORE_ALIAS" || -z "$KEYSTORE_PASSWORD" ]]; then
+              echo "::error::Android release signing requires KEYSTORE_BASE64, KEYSTORE_ALIAS, and KEYSTORE_PASSWORD."
+              exit 1
+            fi
+            umask 077
+            export KEYSTORE_PATH="$RUNNER_TEMP/tako-release.jks"
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            unset KEYSTORE_BASE64
+          fi
+          flutter build apk --release
+          flutter build apk --release --flavor play
+      - name: Remove Android release keystore
+        if: ${{ always() && github.event_name == 'push' }}
+        run: rm -f -- "$RUNNER_TEMP/tako-release.jks"
       - uses: actions/upload-artifact@v4
         with:
           name: tako-release-apk

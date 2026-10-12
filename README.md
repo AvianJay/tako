@@ -69,6 +69,14 @@ There are two build flavors:
 | `full` (default) | `app-full-release.apk` | Everything, including screen control. |
 | `play` | `app-play-release.apk` | No accessibility service, for distribution on Google Play. |
 
+CI signs both release APKs on pushes using the GitHub Actions secrets
+`KEYSTORE_BASE64` (the base64-encoded keystore), `KEYSTORE_ALIAS`, and
+`KEYSTORE_PASSWORD`. The password must match both the keystore password and the
+key password. Push builds fail if any signing secret is missing. Pull-request
+and local builds use the debug key when no signing environment is set. To sign
+locally, set `KEYSTORE_PATH` to the keystore's absolute path, plus `KEYSTORE_ALIAS`
+and `KEYSTORE_PASSWORD`, before running the build commands.
+
 ## Getting started
 
 1. Install the APK and open **Settings → Providers** to add a provider:
