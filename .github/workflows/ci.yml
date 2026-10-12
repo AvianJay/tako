@@ -129,3 +129,8 @@ jobs:
       - run: dart run pigeon --input pigeons/ios_api.dart
       - run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter build ios --release --no-codesign
+      # llama.cpp arrives as frameworks from llamadart's build hook.
+      - name: Check that llama.cpp is bundled
+        run: |
+          ls build/ios/iphoneos/Runner.app/Frameworks
+          ls build/ios/iphoneos/Runner.app/Frameworks | grep -qi llama
