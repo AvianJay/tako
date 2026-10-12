@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_control_summary">讓助理在你要求時讀取並操作其他 App。</string>
+    <string name="screen_control_description">讓助理在你要求時讀取畫面，並在其他 App 中點按、輸入和捲動。只有螢幕工具執行時才會讀取畫面；讀到的內容會傳送給你選擇的模型，並保留在該對話中。點按「傳送」、「付款」、「刪除」等按鈕前一定會先詢問，也永遠不會填入密碼欄位。你可以隨時關閉。</string>
+</resources>

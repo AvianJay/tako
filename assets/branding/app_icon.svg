@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
+  <title>Tako</title>
+  <desc>An octopus reduced to a round head over three dots, its tentacles, on a moss-green background. The dots double as Tako's typing indicator.</desc>
+  <rect width="108" height="108" rx="24" fill="#466953"/>
+  <g transform="translate(-9.72 -9.72) scale(1.18)" fill="#FAFBF7">
+    <path d="M54 29.5 C64.22 29.5 72.5 39.13 72.5 51 C72.5 53.87 72.01 56.71 71.05 59.35 C69.96 62.34 67.05 64.5 65.4 64.5 L42.6 64.5 C40.95 64.5 38.04 62.34 36.95 59.35 C35.99 56.71 35.5 53.87 35.5 51 C35.5 39.13 43.78 29.5 54 29.5 Z"/>
+    <circle cx="40.5" cy="73.5" r="4.5"/>
+    <circle cx="54" cy="73.5" r="4.5"/>
+    <circle cx="67.5" cy="73.5" r="4.5"/>
+  </g>
+</svg>

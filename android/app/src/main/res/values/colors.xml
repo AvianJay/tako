@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch screen; lib/app/bootstrap.dart paints its first frame in the same colours. -->
+    <color name="launch_background">#FAFBF7</color>
+    <color name="launch_mark">#466953</color>
+</resources>

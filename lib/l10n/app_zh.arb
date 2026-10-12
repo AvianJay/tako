@@ -1,0 +1,534 @@
+{
+  "toolRunSummary": "{tool} · {count} 個步驟",
+  "@toolRunSummary": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolRunTitle": "工具執行過程",
+  "toolRunIncomplete": "未記錄結果",
+  "toolRunUnavailable": "目前的對話分支已不包含這段工具執行過程。",
+  "undo": "復原",
+  "deleteAttachmentBody": "此附件可能仍被較早的對話使用。刪除後，相關圖片／檔案將無法讀取；操作後會提供備份與復原。",
+  "toolsSettings": "工具與權限",
+  "toolsEnabled": "啟用工具",
+  "maxToolSteps": "每回合工具呼叫上限",
+  "maxScreenToolSteps": "操控螢幕時每回合工具呼叫上限",
+  "toolOutputLimit": "工具結果長度上限（字元）",
+  "permissions": "權限",
+  "fullPermissions": "完整權限",
+  "fullPermissionsWarning": "讀取私人資料及可復原的操作將不再詢問。高風險操作仍需逐次確認。",
+  "skipHighRisk": "也略過高風險確認",
+  "skipHighRiskWarning": "工具將能傳送資料、刪除檔案或進行變更，而不再逐次確認。僅在你接受這些操作時啟用。",
+  "toolOverrides": "個別工具",
+  "defaultPolicy": "預設規則",
+  "alwaysAllow": "永遠允許此工具",
+  "alwaysAsk": "每次詢問",
+  "deny": "拒絕",
+  "allowOnce": "允許這一次",
+  "allowChat": "此對話允許",
+  "approvalTitle": "工具操作確認",
+  "approvalBody": "請確認操作內容與完整參數，再決定是否允許。",
+  "riskSafe": "安全",
+  "riskSensitive": "讀取私人資料",
+  "riskAction": "進行變更",
+  "riskHigh": "高風險操作",
+  "auditLog": "工具活動紀錄",
+  "clearAudit": "清除紀錄",
+  "clearAuditBody": "刪除本機的工具活動紀錄？",
+  "noAudit": "尚無工具活動。",
+  "arguments": "參數",
+  "result": "結果",
+  "search": "網路搜尋",
+  "searchProvider": "搜尋供應商",
+  "searchUrl": "搜尋端點",
+  "searchKey": "搜尋 API 金鑰",
+  "searchResults": "結果筆數",
+  "searchHelp": "搜尋金鑰保存在安全儲存空間，各供應商分開保存。",
+  "searchKeyHint": "安全儲存在此裝置上",
+  "searchOptionalToken": "Bearer 權杖（選填）",
+  "searchSerperHelp": "透過 Serper 搜尋 Google。填入 Serper API 金鑰即可使用預設端點。",
+  "searchDdgsHelp": "填入你的 DDGS API 服務網址（ddgs api）。一般不需金鑰；若服務或反向代理採用 Bearer 驗證，可填入權杖。",
+  "searchSearxngHelp": "填入你的 SearXNG 服務網址，伺服器必須啟用 JSON 搜尋結果。",
+  "files": "檔案",
+  "attach": "附加圖片或文件",
+  "camera": "相機",
+  "photos": "相片",
+  "attachmentBusy": "請等目前的操作完成後，再加入圖片。",
+  "attachmentLimit": "每則訊息最多可附加 8 個圖片或檔案。",
+  "imageUnavailable": "無法讀取這張圖片，請改由「相片」或「檔案」選取。",
+  "unsupportedImage": "不支援此圖片格式，請選取 PNG、JPEG、GIF 或 WebP 圖片。",
+  "importFiles": "匯入檔案",
+  "emptyFiles": "工作區目前沒有檔案。",
+  "filePreview": "檔案預覽",
+  "deleteFileBody": "刪除此工作區檔案？會保留一份備份。",
+  "workspace": "工作區",
+  "restoreFiles": "還原工作區檔案",
+  "sideEffectsTitle": "這些操作已經發生",
+  "sideEffectsBody": "回溯對話不會撤銷以下操作。你可以先還原可用的工作區備份，以及移除之後新存入的記憶。",
+  "restoreAndRewind": "還原並回溯",
+  "rewindOnly": "只回溯對話",
+  "visionRequired": "請選擇支援視覺的模型，再傳送圖片。",
+  "toolStepLimit": "已達工具呼叫上限。請檢查目前結果，需要時按「繼續」。",
+  "toolRunning": "執行中",
+  "toolWaiting": "等待中",
+  "toolCompleted": "已完成",
+  "toolFailed": "失敗",
+  "toolsUnavailable": "請在此模型的能力設定中啟用工具呼叫，才能使用工具。",
+  "deviceStatusTool": "讀取裝置狀態",
+  "locationTool": "讀取位置",
+  "clipboardReadTool": "讀取剪貼簿",
+  "clipboardWriteTool": "寫入剪貼簿",
+  "calendarListTool": "讀取行事曆",
+  "calendarAddTool": "新增行事曆活動",
+  "alarmTool": "設定鬧鐘",
+  "timerTool": "設定計時器",
+  "openUrlTool": "開啟網址",
+  "openAppTool": "開啟 App",
+  "searchTool": "搜尋網路",
+  "fetchTool": "讀取網頁",
+  "fileListTool": "列出檔案",
+  "fileReadTool": "讀取檔案",
+  "fileWriteTool": "寫入檔案",
+  "fileDeleteTool": "刪除檔案",
+  "toolDisabled": "無法使用",
+  "highRiskKeywords": "高風險關鍵字（每行一個）",
+  "importFailed": "無法匯入所選檔案。",
+  "restoreFailed": "有備份無法還原，對話尚未回溯。",
+  "toolResultAttachment": "工具附件",
+  "noBackup": "沒有工作區備份",
+  "systemPermissionHint": "允許後，Android 可能會再詢問系統權限。",
+  "@@locale": "zh",
+  "newChat": "新對話",
+  "chats": "對話",
+  "settings": "設定",
+  "providers": "模型供應商",
+  "addProvider": "新增供應商",
+  "editProvider": "編輯供應商",
+  "noProviders": "連接你的模型",
+  "welcome": "留一點空間，好好想想。",
+  "welcomeBody": "提問、探索，或一起理清思緒。對話保存在這台裝置上。",
+  "setupBody": "新增雲端供應商或本機伺服器，即可開始聊天。由你決定訊息送往哪裡。",
+  "messageHint": "想問什麼？",
+  "send": "傳送",
+  "stop": "停止",
+  "retry": "重試",
+  "save": "儲存",
+  "cancel": "取消",
+  "delete": "刪除",
+  "close": "關閉",
+  "copy": "複製",
+  "copyMarkdown": "複製 Markdown",
+  "selectText": "選取文字",
+  "copied": "已複製",
+  "share": "分享",
+  "edit": "編輯",
+  "regenerate": "重新生成",
+  "rewind": "回到這裡",
+  "rewindDelete": "回到這裡並刪除後續",
+  "rewindDeleteBody": "刪除此訊息之後的所有分支？此操作無法復原。",
+  "deleteChatBody": "刪除此對話及所有分支？",
+  "thinking": "思考過程",
+  "you": "你",
+  "image": "圖片",
+  "file": "檔案",
+  "stopped": "已停止",
+  "streaming": "正在撰寫⋯",
+  "providerName": "顯示名稱",
+  "apiType": "API 格式",
+  "baseUrl": "基底網址",
+  "apiKey": "API 金鑰",
+  "keyHint": "本機伺服器可留空",
+  "keyStored": "金鑰已安全儲存 · 留空以保留",
+  "removeKey": "移除已儲存的金鑰",
+  "model": "模型",
+  "modelHint": "輸入模型 ID 或載入清單",
+  "loadModels": "載入模型",
+  "testConnection": "測試連線",
+  "connectionOk": "連線成功，模型清單可用。",
+  "connectionHelp": "測試模型清單端點。若供應商不支援此端點，仍可手動輸入模型。",
+  "extraHeaders": "額外標頭（JSON 物件）",
+  "headersHint": "與金鑰一起安全儲存",
+  "headersStored": "標頭已安全儲存 · 留空以保留",
+  "removeHeaders": "移除已儲存的標頭",
+  "localProvider": "本機供應商",
+  "localDescription": "自動辨識回環與區域網路位址，也可以手動設定。",
+  "toolsCapability": "工具呼叫",
+  "visionCapability": "視覺",
+  "reasoningCapability": "推理",
+  "capabilities": "模型能力",
+  "contextWindow": "上下文長度（token）",
+  "maxOutput": "輸出上限（token）",
+  "reasoningMode": "推理模式",
+  "reasoningOff": "供應商預設",
+  "reasoningEnabled": "啟用（預算）",
+  "reasoningAdaptive": "自適應",
+  "thinkingBudget": "思考預算（token）",
+  "reasoningEffort": "推理強度",
+  "requiredField": "必填",
+  "invalidUrl": "請輸入 http(s) 網址，不含帳密、查詢參數或片段。",
+  "invalidJson": "請輸入標頭值為字串的 JSON 物件。",
+  "invalidNumber": "請輸入正整數。",
+  "invalidBudget": "輸出上限須小於上下文長度。思考預算須至少為 1024，且小於輸出上限。",
+  "operationFailed": "操作失敗，請再試一次。",
+  "fileUnavailable": "此工作區檔案目前無法使用。",
+  "contextTrimmed": "已裁剪較舊的上下文以符合模型限制",
+  "contextTooLarge": "此訊息超過模型上下文長度，請縮短訊息或在供應商設定中調整長度。",
+  "noProviderSelected": "請先在設定中選擇供應商。",
+  "providerRemoved": "此對話的供應商已無法使用，請選擇其他供應商。",
+  "changeProvider": "更換供應商",
+  "changeProviderBody": "對話將由此供應商繼續。可見的對話歷史會傳送給它，系統提示詞也會重新產生。",
+  "continueAction": "繼續",
+  "appearance": "外觀",
+  "theme": "主題",
+  "systemTheme": "跟隨系統",
+  "lightTheme": "淺色",
+  "darkTheme": "深色",
+  "textSize": "文字大小",
+  "language": "語言",
+  "privacy": "以本機為本",
+  "privacyBody": "對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。",
+  "about": "關於",
+  "developerContext": "已儲存的上下文",
+  "noChats": "你的對話會顯示在這裡。",
+  "chooseProvider": "選擇供應商",
+  "previousBranch": "上一個分支",
+  "nextBranch": "下一個分支",
+  "providerDeleteBody": "移除此供應商及其憑證？對話將予以保留。",
+  "emptyResponse": "供應商未回傳回覆，請重試或檢查模型設定。",
+  "toolsLater": "此請求尚未啟用工具，或工具目前無法使用。",
+  "builtInSearch": "供應商內建網路搜尋",
+  "builtInSearchHelp": "使用模型供應商的原生搜尋；關閉時使用「搜尋」設定中的供應商。仍受工具權限規則控制。",
+  "allowCustomSearchEndpoint": "允許相容代理（CPA）",
+  "allowCustomSearchEndpointHelp": "向此自訂端點送出原生搜尋工具。代理必須保留 Responses 或 Messages 搜尋格式；未開啟時只自動允許官方端點。",
+  "testNativeSearch": "測試原生搜尋",
+  "nativeSearchTesting": "正在測試原生搜尋⋯",
+  "nativeSearchTestHelp": "使用目前模型與端點搜尋一次 Flutter 官方網站，可能產生 API 費用。不會傳送對話紀錄、自動啟用搜尋或儲存設定。",
+  "nativeSearchSupported": "測試成功：供應商確實完成了原生搜尋。",
+  "nativeSearchNotObserved": "端點有回應，但未收到原生搜尋完成紀錄。可能是代理移除了搜尋工具，或此轉送路徑不支援。",
+  "nativeSearchProtocolHelp": "此處的原生搜尋需使用 OpenAI Responses 或 Anthropic Messages。Chat Completions 請搭配「搜尋」設定中的供應商。",
+  "nativeSearchDisabled": "請先在「工具與權限」啟用工具與網路搜尋。",
+  "nativeSearchDenied": "這次測試已被網路搜尋權限規則拒絕。",
+  "nativeSearchFailed": "原生搜尋測試失敗，請確認模型與代理轉送路徑支援原生搜尋。",
+  "nativeSearchCancelled": "已取消原生搜尋測試。",
+  "nativeSearchTimeout": "原生搜尋測試逾時，已取消請求。",
+  "nativeSearchBusy": "請等待目前工作結束後再測試。",
+  "localLabel": "本機",
+  "cloudLabel": "雲端",
+  "connectionFailed": "連線失敗",
+  "noModels": "未取得模型，請手動輸入模型 ID。",
+  "viewImage": "檢視圖片",
+  "openImageLink": "在瀏覽器開啟圖片",
+  "renameChat": "重新命名對話",
+  "chatTitle": "對話標題",
+  "messageActions": "訊息選項",
+  "models": "模型",
+  "addModel": "新增模型",
+  "addModels": "加入所選模型",
+  "newModel": "新模型",
+  "duplicateModel": "此模型已經加入。",
+  "autoModelSpecs": "自動辨識模型規格",
+  "knownModelSpecs": "已套用已知規格，可自行調整限制與能力。",
+  "unknownModelSpecs": "未知模型：目前使用預設值，請依伺服器支援的規格調整。",
+  "officialModelId": "官方 API 模型 ID",
+  "chooseModel": "選擇模型",
+  "@memoryProfileUsage": {
+    "placeholders": {
+      "words": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "@memoriesImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@downloadBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "memory": "記憶",
+  "memoryEnabled": "使用記憶",
+  "memoryEnabledHelp": "{app} 可以儲存並查詢你提供的長期資訊。釘選的個人檔案與偏好會加入新的對話。",
+  "memoryOff": "記憶已關閉。已儲存的記憶會保留，但不會在對話中使用。",
+  "memorySearchHint": "搜尋記憶",
+  "memoryEmpty": "還沒有記憶。可以請 {app} 記住某件事，或在這裡新增。",
+  "memoryNoMatches": "沒有符合的記憶。",
+  "addMemory": "新增記憶",
+  "editMemory": "編輯記憶",
+  "memoryText": "內容",
+  "memoryKind": "類型",
+  "memoryKindProfile": "個人檔案",
+  "memoryKindPreference": "偏好",
+  "memoryKindFact": "事實",
+  "memoryPinned": "已釘選",
+  "memoryPin": "釘選",
+  "memoryUnpin": "取消釘選",
+  "memoryPinHelp": "釘選的個人檔案與偏好會加入新的對話。",
+  "memoryProfileUsage": "釘選的個人檔案：{words}/{limit} 字",
+  "memoryProfileTruncated": "部分釘選內容超出上限，不會加入新的對話。",
+  "memoryFromChat": "從對話中儲存",
+  "deleteMemoryBody": "要刪除這則記憶嗎？",
+  "deleteAllMemories": "刪除所有記憶",
+  "deleteAllMemoriesBody": "要刪除所有已儲存的記憶嗎？此操作無法復原。",
+  "exportMemories": "匯出 JSON",
+  "importMemories": "匯入 JSON",
+  "memoriesImported": "{count, plural, =0{沒有匯入新的記憶} other{已匯入 {count} 則記憶}}",
+  "memoryImportFailed": "這不是有效的 {app} 記憶匯出檔。",
+  "memorySaved": "已存入記憶",
+  "memoryUndone": "已從記憶移除",
+  "memoryChanged": "儲存後已被修改或移除",
+  "personalization": "個人化",
+  "displayName": "{app} 該怎麼稱呼你？",
+  "customInstructions": "自訂指示",
+  "customInstructionsHint": "希望 {app} 在每個新對話中都知道或遵守的事",
+  "replyStyle": "回覆風格",
+  "replyConcise": "簡潔",
+  "replyNormal": "一般",
+  "replyDetailed": "詳細",
+  "personalizationHelp": "變更會套用到新的對話；既有對話維持開始時的設定。",
+  "incognitoChat": "無痕聊天",
+  "newIncognitoChat": "新增無痕聊天",
+  "incognitoBody": "不使用記憶，離開後這段對話會被刪除。",
+  "browser": "瀏覽器",
+  "openBrowser": "開啟瀏覽器",
+  "browserAddressHint": "輸入網址",
+  "browserInvalidAddress": "請輸入網址，例如 example.com。",
+  "browserEmpty": "輸入網址，或請 {app} 開啟網頁。",
+  "browserModelActive": "{app} 正在使用瀏覽器",
+  "takeOver": "接手操作",
+  "browserBack": "上一頁",
+  "browserForward": "下一頁",
+  "browserReload": "重新載入",
+  "openExternally": "在其他應用程式開啟",
+  "clearBrowsingData": "清除瀏覽資料",
+  "clearBrowsingDataBody": "要刪除內建瀏覽器的 Cookie、網站儲存資料、快取與瀏覽紀錄嗎？你將會登出各個網站。",
+  "browsingDataCleared": "已清除瀏覽資料",
+  "openLinksInApp": "在內建瀏覽器開啟連結",
+  "openLinksInAppHelp": "關閉時，連結會以預設瀏覽器開啟。內建瀏覽器的 Cookie 與其他瀏覽器分開保存。",
+  "browserUnavailable": "此裝置無法使用內建瀏覽器。",
+  "downloadTitle": "要下載檔案嗎？",
+  "downloadBody": "要將來自 {host} 的「{name}」儲存到檔案嗎？",
+  "download": "下載",
+  "downloadSaved": "已儲存到檔案",
+  "downloadFailed": "下載失敗。",
+  "downloadTooLarge": "無法下載超過 20 MB 的檔案。",
+  "approvalElement": "元素",
+  "approvalPage": "網頁",
+  "approvalSubmit": "送出按鈕",
+  "memorySearchTool": "搜尋記憶",
+  "memorySaveTool": "存入記憶",
+  "memoryUpdateTool": "更新記憶",
+  "memoryDeleteTool": "刪除記憶",
+  "browserOpenTool": "開啟網頁",
+  "browserReadTool": "讀取瀏覽器頁面",
+  "browserClickTool": "在瀏覽器中點擊",
+  "browserTypeTool": "在瀏覽器中輸入",
+  "browserScrollTool": "捲動瀏覽器頁面",
+  "browserBackTool": "瀏覽器上一頁",
+  "@memoryEnabledHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@memoryEmpty": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@memoryImportFailed": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@displayName": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@customInstructionsHint": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@browserEmpty": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@browserModelActive": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "readScreenTool": "讀取螢幕",
+  "tapTool": "點按螢幕",
+  "longPressTool": "長按螢幕",
+  "swipeTool": "在螢幕上滑動",
+  "scrollTool": "捲動螢幕",
+  "typeTextTool": "在螢幕上輸入",
+  "pressKeyTool": "按系統鍵",
+  "runShellTool": "執行 Shell 指令",
+  "notificationsListTool": "讀取通知",
+  "approvalApp": "App",
+  "approvalPoint": "位置",
+  "screenSessionTitle": "{app} 正在操作螢幕",
+  "screenSessionBody": "點「停止」即可接手。",
+  "screenChannel": "螢幕控制",
+  "alertChannel": "核准與回覆",
+  "approvalNeededTitle": "{app} 需要你的核准",
+  "approvalNeededBody": "開啟 App 查看這項要求。",
+  "replyReadyTitle": "{app} 已回覆",
+  "replyReadyBody": "點一下查看回覆。",
+  "deviceControl": "裝置控制",
+  "deviceControlHelp": "讓 {app} 使用其他 App、你的通知與 Termux。每一項都要在 Android 設定中開啟，所有操作仍需經過工具權限。",
+  "screenControl": "螢幕控制",
+  "statusOn": "已開啟",
+  "statusOff": "未開啟",
+  "screenControlUnsupported": "這個版本不含螢幕控制功能。",
+  "screenControlHelp": "{app} 只會在你要求時，透過已核准的工具讀取畫面，並在其他 App 中點按、輸入和捲動。「傳送」、「付款」、「刪除」等按鈕一定會先詢問，也永遠不會填入密碼欄位。",
+  "screenControlDisclosureTitle": "要開啟螢幕控制嗎？",
+  "screenControlDisclosure": "{app} 會使用 Android 的無障礙服務讀取畫面內容，並替你點按、輸入和捲動。只有螢幕工具執行時才會讀取畫面；讀到的內容會傳送給你選擇的模型供應商並保留在該對話中，不會用於其他用途。請在下一個畫面中找到 {app} 並開啟。",
+  "openAccessibilitySettings": "開啟無障礙設定",
+  "restrictedSettingsHelp": "如果 Android 顯示這是「受限制的設定」，請開啟應用程式資訊，點右上角的 ⋮ 選單並選擇「允許受限制的設定」，再試一次。",
+  "openAppInfo": "開啟應用程式資訊",
+  "screenshotsSetting": "傳送截圖給視覺模型",
+  "screenshotsHelp": "模型支援圖片時，read_screen 也會附上截圖。截圖包含畫面上的所有內容，也會使用較多 token。",
+  "screenshotsUnsupported": "截圖需要 Android 11 以上版本。",
+  "sessionNotification": "操作螢幕時的通知",
+  "sessionNotificationHelp": "顯示目前正在操作螢幕，並提供「停止」按鈕。",
+  "allowNotifications": "允許通知",
+  "allowed": "已允許",
+  "notificationAccess": "通知存取",
+  "notificationAccessHelp": "讓 {app} 在你要求時讀取目前的通知。不會在背景讀取或保存。",
+  "openNotificationAccess": "開啟通知存取設定",
+  "termux": "Termux（run_shell）",
+  "termuxHelp": "run_shell 會在 Termux 中執行指令。ls、cat 等唯讀指令視為讀取私人資料；其他指令每次都會詢問。",
+  "termuxNotInstalled": "尚未安裝 Termux。請從 F-Droid 或 Termux 的 GitHub Releases 安裝。",
+  "termuxStepOpen": "開啟 Termux 一次，等待初始設定完成。",
+  "termuxStepProperty": "在 Termux 執行以下指令，讓其他 App 可以傳送指令：",
+  "termuxStepPermission": "允許 {app} 在 Termux 中執行指令。",
+  "termuxSecurityNote": "這項設定會讓任何取得 Termux 權限的 App 都能執行指令。",
+  "openTermux": "開啟 Termux",
+  "testShell": "測試",
+  "shellTestPassed": "Termux 回應：{output}",
+  "shellTestFailed": "測試失敗（{error}）。",
+  "shellTimeout": "指令逾時（秒）",
+  "appTagline": "本機優先的 AI 助理",
+  "grantPermission": "允許",
+  "@screenSessionTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@approvalNeededTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@replyReadyTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@deviceControlHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@screenControlHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@screenControlDisclosure": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@notificationAccessHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@termuxStepPermission": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@shellTestPassed": {
+    "placeholders": {
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "@shellTestFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tabs": "分頁",
+  "newTab": "新增分頁",
+  "closeTab": "關閉分頁",
+  "blankTab": "空白頁",
+  "openedByAssistant": "由 {app} 開啟",
+  "deleteScreenshots": "刪除對話時一併刪除截圖",
+  "deleteScreenshotsHelp": "回溯並刪除之後的訊息時也一樣。無痕聊天一律刪除。",
+  "@openedByAssistant": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  }
+}

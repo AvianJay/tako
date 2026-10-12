@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_control_summary">Lets the assistant read and operate other apps when you ask.</string>
+    <string name="screen_control_description">Lets the assistant read the screen and tap, type and scroll in other apps when you ask it to. The screen is read only while a screen tool runs. What it reads is sent to the model you selected and kept in that conversation. Taps on send, pay, delete and similar buttons always ask first, and password fields are never filled. You can turn this off at any time.</string>
+</resources>

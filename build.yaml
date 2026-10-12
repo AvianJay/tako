@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # The FTS5 memory index is created with custom statements in
+          # database.dart, so drift does not need to analyze an fts5 module.
+          store_date_time_values_as_text: false

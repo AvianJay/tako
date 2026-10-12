@@ -1,0 +1,11 @@
+{
+  "name": "tako-browser-runtime-check",
+  "private": true,
+  "description": "Check of the injected browser runtime against jsdom. Runs in CI; not part of the app.",
+  "scripts": {
+    "check": "node check.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}

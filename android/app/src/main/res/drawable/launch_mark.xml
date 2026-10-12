@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher mark at 1.5 dp per unit, centred in Android 12's 288 dp splash
+     icon. lib/app/bootstrap.dart repeats it in place on its first frame. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="1.5"
+        android:scaleY="1.5"
+        android:translateX="90"
+        android:translateY="90">
+        <path
+            android:fillColor="@color/launch_mark"
+            android:pathData="M54 29.5 C64.22 29.5 72.5 39.13 72.5 51 C72.5 53.87 72.01 56.71 71.05 59.35 C69.96 62.34 67.05 64.5 65.4 64.5 L42.6 64.5 C40.95 64.5 38.04 62.34 36.95 59.35 C35.99 56.71 35.5 53.87 35.5 51 C35.5 39.13 43.78 29.5 54 29.5 Z M36 73.5 A4.5 4.5 0 1 0 45 73.5 A4.5 4.5 0 1 0 36 73.5 Z M49.5 73.5 A4.5 4.5 0 1 0 58.5 73.5 A4.5 4.5 0 1 0 49.5 73.5 Z M63 73.5 A4.5 4.5 0 1 0 72 73.5 A4.5 4.5 0 1 0 63 73.5 Z" />
+    </group>
+</vector>

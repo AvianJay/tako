@@ -1,0 +1,44 @@
+name: Flutter checks
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: dart run pigeon --input pigeons/device_api.dart
+      - run: dart run pigeon --input pigeons/control_api.dart
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: dart format lib/data/database.g.dart lib/platform/android/device_api.g.dart lib/platform/android/control_api.g.dart lib/l10n/gen
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test pigeons tool
+      - run: flutter analyze
+      - run: flutter test
+      # The script injected into browser pages, run against a DOM (jsdom).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+        working-directory: tool/browser_runtime_check
+      - run: dart run tool/browser_runtime_check/emit_template.dart
+      - run: node tool/browser_runtime_check/check.js
+      # `full` (default flavor) includes screen control; `play` leaves it out.
+      - run: flutter build apk --release
+      - run: flutter build apk --release --flavor play
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tako-release-apk
+          path: |
+            build/app/outputs/flutter-apk/app-full-release.apk
+            build/app/outputs/flutter-apk/app-play-release.apk

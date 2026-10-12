@@ -1,0 +1,534 @@
+{
+  "toolRunSummary": "{tool} · {count, plural, one{1 step} other{{count} steps}}",
+  "@toolRunSummary": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolRunTitle": "Tool activity",
+  "toolRunIncomplete": "No result recorded",
+  "toolRunUnavailable": "This tool activity is no longer on the current conversation branch.",
+  "undo": "Undo",
+  "deleteAttachmentBody": "This attachment may be used by earlier chats. Deleting it will make those image/file references unavailable. A backup and Undo will be offered.",
+  "toolsSettings": "Tools and permissions",
+  "toolsEnabled": "Enable tools",
+  "maxToolSteps": "Maximum tool calls per turn",
+  "maxScreenToolSteps": "Maximum tool calls per turn when controlling the screen",
+  "toolOutputLimit": "Tool result limit (characters)",
+  "permissions": "Permissions",
+  "fullPermissions": "Full permissions",
+  "fullPermissionsWarning": "Sensitive reads and reversible actions will run without asking. High-risk actions still require confirmation.",
+  "skipHighRisk": "Also skip high-risk confirmations",
+  "skipHighRiskWarning": "Tools may send data, delete files, or change things without another confirmation. Enable only if you accept these actions.",
+  "toolOverrides": "Individual tools",
+  "defaultPolicy": "Default policy",
+  "alwaysAllow": "Always allow this tool",
+  "alwaysAsk": "Always ask",
+  "deny": "Deny",
+  "allowOnce": "Allow once",
+  "allowChat": "Allow in this chat",
+  "approvalTitle": "Tool approval",
+  "approvalBody": "Review the action and exact arguments before allowing it.",
+  "riskSafe": "Safe",
+  "riskSensitive": "Reads private data",
+  "riskAction": "Changes something",
+  "riskHigh": "High-risk action",
+  "auditLog": "Tool activity",
+  "clearAudit": "Clear activity",
+  "clearAuditBody": "Delete the local tool activity log?",
+  "noAudit": "No tool activity yet.",
+  "arguments": "Arguments",
+  "result": "Result",
+  "search": "Web search",
+  "searchProvider": "Search provider",
+  "searchUrl": "Search endpoint",
+  "searchKey": "Search API key",
+  "searchResults": "Number of results",
+  "searchHelp": "Search keys are stored securely and kept separate for each provider.",
+  "searchKeyHint": "Stored securely on this device",
+  "searchOptionalToken": "Bearer token (optional)",
+  "searchSerperHelp": "Search Google through Serper. Enter your Serper API key; the default endpoint is ready to use.",
+  "searchDdgsHelp": "Enter the URL of your DDGS API server (ddgs api). A key is not required unless your server or reverse proxy uses Bearer authentication.",
+  "searchSearxngHelp": "Enter your SearXNG instance URL. JSON results must be enabled on the server.",
+  "files": "Files",
+  "attach": "Attach images or files",
+  "camera": "Camera",
+  "photos": "Photos",
+  "attachmentBusy": "Wait for the current action to finish before adding an image.",
+  "attachmentLimit": "You can attach up to 8 images or files per message.",
+  "imageUnavailable": "Could not read this image. Try choosing it from Photos or Files.",
+  "unsupportedImage": "This image format is not supported. Choose a PNG, JPEG, GIF, or WebP image.",
+  "importFiles": "Import files",
+  "emptyFiles": "The workspace is empty.",
+  "filePreview": "File preview",
+  "deleteFileBody": "Delete this workspace file? A backup will be kept.",
+  "workspace": "Workspace",
+  "restoreFiles": "Restore workspace files",
+  "sideEffectsTitle": "Actions have already happened",
+  "sideEffectsBody": "Rewinding the chat does not undo these actions. Available workspace backups and newly saved memories can be restored before rewinding.",
+  "restoreAndRewind": "Restore and rewind",
+  "rewindOnly": "Rewind chat only",
+  "visionRequired": "Choose a vision-capable model to send images.",
+  "toolStepLimit": "Tool-call limit reached. Review the results, then press Continue if needed.",
+  "toolRunning": "Running",
+  "toolWaiting": "Waiting",
+  "toolCompleted": "Completed",
+  "toolFailed": "Failed",
+  "toolsUnavailable": "Enable tool calling in this model’s capabilities to let it use tools.",
+  "deviceStatusTool": "Read device status",
+  "locationTool": "Read location",
+  "clipboardReadTool": "Read clipboard",
+  "clipboardWriteTool": "Write clipboard",
+  "calendarListTool": "Read calendar",
+  "calendarAddTool": "Add calendar event",
+  "alarmTool": "Set alarm",
+  "timerTool": "Set timer",
+  "openUrlTool": "Open URL",
+  "openAppTool": "Open app",
+  "searchTool": "Search web",
+  "fetchTool": "Read web page",
+  "fileListTool": "List files",
+  "fileReadTool": "Read file",
+  "fileWriteTool": "Write file",
+  "fileDeleteTool": "Delete file",
+  "toolDisabled": "Unavailable",
+  "highRiskKeywords": "High-risk keywords (one per line)",
+  "importFailed": "Could not import the selected file.",
+  "restoreFailed": "A backup could not be restored. The conversation was not rewound.",
+  "toolResultAttachment": "Tool attachment",
+  "noBackup": "No workspace backup",
+  "systemPermissionHint": "Android may ask for permission after you allow this tool.",
+  "@@locale": "en",
+  "newChat": "New chat",
+  "chats": "Chats",
+  "settings": "Settings",
+  "providers": "Providers",
+  "addProvider": "Add provider",
+  "editProvider": "Edit provider",
+  "noProviders": "Connect your model",
+  "welcome": "A little space to think.",
+  "welcomeBody": "Ask, explore, or work something out. Your conversations stay on this device.",
+  "setupBody": "Add a cloud provider or a local server to start chatting. You choose where your messages go.",
+  "messageHint": "Ask anything",
+  "send": "Send",
+  "stop": "Stop",
+  "retry": "Retry",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "close": "Close",
+  "copy": "Copy",
+  "copyMarkdown": "Copy as Markdown",
+  "selectText": "Select text",
+  "copied": "Copied",
+  "share": "Share",
+  "edit": "Edit",
+  "regenerate": "Regenerate",
+  "rewind": "Rewind to here",
+  "rewindDelete": "Rewind and delete after",
+  "rewindDeleteBody": "Delete all later branches after this message? This cannot be undone.",
+  "deleteChatBody": "Delete this conversation and all of its branches?",
+  "thinking": "Thinking",
+  "you": "You",
+  "image": "Image",
+  "file": "File",
+  "stopped": "Stopped",
+  "streaming": "Writing…",
+  "providerName": "Display name",
+  "apiType": "API format",
+  "baseUrl": "Base URL",
+  "apiKey": "API key",
+  "keyHint": "Optional for local servers",
+  "keyStored": "Key saved securely · leave blank to keep",
+  "removeKey": "Remove saved key",
+  "model": "Model",
+  "modelHint": "Enter a model ID or load the list",
+  "loadModels": "Load models",
+  "testConnection": "Test connection",
+  "connectionOk": "Connected. Model list is available.",
+  "connectionHelp": "Tests the models endpoint. You can still enter a model manually if this endpoint is unavailable.",
+  "extraHeaders": "Extra headers (JSON object)",
+  "headersHint": "Stored securely with your key",
+  "headersStored": "Headers saved securely · leave blank to keep",
+  "removeHeaders": "Remove saved headers",
+  "localProvider": "Local provider",
+  "localDescription": "Auto-detected for loopback and private LAN addresses. You can override it.",
+  "toolsCapability": "Tool calling",
+  "visionCapability": "Vision",
+  "reasoningCapability": "Reasoning",
+  "capabilities": "Model capabilities",
+  "contextWindow": "Context window (tokens)",
+  "maxOutput": "Maximum output tokens",
+  "reasoningMode": "Reasoning mode",
+  "reasoningOff": "Provider default",
+  "reasoningEnabled": "Enabled (budget)",
+  "reasoningAdaptive": "Adaptive",
+  "thinkingBudget": "Thinking budget (tokens)",
+  "reasoningEffort": "Reasoning effort",
+  "requiredField": "Required",
+  "invalidUrl": "Use an http(s) URL without credentials, query, or fragment.",
+  "invalidJson": "Enter a JSON object with string header values.",
+  "invalidNumber": "Enter a positive whole number.",
+  "invalidBudget": "Output tokens must be smaller than the context window. Thinking budget must be at least 1024 and smaller than output tokens.",
+  "operationFailed": "Something went wrong. Please try again.",
+  "fileUnavailable": "This workspace file is unavailable.",
+  "contextTrimmed": "Older context trimmed for this model",
+  "contextTooLarge": "This message exceeds the model’s context window. Shorten it or increase the context window in provider settings.",
+  "noProviderSelected": "Select a provider in settings to continue.",
+  "providerRemoved": "The provider for this conversation is unavailable. Choose another provider.",
+  "changeProvider": "Change provider",
+  "changeProviderBody": "The conversation will continue with this provider. Its visible history will be sent there and the system prompt will be refreshed.",
+  "continueAction": "Continue",
+  "appearance": "Appearance",
+  "theme": "Theme",
+  "systemTheme": "System",
+  "lightTheme": "Light",
+  "darkTheme": "Dark",
+  "textSize": "Text size",
+  "language": "Language",
+  "privacy": "Local first",
+  "privacyBody": "Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.",
+  "about": "About",
+  "developerContext": "Stored context",
+  "noChats": "Your conversations will appear here.",
+  "chooseProvider": "Choose a provider",
+  "previousBranch": "Previous branch",
+  "nextBranch": "Next branch",
+  "providerDeleteBody": "Remove this provider and its saved credentials? Conversations are kept.",
+  "emptyResponse": "The provider returned no answer. Try again or check the model settings.",
+  "toolsLater": "Tools are not enabled or available for this request.",
+  "builtInSearch": "Provider-managed web search",
+  "builtInSearchHelp": "Use the model provider's native search. Turn off to use the provider in Search settings. Tool permission rules still apply.",
+  "allowCustomSearchEndpoint": "Allow compatible proxies (CPA)",
+  "allowCustomSearchEndpointHelp": "Send native search tools to this custom endpoint. The proxy must preserve the Responses or Messages search format; automatic detection otherwise allows official endpoints only.",
+  "testNativeSearch": "Test native search",
+  "nativeSearchTesting": "Testing native search…",
+  "nativeSearchTestHelp": "Runs one public search for the official Flutter website using this model and endpoint. May incur API charges. Does not send chat history, enable search, or save settings.",
+  "nativeSearchSupported": "Verified: the provider completed a native search.",
+  "nativeSearchNotObserved": "The endpoint responded, but no completed native search was observed. The proxy may have removed the tool or the route may not support it.",
+  "nativeSearchProtocolHelp": "Native search here requires OpenAI Responses or Anthropic Messages. For Chat Completions, use the provider in Search settings.",
+  "nativeSearchDisabled": "Enable tools and web search in Tools and permissions before testing.",
+  "nativeSearchDenied": "The web search permission policy denied this test.",
+  "nativeSearchFailed": "Native search test failed. Check that the model and proxy route support native search.",
+  "nativeSearchCancelled": "Native search test cancelled.",
+  "nativeSearchTimeout": "Native search test timed out. Its request was cancelled.",
+  "nativeSearchBusy": "Wait for the current operation to finish before testing.",
+  "localLabel": "Local",
+  "cloudLabel": "Cloud",
+  "connectionFailed": "Connection failed",
+  "noModels": "No models returned. Enter a model ID manually.",
+  "viewImage": "View image",
+  "openImageLink": "Open image in browser",
+  "renameChat": "Rename chat",
+  "chatTitle": "Conversation title",
+  "messageActions": "Message actions",
+  "models": "Models",
+  "addModel": "Add model",
+  "addModels": "Add selected",
+  "newModel": "New model",
+  "duplicateModel": "This model is already added.",
+  "autoModelSpecs": "Detect model specifications",
+  "knownModelSpecs": "Known specifications applied. Turn off to customize limits and capabilities.",
+  "unknownModelSpecs": "Unknown model: using fallback settings. Set the limits supported by your server.",
+  "officialModelId": "Official API model ID",
+  "chooseModel": "Choose a model",
+  "@memoryProfileUsage": {
+    "placeholders": {
+      "words": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "@memoriesImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@downloadBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "memory": "Memory",
+  "memoryEnabled": "Use memory",
+  "memoryEnabledHelp": "{app} can save and look up lasting facts you share. Pinned profile and preference entries are added to new chats.",
+  "memoryOff": "Memory is off. Saved memories are kept but are not used in chats.",
+  "memorySearchHint": "Search memories",
+  "memoryEmpty": "No memories yet. Ask {app} to remember something, or add one here.",
+  "memoryNoMatches": "No matching memories.",
+  "addMemory": "Add memory",
+  "editMemory": "Edit memory",
+  "memoryText": "Text",
+  "memoryKind": "Type",
+  "memoryKindProfile": "Profile",
+  "memoryKindPreference": "Preference",
+  "memoryKindFact": "Fact",
+  "memoryPinned": "Pinned",
+  "memoryPin": "Pin",
+  "memoryUnpin": "Unpin",
+  "memoryPinHelp": "Pinned profile and preference entries are included in new chats.",
+  "memoryProfileUsage": "Pinned profile: {words}/{limit} words",
+  "memoryProfileTruncated": "Some pinned entries do not fit and are left out of new chats.",
+  "memoryFromChat": "Saved from a chat",
+  "deleteMemoryBody": "Delete this memory?",
+  "deleteAllMemories": "Delete all memories",
+  "deleteAllMemoriesBody": "Delete every saved memory? This cannot be undone.",
+  "exportMemories": "Export JSON",
+  "importMemories": "Import JSON",
+  "memoriesImported": "{count, plural, =0{No new memories imported} one{Imported 1 memory} other{Imported {count} memories}}",
+  "memoryImportFailed": "This file is not a valid {app} memory export.",
+  "memorySaved": "Saved to memory",
+  "memoryUndone": "Removed from memory",
+  "memoryChanged": "Changed or removed since it was saved",
+  "personalization": "Personalization",
+  "displayName": "What should {app} call you?",
+  "customInstructions": "Custom instructions",
+  "customInstructionsHint": "Anything {app} should know or follow in every new chat",
+  "replyStyle": "Reply style",
+  "replyConcise": "Concise",
+  "replyNormal": "Normal",
+  "replyDetailed": "Detailed",
+  "personalizationHelp": "Changes apply to new chats. Existing chats keep the settings they started with.",
+  "incognitoChat": "Incognito chat",
+  "newIncognitoChat": "New incognito chat",
+  "incognitoBody": "Memory is off, and this chat is deleted when you leave it.",
+  "browser": "Browser",
+  "openBrowser": "Open browser",
+  "browserAddressHint": "Enter a web address",
+  "browserInvalidAddress": "Enter a web address such as example.com.",
+  "browserEmpty": "Enter an address, or ask {app} to open a page.",
+  "browserModelActive": "{app} is using the browser",
+  "takeOver": "Take over",
+  "browserBack": "Back",
+  "browserForward": "Forward",
+  "browserReload": "Reload",
+  "openExternally": "Open in another app",
+  "clearBrowsingData": "Clear browsing data",
+  "clearBrowsingDataBody": "Delete cookies, site storage, cache and history of the in-app browser? You will be signed out of sites.",
+  "browsingDataCleared": "Browsing data cleared",
+  "openLinksInApp": "Open links in the in-app browser",
+  "openLinksInAppHelp": "When off, links open in your default browser. The in-app browser keeps its own cookies, separate from other browsers.",
+  "browserUnavailable": "The in-app browser is not available on this device.",
+  "downloadTitle": "Download file?",
+  "downloadBody": "Save {name} from {host} to Files?",
+  "download": "Download",
+  "downloadSaved": "Saved to Files",
+  "downloadFailed": "The download failed.",
+  "downloadTooLarge": "Files over 20 MB cannot be downloaded.",
+  "approvalElement": "Element",
+  "approvalPage": "Page",
+  "approvalSubmit": "Submits with",
+  "memorySearchTool": "Search memory",
+  "memorySaveTool": "Save to memory",
+  "memoryUpdateTool": "Update memory",
+  "memoryDeleteTool": "Delete memory",
+  "browserOpenTool": "Open web page",
+  "browserReadTool": "Read browser page",
+  "browserClickTool": "Click in browser",
+  "browserTypeTool": "Type in browser",
+  "browserScrollTool": "Scroll browser page",
+  "browserBackTool": "Browser back",
+  "@memoryEnabledHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@memoryEmpty": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@memoryImportFailed": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@displayName": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@customInstructionsHint": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@browserEmpty": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@browserModelActive": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "readScreenTool": "Read screen",
+  "tapTool": "Tap on screen",
+  "longPressTool": "Long-press on screen",
+  "swipeTool": "Swipe on screen",
+  "scrollTool": "Scroll on screen",
+  "typeTextTool": "Type on screen",
+  "pressKeyTool": "Press key",
+  "runShellTool": "Run shell command",
+  "notificationsListTool": "Read notifications",
+  "approvalApp": "App",
+  "approvalPoint": "Position",
+  "screenSessionTitle": "{app} is controlling the screen",
+  "screenSessionBody": "Tap Stop to take over.",
+  "screenChannel": "Screen control",
+  "alertChannel": "Approvals and replies",
+  "approvalNeededTitle": "{app} needs your approval",
+  "approvalNeededBody": "Open the app to review the request.",
+  "replyReadyTitle": "{app} replied",
+  "replyReadyBody": "Tap to read the reply.",
+  "deviceControl": "Device control",
+  "deviceControlHelp": "Let {app} use other apps, your notifications and Termux. Each is turned on in Android settings, and every action still goes through tool permissions.",
+  "screenControl": "Screen control",
+  "statusOn": "On",
+  "statusOff": "Off",
+  "screenControlUnsupported": "This version does not include screen control.",
+  "screenControlHelp": "{app} reads the screen and taps, types and scrolls in other apps only when you ask, through approved tools. Send, pay, delete and similar buttons always ask first, and password fields are never filled.",
+  "screenControlDisclosureTitle": "Turn on screen control?",
+  "screenControlDisclosure": "{app} uses Android's accessibility service to read what is on the screen and to tap, type and scroll for you. The screen is read only while a screen tool runs. What it reads is sent to the model provider you chose, kept in that chat, and used for nothing else. On the next screen, find {app} and turn it on.",
+  "openAccessibilitySettings": "Open accessibility settings",
+  "restrictedSettingsHelp": "If Android says the setting is restricted, open App info, tap the ⋮ menu, choose Allow restricted settings, and try again.",
+  "openAppInfo": "Open app info",
+  "screenshotsSetting": "Send screenshots to vision models",
+  "screenshotsHelp": "read_screen also attaches a screenshot when the model accepts images. Screenshots show everything on screen and use more tokens.",
+  "screenshotsUnsupported": "Screenshots need Android 11 or later.",
+  "sessionNotification": "Notification while controlling the screen",
+  "sessionNotificationHelp": "Shows that the screen is being controlled, with a Stop button.",
+  "allowNotifications": "Allow notifications",
+  "allowed": "Allowed",
+  "notificationAccess": "Notification access",
+  "notificationAccessHelp": "Lets {app} read your current notifications when you ask. Nothing is read or kept in the background.",
+  "openNotificationAccess": "Open notification access settings",
+  "termux": "Termux (run_shell)",
+  "termuxHelp": "run_shell runs commands in Termux. Read-only commands such as ls or cat count as reading private data; anything else asks every time.",
+  "termuxNotInstalled": "Termux is not installed. Install it from F-Droid or its GitHub releases.",
+  "termuxStepOpen": "Open Termux once and wait for its setup to finish.",
+  "termuxStepProperty": "In Termux, run this command so other apps can send commands:",
+  "termuxStepPermission": "Allow {app} to run commands in Termux.",
+  "termuxSecurityNote": "This setting lets any app holding the Termux permission run commands.",
+  "openTermux": "Open Termux",
+  "testShell": "Test",
+  "shellTestPassed": "Termux replied: {output}",
+  "shellTestFailed": "The test failed ({error}).",
+  "shellTimeout": "Command timeout (seconds)",
+  "appTagline": "A local-first AI assistant",
+  "grantPermission": "Allow",
+  "@screenSessionTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@approvalNeededTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@replyReadyTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@deviceControlHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@screenControlHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@screenControlDisclosure": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@notificationAccessHelp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@termuxStepPermission": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "@shellTestPassed": {
+    "placeholders": {
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "@shellTestFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tabs": "Tabs",
+  "newTab": "New tab",
+  "closeTab": "Close tab",
+  "blankTab": "Blank page",
+  "openedByAssistant": "Opened by {app}",
+  "deleteScreenshots": "Delete screenshots with their chat",
+  "deleteScreenshotsHelp": "Also when a rewind deletes later messages. Incognito chats always remove theirs.",
+  "@openedByAssistant": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  }
+}
