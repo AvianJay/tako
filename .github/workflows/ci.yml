@@ -100,8 +100,23 @@ jobs:
           - tako-full-armeabi-v7a.apk: older 32-bit phones; no on-device models.
           - tako-full-x86_64.apk: emulators and Chromebooks.
           - tako-play-*.apk: without screen control (no accessibility service)."
-          git tag -f nightly "$GITHUB_SHA"
-          git push -f origin refs/tags/nightly
+          # Move (or create) the tag through the API. Tag updates sometimes
+          # fail with a server error, so retry.
+          moved=""
+          for attempt in 1 2 3; do
+            if gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/nightly" \
+                 -f sha="$GITHUB_SHA" -F force=true >/dev/null ||
+               gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+                 -f ref=refs/tags/nightly -f sha="$GITHUB_SHA" >/dev/null; then
+              moved=1
+              break
+            fi
+            sleep $((attempt * 15))
+          done
+          if [[ -z "$moved" ]]; then
+            echo "::error::Could not move the nightly tag."
+            exit 1
+          fi
           if gh release view nightly >/dev/null 2>&1; then
             gh release edit nightly --title "Nightly ($version)" --notes "$notes" --prerelease --latest=false
           else
