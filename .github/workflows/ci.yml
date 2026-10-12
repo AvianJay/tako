@@ -24,6 +24,15 @@ jobs:
       - run: dart format lib/data/database.g.dart lib/platform/android/device_api.g.dart lib/platform/android/control_api.g.dart lib/l10n/gen
       - run: dart format --output=none --set-exit-if-changed lib test integration_test pigeons tool
       - run: flutter analyze
+      # On Linux, flutter test loads PDFium from next to flutter_tester. Use the
+      # release pdfium_dart's build hook pins.
+      - name: Install PDFium for tests
+        run: |
+          lib="$(dirname "$(command -v flutter)")/cache/artifacts/engine/linux-x64/lib"
+          mkdir -p "$lib"
+          curl -fsSL https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7811/pdfium-linux-x64.tgz \
+            | tar -xz -C "$RUNNER_TEMP" lib/libpdfium.so
+          cp "$RUNNER_TEMP/lib/libpdfium.so" "$lib/"
       - run: flutter test
       # The script injected into browser pages, run against a DOM (jsdom).
       - uses: actions/setup-node@v4
