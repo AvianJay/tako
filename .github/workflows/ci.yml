@@ -11,8 +11,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     permissions:
-      # Moves the nightly tag and replaces its release assets.
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -85,9 +84,60 @@ jobs:
         with:
           name: tako-release-apk
           path: dist/*.apk
+          if-no-files-found: error
+
+  # iOS is built without signing; the IPA must be signed before installation.
+  ios:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: dart run pigeon --input pigeons/device_api.dart
+      - run: dart run pigeon --input pigeons/ios_api.dart
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build ios --release --no-codesign
+      # llama.cpp arrives as frameworks from llamadart's build hook.
+      - name: Check that llama.cpp is bundled
+        run: |
+          ls build/ios/iphoneos/Runner.app/Frameworks
+          ls build/ios/iphoneos/Runner.app/Frameworks | grep -qi llama
+      - name: Package unsigned iOS IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/tako-ipa/Payload" dist
+          cp -R build/ios/iphoneos/Runner.app "$RUNNER_TEMP/tako-ipa/Payload/"
+          cd "$RUNNER_TEMP/tako-ipa"
+          zip -qry "$GITHUB_WORKSPACE/dist/tako-ios-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tako-release-ipa
+          path: dist/*.ipa
+          if-no-files-found: error
+
+  # Publish both platforms together so asset cleanup keeps the unsigned IPA.
+  release:
+    needs: [check, ios]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      # Moves the nightly tag and replaces its release assets.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: tako-release-*
+          merge-multiple: true
+          path: dist
       # The `nightly` release always holds the latest build of main.
       - name: Update the nightly release
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -99,7 +149,10 @@ jobs:
           - tako-full-arm64-v8a.apk: most phones.
           - tako-full-armeabi-v7a.apk: older 32-bit phones; no on-device models.
           - tako-full-x86_64.apk: emulators and Chromebooks.
-          - tako-play-*.apk: without screen control (no accessibility service)."
+          - tako-play-*.apk: without screen control (no accessibility service).
+
+          iOS:
+          - tako-ios-unsigned.ipa: unsigned iOS build; sign it before installing on a device."
           # Move (or create) the tag through the API. Tag updates sometimes
           # fail with a server error, so retry.
           moved=""
@@ -122,30 +175,8 @@ jobs:
           else
             gh release create nightly --title "Nightly ($version)" --notes "$notes" --prerelease --latest=false --verify-tag
           fi
-          gh release upload nightly dist/*.apk --clobber
+          gh release upload nightly dist/*.apk dist/*.ipa --clobber
           # Drop assets that a build no longer produces.
           for asset in $(gh release view nightly --json assets --jq '.assets[].name'); do
             [[ -f "dist/$asset" ]] || gh release delete-asset nightly "$asset" --yes
           done
-
-  # iOS is built, not signed or run: there is no device to test on yet.
-  ios:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.6'
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter gen-l10n
-      - run: dart run pigeon --input pigeons/device_api.dart
-      - run: dart run pigeon --input pigeons/ios_api.dart
-      - run: dart run build_runner build --delete-conflicting-outputs
-      - run: flutter build ios --release --no-codesign
-      # llama.cpp arrives as frameworks from llamadart's build hook.
-      - name: Check that llama.cpp is bundled
-        run: |
-          ls build/ios/iphoneos/Runner.app/Frameworks
-          ls build/ios/iphoneos/Runner.app/Frameworks | grep -qi llama

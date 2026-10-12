@@ -116,7 +116,7 @@ There are two build flavors:
 | `full` (default) | Everything, including screen control. |
 | `play` | No accessibility service, for distribution on Google Play. |
 
-Every push to `main` updates the [nightly release](https://github.com/AvianJay/tako/releases/tag/nightly) with all six APKs, named `tako-<flavor>-<abi>.apk`.
+Every push to `main` updates the [nightly release](https://github.com/AvianJay/tako/releases/tag/nightly) with all six APKs, named `tako-<flavor>-<abi>.apk`, and the unsigned iOS build, `tako-ios-unsigned.ipa`, after both platform builds succeed.
 
 CI signs the release APKs on pushes using the GitHub Actions secrets
 `KEYSTORE_BASE64` (the base64-encoded keystore), `KEYSTORE_ALIAS`, and
@@ -192,7 +192,7 @@ The iOS app shares everything above except what iOS does not allow:
 | Shortcuts | `list_shortcuts` and `run_shortcut` run the Shortcuts you name under **Settings → Shortcuts**, through the Shortcuts app's x-callback-url. Every run asks first. |
 | Screen control, notifications | Not available. |
 
-CI builds it with `flutter build ios --release --no-codesign`. It has not been run on a device or simulator yet.
+CI builds it with `flutter build ios --release --no-codesign` and packages `Runner.app` under `Payload/` as `tako-ios-unsigned.ipa`. The IPA is available as a workflow artifact and in the nightly release. It must be signed before installation on an iOS device. It has not been run on a device or simulator yet.
 
 ## Project structure
 
