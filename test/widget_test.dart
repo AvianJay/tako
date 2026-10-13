@@ -631,6 +631,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('chat header keeps renaming without a generate-title button', (
+    tester,
+  ) async {
+    await boot(
+      tester,
+      locale: const Locale('en'),
+      size: const Size(390, 844),
+      seeded: true,
+    );
+    expect(find.byKey(const ValueKey('generate-chat-title')), findsNothing);
+    expect(find.byTooltip('Generate chat title'), findsNothing);
+    expect(find.byTooltip('Rename chat'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'message metadata is outside the bubble and single provider is hidden',
     (tester) async {

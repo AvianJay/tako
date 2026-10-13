@@ -12,7 +12,6 @@ import '../../core/browser/browser_capability.dart';
 import '../../core/chat/content_block.dart';
 import '../../core/chat/message.dart';
 import '../../core/on_device/on_device_capability.dart';
-import '../../core/providers/provider_config.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
@@ -1372,38 +1371,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               ),
                         icon: const Icon(Icons.visibility_off_outlined),
                         selectedIcon: const Icon(Icons.visibility_off),
-                      ),
-                    if (app.conversation != null && !app.incognito)
-                      IconButton(
-                        key: const ValueKey('generate-chat-title'),
-                        tooltip: l.generateChatTitle,
-                        onPressed:
-                            app.busy ||
-                                app.isGeneratingTitle ||
-                                app
-                                        .selectedProvider
-                                        ?.capabilities
-                                        .imageGeneration !=
-                                    ImageGenerationMode.none
-                            ? null
-                            : () => _run(() async {
-                                if (!await app.generateConversationTitle() &&
-                                    context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l.titleGenerationFailed),
-                                    ),
-                                  );
-                                }
-                              }),
-                        icon: app.isGeneratingTitle
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.auto_awesome_outlined, size: 20),
                       ),
                     if (app.conversation != null && !app.incognito)
                       IconButton(

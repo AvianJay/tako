@@ -15,8 +15,8 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
 
 - **Chat**
   - Streaming replies with branches, edit and regenerate, and rewind.
-  - Automatic conversation titles after the first reply, with manual title
-    generation and renaming. Incognito chats do not request titles.
+  - Automatic conversation titles after the first reply, with manual renaming.
+    Incognito chats do not request titles.
   - Markdown and LaTeX rendering.
   - Image, PDF and text attachments.
   - Several models per provider, switched from the chat title.
