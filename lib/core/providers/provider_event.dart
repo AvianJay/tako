@@ -21,6 +21,19 @@ final class TextDelta extends ProviderEvent {
   final String text;
 }
 
+/// Validated image bytes. The app persists these in the conversation workspace;
+/// providers never choose a local path or write files directly.
+final class GeneratedImage extends ProviderEvent {
+  const GeneratedImage({
+    required this.base64,
+    required this.mimeType,
+    this.alt,
+  });
+  final String base64;
+  final String mimeType;
+  final String? alt;
+}
+
 final class ReasoningDelta extends ProviderEvent {
   const ReasoningDelta(this.text, {this.blockIndex = 0});
   final String text;

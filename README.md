@@ -18,6 +18,13 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
   - Markdown and LaTeX rendering.
   - Image, PDF and text attachments.
   - Several models per provider, switched from the chat title.
+  - Image generation through compatible Images APIs, chat image output, or the
+    Responses image tool. Configure the output mode and reference-image support
+    for each model in **Settings → Providers**. Switch to an image model for
+    direct generation, or let a tool-capable chat model call `generate_image`
+    using the configured image models. Reference images can come from message
+    attachments or workspace files. Generated originals are saved locally and
+    can be viewed, shared, or used as references in later requests.
 - **On-device models** (64-bit Android and iOS), run by llama.cpp through [llamadart](https://pub.dev/packages/llamadart):
   - A recommended list of small Qwen3 models. They are downloaded from Hugging Face, pinned to a commit, and checked against their SHA-256.
   - You can also import a GGUF file or download one from a URL.

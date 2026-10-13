@@ -8,6 +8,8 @@ class ModelSpec {
     this.vision = false,
     this.reasoning = false,
     this.tools = true,
+    this.imageGeneration = ImageGenerationMode.none,
+    this.imageReferenceInput = false,
     this.officialId,
   });
   final int contextWindow;
@@ -15,12 +17,16 @@ class ModelSpec {
   final bool vision;
   final bool reasoning;
   final bool tools;
+  final ImageGenerationMode imageGeneration;
+  final bool imageReferenceInput;
   final String? officialId;
   ProviderCapabilities get capabilities => ProviderCapabilities(
     contextWindow: contextWindow,
     tools: tools,
     vision: vision,
     reasoning: reasoning,
+    imageGeneration: imageGeneration,
+    imageReferenceInput: imageReferenceInput,
   );
 }
 
@@ -32,6 +38,16 @@ abstract final class ModelCatalog {
     id = id.replaceFirst(RegExp(r'-(?:20\d{2}-\d{2}-\d{2}|20\d{6})$'), '');
     if (id.startsWith('claude-')) id = id.replaceAll('.', '-');
     return switch (id) {
+      // https://developers.openai.com/api/reference/python/resources/images/methods/edit
+      // Image endpoints do not use token budgets; these are fallback editor
+      // values only, not advertised limits for these image models.
+      'gpt-image-1' || 'gpt-image-1-mini' || 'gpt-image-1.5' => const ModelSpec(
+        32768,
+        4096,
+        tools: false,
+        imageGeneration: ImageGenerationMode.imagesApi,
+        imageReferenceInput: true,
+      ),
       // https://api-docs.deepseek.com/quick_start/pricing (1M / 384K)
       'deepseek-flash' ||
       'deepseek-v4.1-flash' ||

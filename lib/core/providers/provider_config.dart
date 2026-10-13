@@ -5,6 +5,9 @@ enum ApiType { chatCompletions, responses, messages, onDevice }
 
 enum ReasoningMode { off, enabled, adaptive }
 
+/// The wire format used to request image output from an individual model.
+enum ImageGenerationMode { none, imagesApi, chatOutput, responsesTool }
+
 class ProviderCapabilities {
   const ProviderCapabilities({
     this.tools = false,
@@ -13,6 +16,8 @@ class ProviderCapabilities {
     this.contextWindow,
     this.builtInWebSearch = false,
     this.allowCustomSearchEndpoint = false,
+    this.imageGeneration = ImageGenerationMode.none,
+    this.imageReferenceInput = false,
   });
 
   factory ProviderCapabilities.fromJson(JsonMap json) => ProviderCapabilities(
@@ -23,6 +28,11 @@ class ProviderCapabilities {
     builtInWebSearch: asBool(json['builtInWebSearch']) ?? false,
     allowCustomSearchEndpoint:
         asBool(json['allowCustomSearchEndpoint']) ?? false,
+    imageGeneration: ImageGenerationMode.values.firstWhere(
+      (mode) => mode.name == json['imageGeneration'],
+      orElse: () => ImageGenerationMode.none,
+    ),
+    imageReferenceInput: asBool(json['imageReferenceInput']) ?? false,
   );
 
   final bool tools;
@@ -35,6 +45,34 @@ class ProviderCapabilities {
   /// This does not grant permission to execute a search by itself.
   final bool allowCustomSearchEndpoint;
 
+  final ImageGenerationMode imageGeneration;
+  final bool imageReferenceInput;
+
+  bool get acceptsImageInput => imageGeneration == ImageGenerationMode.none
+      ? vision
+      : imageReferenceInput;
+
+  ProviderCapabilities copyWith({
+    bool? tools,
+    bool? vision,
+    bool? reasoning,
+    int? contextWindow,
+    bool? builtInWebSearch,
+    bool? allowCustomSearchEndpoint,
+    ImageGenerationMode? imageGeneration,
+    bool? imageReferenceInput,
+  }) => ProviderCapabilities(
+    tools: tools ?? this.tools,
+    vision: vision ?? this.vision,
+    reasoning: reasoning ?? this.reasoning,
+    contextWindow: contextWindow ?? this.contextWindow,
+    builtInWebSearch: builtInWebSearch ?? this.builtInWebSearch,
+    allowCustomSearchEndpoint:
+        allowCustomSearchEndpoint ?? this.allowCustomSearchEndpoint,
+    imageGeneration: imageGeneration ?? this.imageGeneration,
+    imageReferenceInput: imageReferenceInput ?? this.imageReferenceInput,
+  );
+
   JsonMap toJson() => {
     'tools': tools,
     'vision': vision,
@@ -42,6 +80,8 @@ class ProviderCapabilities {
     'contextWindow': contextWindow,
     'builtInWebSearch': builtInWebSearch,
     'allowCustomSearchEndpoint': allowCustomSearchEndpoint,
+    'imageGeneration': imageGeneration.name,
+    'imageReferenceInput': imageReferenceInput,
   };
 }
 
@@ -147,6 +187,14 @@ class ProviderConfig {
   final String baseUrl;
   final String model;
   final List<ModelProfile>? _models;
+  bool get generatesImages => switch (capabilities.imageGeneration) {
+    ImageGenerationMode.none => false,
+    ImageGenerationMode.imagesApi =>
+      apiType == ApiType.chatCompletions || apiType == ApiType.responses,
+    ImageGenerationMode.chatOutput => apiType == ApiType.chatCompletions,
+    ImageGenerationMode.responsesTool => apiType == ApiType.responses,
+  };
+
   List<ModelProfile> get models =>
       _models ??
       [
@@ -271,7 +319,9 @@ Uri providerEndpoint(String baseUrl, String endpoint) {
   }
   var path = uri.path.replaceFirst(RegExp(r'/+$'), '');
   path = path.replaceFirst(
-    RegExp(r'/(chat/completions|responses|messages|models)$'),
+    RegExp(
+      r'/(chat/completions|responses|messages|models|images/generations|images/edits)$',
+    ),
     '',
   );
   if (path.isEmpty) path = '/v1';

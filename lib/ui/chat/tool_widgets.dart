@@ -24,6 +24,7 @@ String toolLabel(String name, AppLocalizations l) => switch (name) {
   'file_read' => l.fileReadTool,
   'file_write' => l.fileWriteTool,
   'file_delete' => l.fileDeleteTool,
+  'generate_image' => l.imageGenerationTool,
   'memory_search' => l.memorySearchTool,
   'memory_save' => l.memorySaveTool,
   'memory_update' => l.memoryUpdateTool,

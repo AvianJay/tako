@@ -1,6 +1,11 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import '../../chat/content_block.dart';
 import '../../chat/message.dart';
 import '../../util/json.dart';
+import '../images/generated_image.dart';
 import '../provider_adapter.dart';
 import '../provider_config.dart';
 import '../provider_event.dart';
@@ -23,6 +28,8 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
     'model': config.model,
     'stream': true,
     'stream_options': {'include_usage': true},
+    if (config.capabilities.imageGeneration == ImageGenerationMode.chatOutput)
+      'modalities': ['text', 'image'],
     if ({
       'api.openai.com',
       'api.moonshot.ai',
@@ -65,10 +72,25 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
         case ImageBlock():
           final url = imageUrl(block);
           if (url != null) {
-            content.add({
+            final image = <String, Object?>{
               'type': 'image_url',
               'image_url': {'url': url},
-            });
+            };
+            if (message.role == MessageRole.assistant) {
+              attachmentMessages.add({
+                'role': 'user',
+                'content': [
+                  {
+                    'type': 'text',
+                    'text':
+                        '[Image generated in the preceding assistant reply]',
+                  },
+                  image,
+                ],
+              });
+            } else {
+              content.add(image);
+            }
           }
         case ToolCallBlock():
           calls.add({
@@ -130,6 +152,9 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
     }
     // All tool replies must immediately follow their assistant's tool calls.
     // Images are user content in this API, so append them after the full batch.
+    if (message.role == MessageRole.assistant && calls.isNotEmpty) {
+      return [...attachmentMessages, ...result];
+    }
     return [...result, ...attachmentMessages];
   }
 
@@ -137,6 +162,7 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
   Stream<ProviderEvent> decode(Stream<SseEvent> events) async* {
     final think = ThinkParser();
     final calls = <int, _Call>{};
+    final images = <String>{};
     String? finishReason;
     await for (final event in events) {
       if (event.data.trim() == '[DONE]') {
@@ -165,7 +191,8 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
         final choice = asMap(rawChoice);
         if (choice == null || (asInt(choice['index']) ?? 0) != 0) continue;
         finishReason = asString(choice['finish_reason']) ?? finishReason;
-        final delta = asMap(choice['delta']);
+        // Some compatible providers return the final message in an SSE chunk.
+        final delta = asMap(choice['delta']) ?? asMap(choice['message']);
         if (delta == null) continue;
         final reasoning =
             asString(delta['reasoning_content']) ??
@@ -175,6 +202,29 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
         }
         final text = asString(delta['content']);
         if (text != null) yield* Stream.fromIterable(think.add(text));
+        for (final rawPart in asList(delta['content']) ?? <Object?>[]) {
+          final part = asMap(rawPart);
+          if (part == null) continue;
+          if (part['type'] == 'text') {
+            final text = asString(part['text']);
+            if (text != null) yield* Stream.fromIterable(think.add(text));
+          } else if (part['type'] == 'image_url' || part['type'] == 'image') {
+            final image = _image(part, images);
+            if (image != null) yield image;
+          }
+        }
+        for (final rawImage in asList(delta['images']) ?? <Object?>[]) {
+          final image = _image(rawImage, images);
+          if (image != null) yield image;
+        }
+        // Final message images can accompany an otherwise empty delta.
+        if (choice['delta'] != null) {
+          for (final rawImage
+              in asList(asMap(choice['message'])?['images']) ?? <Object?>[]) {
+            final image = _image(rawImage, images);
+            if (image != null) yield image;
+          }
+        }
         final refusal = asString(delta['refusal']);
         if (refusal != null && refusal.isNotEmpty) yield TextDelta(refusal);
         for (final rawCall in asList(delta['tool_calls']) ?? []) {
@@ -213,6 +263,30 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
       }
       yield _terminalEvent(finishReason);
     }
+  }
+
+  GeneratedImage? _image(Object? value, Set<String> images) {
+    final item = asMap(value);
+    final url =
+        asString(asMap(item?['image_url'])?['url']) ??
+        asString(item?['image_url']) ??
+        asString(asMap(item?['image'])?['url']) ??
+        asString(item?['url']);
+    if (url == null || url.isEmpty) {
+      throw const ProviderError(
+        'Provider returned an image without image data',
+        code: 'invalid_image',
+      );
+    }
+    if (!url.startsWith('data:')) {
+      throw const ProviderError(
+        'Chat image output requires a base64 data URL; remote image URLs are not supported',
+        code: 'unsupported_image_url',
+      );
+    }
+    final key = sha256.convert(utf8.encode(url)).toString();
+    if (!images.add(key)) return null;
+    return generatedImageFromDataUrl(url, alt: asString(item?['alt']));
   }
 }
 

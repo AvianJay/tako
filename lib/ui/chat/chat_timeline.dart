@@ -136,7 +136,20 @@ List<AssistantSegment> buildAssistantSegments(List<ChatMessage> messages) {
   }
 
   for (final message in messages) {
-    if (message.role == MessageRole.tool) continue;
+    if (message.role == MessageRole.tool) {
+      final images = <ContentBlock>[
+        for (final result in message.content.whereType<ToolResultBlock>())
+          if (result.toolName == 'generate_image' &&
+              identical(results[message.parentId]?[result.toolCallId], result))
+            ...result.attachments.whereType<ImageBlock>(),
+      ];
+      if (images.isNotEmpty) {
+        flushContent();
+        flushRun();
+        segments.add(AssistantContentSegment(message: message, blocks: images));
+      }
+      continue;
+    }
     if (message.role != MessageRole.assistant) {
       flushContent();
       flushRun();

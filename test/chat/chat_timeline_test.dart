@@ -35,6 +35,53 @@ ToolResultBlock result(
 }) => ToolResultBlock(toolCallId: id, toolName: name, content: content);
 
 void main() {
+  test(
+    'image generation receipts render images after their matching tool run',
+    () {
+      const image = ImageBlock(
+        path: 'attachments/generated.png',
+        mimeType: 'image/png',
+      );
+      final assistant = node(
+        'a',
+        blocks: [call('image-call', name: 'generate_image')],
+      );
+      final receipt = node(
+        'r',
+        parent: 'a',
+        role: MessageRole.tool,
+        blocks: [
+          const ToolResultBlock(
+            toolCallId: 'image-call',
+            toolName: 'generate_image',
+            content: '{}',
+            attachments: [image],
+          ),
+        ],
+      );
+      final segments = buildAssistantSegments([assistant, receipt]);
+      expect(segments, hasLength(2));
+      expect(segments.first, isA<ToolRunSegment>());
+      expect(
+        (segments.last as AssistantContentSegment).blocks.single,
+        same(image),
+      );
+      final unrelated = node(
+        'other',
+        parent: 'different',
+        role: MessageRole.tool,
+        blocks: receipt.content,
+      );
+      expect(
+        buildAssistantSegments([
+          assistant,
+          unrelated,
+        ]).whereType<AssistantContentSegment>(),
+        isEmpty,
+      );
+    },
+  );
+
   test('one assistant turn contains tool rounds and its final answer', () {
     final messages = [
       node('u1', role: MessageRole.user),

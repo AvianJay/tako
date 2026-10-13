@@ -486,7 +486,7 @@ abstract class AppLocalizations {
   /// No description provided for @visionRequired.
   ///
   /// In zh, this message translates to:
-  /// **'請選擇支援視覺的模型，再傳送圖片。'**
+  /// **'请选择支持视觉或参考图的模型，再发送图片。'**
   String get visionRequired;
 
   /// No description provided for @toolStepLimit.
@@ -998,6 +998,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'視覺'**
   String get visionCapability;
+
+  /// No description provided for @visionCapabilityHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'让模型理解聊天中的图片。图片生成需要单独设置。'**
+  String get visionCapabilityHelp;
+
+  /// No description provided for @imageGeneration.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片生成'**
+  String get imageGeneration;
+
+  /// No description provided for @imageGenerationNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get imageGenerationNone;
+
+  /// No description provided for @imageGenerationImagesApi.
+  ///
+  /// In zh, this message translates to:
+  /// **'Images API'**
+  String get imageGenerationImagesApi;
+
+  /// No description provided for @imageGenerationChatOutput.
+  ///
+  /// In zh, this message translates to:
+  /// **'聊天中输出图片'**
+  String get imageGenerationChatOutput;
+
+  /// No description provided for @imageGenerationResponsesTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'Responses 生图工具'**
+  String get imageGenerationResponsesTool;
+
+  /// No description provided for @imageGenerationHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择此模型支持的生图格式。你可以直接选择它生成图片，也可以让聊天模型通过生图工具调用它。'**
+  String get imageGenerationHelp;
+
+  /// No description provided for @imageGenerationProtocolHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片生成需要兼容 OpenAI Chat Completions 或 Responses 的供应商。'**
+  String get imageGenerationProtocolHelp;
+
+  /// No description provided for @imageReferenceInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考图'**
+  String get imageReferenceInput;
+
+  /// No description provided for @imageReferenceInputHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许将附件图片用于参考生图或编辑。仅在此模型支持生图图片输入时开启。'**
+  String get imageReferenceInputHelp;
+
+  /// No description provided for @imageGenerationTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成图片'**
+  String get imageGenerationTool;
 
   /// No description provided for @reasoningCapability.
   ///

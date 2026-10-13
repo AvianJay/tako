@@ -206,7 +206,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rewindOnly => '只回溯對話';
 
   @override
-  String get visionRequired => '請選擇支援視覺的模型，再傳送圖片。';
+  String get visionRequired => '请选择支持视觉或参考图的模型，再发送图片。';
 
   @override
   String get toolStepLimit => '已達工具呼叫上限。請檢查目前結果，需要時按「繼續」。';
@@ -462,6 +462,41 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get visionCapability => '視覺';
+
+  @override
+  String get visionCapabilityHelp => '让模型理解聊天中的图片。图片生成需要单独设置。';
+
+  @override
+  String get imageGeneration => '图片生成';
+
+  @override
+  String get imageGenerationNone => '关闭';
+
+  @override
+  String get imageGenerationImagesApi => 'Images API';
+
+  @override
+  String get imageGenerationChatOutput => '聊天中输出图片';
+
+  @override
+  String get imageGenerationResponsesTool => 'Responses 生图工具';
+
+  @override
+  String get imageGenerationHelp =>
+      '选择此模型支持的生图格式。你可以直接选择它生成图片，也可以让聊天模型通过生图工具调用它。';
+
+  @override
+  String get imageGenerationProtocolHelp =>
+      '图片生成需要兼容 OpenAI Chat Completions 或 Responses 的供应商。';
+
+  @override
+  String get imageReferenceInput => '参考图';
+
+  @override
+  String get imageReferenceInputHelp => '允许将附件图片用于参考生图或编辑。仅在此模型支持生图图片输入时开启。';
+
+  @override
+  String get imageGenerationTool => '生成图片';
 
   @override
   String get reasoningCapability => '推理';
@@ -1636,7 +1671,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get rewindOnly => '只回溯對話';
 
   @override
-  String get visionRequired => '請選擇支援視覺的模型，再傳送圖片。';
+  String get visionRequired => '請選擇支援視覺或參考圖的模型，再傳送圖片。';
 
   @override
   String get toolStepLimit => '已達工具呼叫上限。請檢查目前結果，需要時按「繼續」。';
@@ -1892,6 +1927,41 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get visionCapability => '視覺';
+
+  @override
+  String get visionCapabilityHelp => '讓模型理解聊天中的圖片。圖片生成需要另外設定。';
+
+  @override
+  String get imageGeneration => '圖片生成';
+
+  @override
+  String get imageGenerationNone => '關閉';
+
+  @override
+  String get imageGenerationImagesApi => 'Images API';
+
+  @override
+  String get imageGenerationChatOutput => '聊天中輸出圖片';
+
+  @override
+  String get imageGenerationResponsesTool => 'Responses 生圖工具';
+
+  @override
+  String get imageGenerationHelp =>
+      '選擇此模型支援的生圖格式。你可以直接選擇它生成圖片，也可以讓聊天模型透過生圖工具呼叫它。';
+
+  @override
+  String get imageGenerationProtocolHelp =>
+      '圖片生成需要相容 OpenAI Chat Completions 或 Responses 的供應商。';
+
+  @override
+  String get imageReferenceInput => '參考圖';
+
+  @override
+  String get imageReferenceInputHelp => '允許將附件圖片用於參考生圖或編輯。僅在此模型支援生圖圖片輸入時開啟。';
+
+  @override
+  String get imageGenerationTool => '生成圖片';
 
   @override
   String get reasoningCapability => '推理';

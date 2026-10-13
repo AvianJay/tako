@@ -14,6 +14,9 @@ class ResponseAccumulator {
 
   List<ContentBlock> get content => List.unmodifiable(_blocks);
 
+  /// Image payloads are imported by the controller before entering history.
+  void addImage(ImageBlock image) => _blocks.add(image);
+
   int _reasoningIndex(int index) => _reasoning.putIfAbsent(index, () {
     _blocks.add(
       ReasoningBlock(text: '', sourceApi: sourceApi, promptHash: promptHash),
@@ -94,7 +97,11 @@ class ResponseAccumulator {
           outputTokens: event.outputTokens ?? usage?.outputTokens,
           totalTokens: event.totalTokens ?? usage?.totalTokens,
         );
-      case Done() || ProviderError() || ToolCallEnd() || HostedSearchEvent():
+      case Done() ||
+          ProviderError() ||
+          ToolCallEnd() ||
+          HostedSearchEvent() ||
+          GeneratedImage():
         break;
     }
   }

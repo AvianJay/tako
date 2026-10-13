@@ -10,6 +10,7 @@ import '../core/browser/browser_settings.dart';
 import '../core/chat/content_block.dart';
 import '../core/chat/conversation.dart';
 import '../core/chat/conversation_tree.dart';
+import '../core/chat/generated_image_store.dart';
 import '../core/chat/message.dart';
 import '../core/chat/response_accumulator.dart';
 import '../core/memory/memory.dart';
@@ -28,6 +29,7 @@ import '../core/search/search_service.dart';
 import '../core/tools/browser_tools.dart';
 import '../core/tools/device_tools.dart';
 import '../core/tools/file_tools.dart';
+import '../core/tools/image_generation_tool.dart';
 import '../core/tools/memory_tools.dart';
 import '../core/tools/notification_tools.dart';
 import '../core/tools/screen_tools.dart';
@@ -168,6 +170,16 @@ class AppController extends ChangeNotifier {
   Future<void> capturePhoto() => _importAttachments(
     (token, _) => services.mediaAttachments.capturePhoto(cancel: token),
   );
+  Future<void> attachWorkspaceImage(String path) => _importAttachments((
+    token,
+    _,
+  ) async {
+    final image = (await services.workspace.read(path, cancel: token)).image;
+    if (image == null) throw const FormatException('Not an image');
+    return [
+      ImageBlock(path: image.path, mimeType: image.mimeType, alt: image.alt),
+    ];
+  });
   Future<void> recoverLostAttachments() async {
     if (!services.mediaAttachments.isAvailable) return;
     try {
@@ -357,16 +369,20 @@ class AppController extends ChangeNotifier {
     bool always = false,
   }) async {
     if (!always && !controlSettings.deleteScreenshotsWithChat) return;
-    final paths = {
-      for (final message in deleted)
-        for (final block in message.content)
-          if (block case ToolResultBlock(
-            toolName: 'read_screen',
-            :final attachments,
-          ))
-            for (final attachment in attachments)
-              if (attachment case ImageBlock(:final path)) path,
-    };
+    final paths = <String>{};
+    for (final message in deleted) {
+      for (final block in message.content) {
+        if (always && block is ImageBlock) paths.add(block.path);
+        if (always && block is FileBlock) paths.add(block.path);
+        if (block is ToolResultBlock &&
+            (always || block.toolName == 'read_screen')) {
+          for (final attachment in block.attachments) {
+            if (attachment is ImageBlock) paths.add(attachment.path);
+            if (always && attachment is FileBlock) paths.add(attachment.path);
+          }
+        }
+      }
+    }
     if (paths.isEmpty) return;
     try {
       final unused = [
@@ -416,6 +432,21 @@ class AppController extends ChangeNotifier {
       maxChars: toolSettings.maxOutputChars,
     ),
     ...createFileTools(services.workspace),
+    ImageGenerationTool(
+      workspace: services.workspace,
+      models: () => imageModels,
+      adapterFor: adapterFor,
+      attachedImages: (context) =>
+          ConversationTree(messages)
+              .pathTo(context.messageId)
+              .reversed
+              .where((message) => message.role == MessageRole.user)
+              .firstOrNull
+              ?.content
+              .whereType<ImageBlock>()
+              .toList() ??
+          const [],
+    ),
     ...createSearchTools(
       SearchService(searchConfig, readSecret: services.readSecret),
       PageFetcher(),
@@ -448,12 +479,32 @@ class AppController extends ChangeNotifier {
     if (incognito) ...memoryToolNames,
   };
 
+  List<ProviderConfig> get imageModels => [
+    for (final provider in providers)
+      for (final model in provider.models)
+        if (provider.forModel(model.id).generatesImages)
+          provider.forModel(model.id),
+  ];
+
+  bool _canRouteReferenceImages(ProviderConfig provider) =>
+      toolSettings.enabled &&
+      provider.capabilities.tools &&
+      provider.capabilities.imageGeneration != ImageGenerationMode.imagesApi &&
+      !toolSettings.disabled.contains('generate_image') &&
+      services.workspace.isAvailable &&
+      imageModels.any((model) => model.capabilities.imageReferenceInput);
+
   /// Tool names a conversation offers to this provider.
   Set<String> _conversationTools(
     ProviderConfig provider, {
     required bool incognito,
   }) {
-    if (!toolSettings.enabled || !provider.capabilities.tools) return const {};
+    if (!toolSettings.enabled ||
+        !provider.capabilities.tools ||
+        provider.capabilities.imageGeneration ==
+            ImageGenerationMode.imagesApi) {
+      return const {};
+    }
     final disabled = _disabledTools(incognito: incognito);
     return {
       for (final tool in toolRegistry.availableTools)
@@ -1220,8 +1271,10 @@ class AppController extends ChangeNotifier {
           : editing.content
                 .where((b) => b is ImageBlock || b is FileBlock)
                 .toList();
-      if (!provider.capabilities.vision &&
-          attachments.any((b) => b is ImageBlock)) {
+      final acceptsImages =
+          provider.capabilities.acceptsImageInput ||
+          _canRouteReferenceImages(provider);
+      if (!acceptsImages && attachments.any((b) => b is ImageBlock)) {
         errorCode = 'visionRequired';
         return;
       }
@@ -1229,7 +1282,7 @@ class AppController extends ChangeNotifier {
           ? <ContentBlock>[]
           : await services.workspace.hydrateBlocks(
               attachments,
-              vision: provider.capabilities.vision,
+              vision: acceptsImages,
               cancel: token,
             );
       // The prompt reflects the tools the user has enabled right now.
@@ -1423,7 +1476,10 @@ class AppController extends ChangeNotifier {
 
   Future<void> _generate(ProviderConfig provider, String parentId) async {
     final token = _cancel!;
-    final allowed = toolSettings.enabled && provider.capabilities.tools;
+    final allowed =
+        toolSettings.enabled &&
+        provider.capabilities.tools &&
+        provider.capabilities.imageGeneration != ImageGenerationMode.imagesApi;
     final wantsHostedSearch =
         allowed &&
         provider.capabilities.builtInWebSearch &&
@@ -1694,16 +1750,30 @@ class AppController extends ChangeNotifier {
         ? limitRemoteScreenImages(path)
         : (messages: path, changed: false);
     historyChanged |= screenHistory.changed;
-    final budget = ContextBudget.trim(
-      systemPrompt: current.systemPrompt,
-      messages: screenHistory.messages,
-      contextWindow: provider.capabilities.contextWindow ?? 32768,
-      reserveOutputTokens:
-          provider.maxOutputTokens +
-          ContextBudget.estimateTokens(
-            jsonEncode(definitions.map((d) => d.schema).toList()),
-          ),
-    );
+    final imagesOnly =
+        provider.capabilities.imageGeneration == ImageGenerationMode.imagesApi;
+    final budget = imagesOnly
+        ? ContextBudgetResult(
+            messages: [
+              ?path.reversed
+                  .where((m) => m.role == MessageRole.user)
+                  .firstOrNull,
+            ],
+            estimatedTokens: 0,
+            removedMessages: 0,
+            removedToolOutputs: 0,
+            exceedsBudget: false,
+          )
+        : ContextBudget.trim(
+            systemPrompt: current.systemPrompt,
+            messages: screenHistory.messages,
+            contextWindow: provider.capabilities.contextWindow ?? 32768,
+            reserveOutputTokens:
+                provider.maxOutputTokens +
+                ContextBudget.estimateTokens(
+                  jsonEncode(definitions.map((d) => d.schema).toList()),
+                ),
+          );
     contextTrimmed = budget.wasTrimmed;
     if (budget.exceedsBudget) {
       errorCode = 'contextTooLarge';
@@ -1722,7 +1792,7 @@ class AppController extends ChangeNotifier {
             ? message.copyWith(
                 content: await services.workspace.hydrateBlocks(
                   message.content,
-                  vision: provider.capabilities.vision,
+                  vision: provider.capabilities.acceptsImageInput,
                   cancel: token,
                 ),
               )
@@ -1784,7 +1854,17 @@ class AppController extends ChangeNotifier {
           cancel: token,
         )) {
           if (token.isCancelled) break;
-          accumulator.add(event);
+          if (event is GeneratedImage) {
+            accumulator.addImage(
+              await storeGeneratedImage(
+                services.workspace,
+                event,
+                cancel: token,
+              ),
+            );
+          } else {
+            accumulator.add(event);
+          }
           if (event is ProviderError) {
             error = switch (event.code) {
               'model_missing' when provider.apiType == ApiType.onDevice =>

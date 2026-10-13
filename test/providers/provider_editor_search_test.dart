@@ -180,6 +180,67 @@ Future<void> _waitFor(WidgetTester tester, bool Function() ready) async {
 }
 
 void main() {
+  testWidgets(
+    'image mode and references persist independently for each model',
+    (tester) async {
+      final harness = await _boot(tester, adapter: _ProbeAdapter());
+      final modes = find.byType(DropdownButtonFormField<ImageGenerationMode>);
+      await _scrollTo(tester, modes);
+      await tester.tap(modes);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Images API').last);
+      await tester.pumpAndSettle();
+      final references = find.byKey(const ValueKey('provider-image-reference'));
+      await _scrollTo(tester, references);
+      await tester.tap(references);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(references).value, isTrue);
+      final second = find.widgetWithText(InputChip, 'second-model');
+      await _scrollTo(tester, second, delta: -300);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, modes);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<ImageGenerationMode>>(modes)
+            .initialValue,
+        ImageGenerationMode.none,
+      );
+      await tester.tap(modes);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Responses image tool').last);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(references).value, isFalse);
+      final save = find.widgetWithText(FilledButton, 'Save');
+      await _scrollTo(tester, save);
+      await tester.tap(save);
+      await _waitFor(
+        tester,
+        () => find.byType(ProviderEditor).evaluate().isEmpty,
+      );
+      final saved = (await tester.runAsync(
+        harness.app.providerRepository.list,
+      ))!.single;
+      expect(
+        saved.forModel('first-model').capabilities.imageGeneration,
+        ImageGenerationMode.imagesApi,
+      );
+      expect(
+        saved.forModel('first-model').capabilities.imageReferenceInput,
+        isTrue,
+      );
+      expect(
+        saved.forModel('second-model').capabilities.imageGeneration,
+        ImageGenerationMode.responsesTool,
+      );
+      expect(
+        saved.forModel('second-model').capabilities.imageReferenceInput,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('manual native search flags persist independently per model', (
     tester,
   ) async {

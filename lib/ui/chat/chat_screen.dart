@@ -22,6 +22,7 @@ import '../settings/settings_screen.dart';
 import 'chat_timeline.dart';
 import 'draft_attachment_strip.dart';
 import 'memory_chip.dart';
+import 'message_image.dart';
 import 'thinking_section.dart';
 import 'tool_run_widgets.dart';
 import 'tool_widgets.dart';
@@ -426,7 +427,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             for (final p in app.providers)
               for (final model in p.models)
                 ListTile(
-                  leading: Icon(providerIcon(p)),
+                  leading: Icon(
+                    p.forModel(model.id).generatesImages
+                        ? Icons.image_outlined
+                        : providerIcon(p),
+                  ),
                   title: Text(model.id),
                   subtitle: app.providers.length > 1
                       ? Text(p.displayName)
@@ -661,6 +666,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             appBar: AppBar(
               title: Text(l.image),
               actions: [
+                IconButton(
+                  tooltip: l.imageReferenceInput,
+                  onPressed: ref.read(appControllerProvider).busy
+                      ? null
+                      : () => _run(() async {
+                          await ref
+                              .read(appControllerProvider)
+                              .attachWorkspaceImage(source);
+                          if (context.mounted) Navigator.pop(context);
+                        }),
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                ),
                 IconButton(
                   tooltip: l.share,
                   onPressed: () =>
@@ -913,11 +930,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       } else if (block is ImageBlock) {
         flushText();
         children.add(
-          ActionChip(
-            avatar: const Icon(Icons.image_outlined),
-            label: Text(block.alt ?? l.image),
-            onPressed: () => _image(block.path),
-          ),
+          message.role != MessageRole.user && !block.path.startsWith('https:')
+              ? MessageImage(
+                  key: ValueKey('message-image-${block.path}'),
+                  image: block,
+                  services: app.services,
+                  onOpen: () => _image(block.path),
+                )
+              : ActionChip(
+                  avatar: const Icon(Icons.image_outlined),
+                  label: Text(block.alt ?? l.image),
+                  onPressed: () => _image(block.path),
+                ),
         );
       } else if (block is FileBlock) {
         flushText();

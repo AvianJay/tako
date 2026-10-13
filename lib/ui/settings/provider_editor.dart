@@ -41,6 +41,8 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
   late ReasoningMode _reasoning;
   String _effort = 'medium';
   late bool _local, _tools, _vision, _canReason;
+  ImageGenerationMode _imageGeneration = ImageGenerationMode.none;
+  bool _imageReferenceInput = false;
   bool _builtInSearch = false;
   bool _allowCustomSearchEndpoint = false;
   bool _testingSearch = false;
@@ -103,6 +105,16 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
 
   bool get _onDevice => _type == ApiType.onDevice;
 
+  bool get _imagesOnly => _imageGeneration == ImageGenerationMode.imagesApi;
+
+  bool _supportsImageMode(ImageGenerationMode mode) => switch (mode) {
+    ImageGenerationMode.none => true,
+    ImageGenerationMode.imagesApi =>
+      _type == ApiType.chatCompletions || _type == ApiType.responses,
+    ImageGenerationMode.chatOutput => _type == ApiType.chatCompletions,
+    ImageGenerationMode.responsesTool => _type == ApiType.responses,
+  };
+
   /// Specs of a model: for on-device models, read from the GGUF file.
   ModelSpec? _spec(String id) {
     if (!_onDevice) return ModelCatalog.detect(id);
@@ -138,6 +150,11 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       _tools = spec?.tools ?? false;
       _vision = spec?.vision ?? false;
       _canReason = spec?.reasoning ?? false;
+      final imageMode = spec?.imageGeneration ?? ImageGenerationMode.none;
+      _imageGeneration = _supportsImageMode(imageMode)
+          ? imageMode
+          : ImageGenerationMode.none;
+      _imageReferenceInput = spec?.imageReferenceInput ?? false;
     });
   }
 
@@ -147,6 +164,9 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       tools: _tools,
       vision: _vision,
       reasoning: _canReason,
+      imageGeneration: _imageGeneration,
+      imageReferenceInput:
+          _imageGeneration != ImageGenerationMode.none && _imageReferenceInput,
       builtInWebSearch: _builtInSearch,
       allowCustomSearchEndpoint: _allowCustomSearchEndpoint,
       contextWindow: int.tryParse(_context.text) ?? 32768,
@@ -171,10 +191,11 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       });
       return false;
     }
-    if (model.maxOutputTokens >= model.capabilities.contextWindow! ||
-        model.reasoningMode == ReasoningMode.enabled &&
-            (model.thinkingBudgetTokens < 1024 ||
-                model.thinkingBudgetTokens >= model.maxOutputTokens)) {
+    if (!_imagesOnly &&
+        (model.maxOutputTokens >= model.capabilities.contextWindow! ||
+            model.reasoningMode == ReasoningMode.enabled &&
+                (model.thinkingBudgetTokens < 1024 ||
+                    model.thinkingBudgetTokens >= model.maxOutputTokens))) {
       setState(() {
         _feedback = l.invalidBudget;
         _failed = true;
@@ -198,6 +219,10 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     _tools = model.capabilities.tools;
     _vision = model.capabilities.vision;
     _canReason = model.capabilities.reasoning;
+    _imageGeneration = _supportsImageMode(model.capabilities.imageGeneration)
+        ? model.capabilities.imageGeneration
+        : ImageGenerationMode.none;
+    _imageReferenceInput = model.capabilities.imageReferenceInput;
     _builtInSearch = model.capabilities.builtInWebSearch;
     _allowCustomSearchEndpoint = model.capabilities.allowCustomSearchEndpoint;
     _searchProbeResult = null;
@@ -255,13 +280,29 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     return headers;
   }
 
+  ModelProfile _profileForApi(ModelProfile model) {
+    if (_supportsImageMode(model.capabilities.imageGeneration)) return model;
+    return ModelProfile(
+      id: model.id,
+      capabilities: model.capabilities.copyWith(
+        imageGeneration: ImageGenerationMode.none,
+        imageReferenceInput: false,
+      ),
+      maxOutputTokens: model.maxOutputTokens,
+      reasoningMode: model.reasoningMode,
+      thinkingBudgetTokens: model.thinkingBudgetTokens,
+      reasoningEffort: model.reasoningEffort,
+      autoDetect: model.autoDetect,
+    );
+  }
+
   ProviderConfig _config() => ProviderConfig(
     id: _id,
     displayName: _name.text.trim(),
     apiType: _type,
     baseUrl: _onDevice ? '' : _url.text.trim(),
     model: _model.text.trim(),
-    models: _models,
+    models: _models.map(_profileForApi).toList(),
     apiKeyRef: widget.provider?.apiKeyRef,
     extraHeadersRef: widget.provider?.extraHeadersRef,
     isLocal: _local,
@@ -269,6 +310,9 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       tools: _tools,
       vision: _vision,
       reasoning: _canReason,
+      imageGeneration: _imageGeneration,
+      imageReferenceInput:
+          _imageGeneration != ImageGenerationMode.none && _imageReferenceInput,
       builtInWebSearch: _builtInSearch,
       allowCustomSearchEndpoint: _allowCustomSearchEndpoint,
       contextWindow: int.tryParse(_context.text) ?? 32768,
@@ -282,16 +326,6 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     if (!_storeModel()) return;
     final l = AppLocalizations.of(context);
     final config = _config();
-    if (config.maxOutputTokens >= config.capabilities.contextWindow! ||
-        _reasoning == ReasoningMode.enabled &&
-            (config.thinkingBudgetTokens < 1024 ||
-                config.thinkingBudgetTokens >= config.maxOutputTokens)) {
-      setState(() {
-        _feedback = l.invalidBudget;
-        _failed = true;
-      });
-      return;
-    }
     setState(() => _working = true);
     try {
       await ref
@@ -641,6 +675,10 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                       : (value) => setState(() {
                           _type = value!;
                           _searchProbeResult = null;
+                          if (!_supportsImageMode(_imageGeneration)) {
+                            _imageGeneration = ImageGenerationMode.none;
+                            _imageReferenceInput = false;
+                          }
                           if (_onDevice) {
                             _builtInSearch = false;
                             _allowCustomSearchEndpoint = false;
@@ -874,7 +912,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
-                if (!_onDevice)
+                if (!_onDevice && !_imagesOnly)
                   SwitchListTile(
                     key: const ValueKey('provider-native-search'),
                     contentPadding: EdgeInsets.zero,
@@ -892,7 +930,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                             if (v) _tools = true;
                           }),
                   ),
-                if (_nativeSearchProtocol) ...[
+                if (_nativeSearchProtocol && !_imagesOnly) ...[
                   SwitchListTile(
                     key: const ValueKey('provider-custom-search-endpoint'),
                     contentPadding: EdgeInsets.zero,
@@ -942,112 +980,170 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                   l.capabilities,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.toolsCapability),
-                  value: _tools,
-                  onChanged: _working
-                      ? null
-                      : (v) => setState(() {
-                          _tools = v;
-                          _autoDetect = false;
-                        }),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.visionCapability),
-                  value: _vision,
-                  onChanged: _working
-                      ? null
-                      : (v) => setState(() {
-                          _vision = v;
-                          _autoDetect = false;
-                        }),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l.reasoningCapability),
-                  value: _canReason,
-                  onChanged: _working
-                      ? null
-                      : (v) => setState(() {
-                          _canReason = v;
-                          _autoDetect = false;
-                        }),
-                ),
-                const SizedBox(height: 16),
-                field(
-                  _context,
-                  l.contextWindow,
-                  validate: positive,
-                  keyboardType: TextInputType.number,
-                ),
-                field(
-                  _output,
-                  l.maxOutput,
-                  validate: positive,
-                  keyboardType: TextInputType.number,
-                ),
-                DropdownButtonFormField<ReasoningMode>(
-                  key: ValueKey(
-                    'reasoning-$_editingModel-${_models[_editingModel].id}',
+                if (!_onDevice) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<ImageGenerationMode>(
+                    key: ValueKey(
+                      'provider-image-mode-$_editingModel-${_type.name}-${_imageGeneration.name}',
+                    ),
+                    isExpanded: true,
+                    initialValue: _imageGeneration,
+                    decoration: InputDecoration(labelText: l.imageGeneration),
+                    items: [
+                      for (final mode in ImageGenerationMode.values)
+                        if (_supportsImageMode(mode))
+                          DropdownMenuItem(
+                            value: mode,
+                            child: Text(switch (mode) {
+                              ImageGenerationMode.none => l.imageGenerationNone,
+                              ImageGenerationMode.imagesApi =>
+                                l.imageGenerationImagesApi,
+                              ImageGenerationMode.chatOutput =>
+                                l.imageGenerationChatOutput,
+                              ImageGenerationMode.responsesTool =>
+                                l.imageGenerationResponsesTool,
+                            }),
+                          ),
+                    ],
+                    onChanged: _working || _type == ApiType.messages
+                        ? null
+                        : (value) => setState(() {
+                            _imageGeneration = value!;
+                            _autoDetect = false;
+                          }),
                   ),
-                  isExpanded: true,
-                  initialValue: _reasoning,
-                  decoration: InputDecoration(labelText: l.reasoningMode),
-                  items: [
-                    DropdownMenuItem(
-                      value: ReasoningMode.off,
-                      child: Text(l.reasoningOff),
+                  const SizedBox(height: 8),
+                  Text(
+                    _type == ApiType.messages
+                        ? l.imageGenerationProtocolHelp
+                        : l.imageGenerationHelp,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (_imageGeneration != ImageGenerationMode.none)
+                    SwitchListTile(
+                      key: const ValueKey('provider-image-reference'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l.imageReferenceInput),
+                      subtitle: Text(l.imageReferenceInputHelp),
+                      value: _imageReferenceInput,
+                      onChanged: _working
+                          ? null
+                          : (value) => setState(() {
+                              _imageReferenceInput = value;
+                              _autoDetect = false;
+                            }),
                     ),
-                    DropdownMenuItem(
-                      value: ReasoningMode.enabled,
-                      child: Text(l.reasoningEnabled),
-                    ),
-                    DropdownMenuItem(
-                      value: ReasoningMode.adaptive,
-                      child: Text(l.reasoningAdaptive),
-                    ),
-                  ],
-                  onChanged: _working
-                      ? null
-                      : (v) => setState(() => _reasoning = v!),
-                ),
-                const SizedBox(height: 16),
-                if (_reasoning == ReasoningMode.enabled)
+                  const SizedBox(height: 16),
+                ],
+                if (!_imagesOnly) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l.toolsCapability),
+                    value: _tools,
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() {
+                            _tools = v;
+                            _autoDetect = false;
+                          }),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l.visionCapability),
+                    subtitle: Text(l.visionCapabilityHelp),
+                    value: _vision,
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() {
+                            _vision = v;
+                            _autoDetect = false;
+                          }),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l.reasoningCapability),
+                    value: _canReason,
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() {
+                            _canReason = v;
+                            _autoDetect = false;
+                          }),
+                  ),
+                  const SizedBox(height: 16),
                   field(
-                    _budget,
-                    l.thinkingBudget,
+                    _context,
+                    l.contextWindow,
                     validate: positive,
                     keyboardType: TextInputType.number,
                   ),
-                if (_reasoning != ReasoningMode.off) ...[
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('effort-$_editingModel'),
+                  field(
+                    _output,
+                    l.maxOutput,
+                    validate: positive,
+                    keyboardType: TextInputType.number,
+                  ),
+                  DropdownButtonFormField<ReasoningMode>(
+                    key: ValueKey(
+                      'reasoning-$_editingModel-${_models[_editingModel].id}',
+                    ),
                     isExpanded: true,
-                    initialValue: _effort,
-                    decoration: InputDecoration(labelText: l.reasoningEffort),
+                    initialValue: _reasoning,
+                    decoration: InputDecoration(labelText: l.reasoningMode),
                     items: [
-                      for (final effort in {
-                        'low',
-                        'medium',
-                        'high',
-                        'xhigh',
-                        'max',
-                        _effort,
-                      })
-                        DropdownMenuItem(
-                          value: effort,
-                          child: Text(
-                            effort == 'xhigh' ? 'Extra (xhigh)' : effort,
-                          ),
-                        ),
+                      DropdownMenuItem(
+                        value: ReasoningMode.off,
+                        child: Text(l.reasoningOff),
+                      ),
+                      DropdownMenuItem(
+                        value: ReasoningMode.enabled,
+                        child: Text(l.reasoningEnabled),
+                      ),
+                      DropdownMenuItem(
+                        value: ReasoningMode.adaptive,
+                        child: Text(l.reasoningAdaptive),
+                      ),
                     ],
                     onChanged: _working
                         ? null
-                        : (value) => setState(() => _effort = value!),
+                        : (v) => setState(() => _reasoning = v!),
                   ),
                   const SizedBox(height: 16),
+                  if (_reasoning == ReasoningMode.enabled)
+                    field(
+                      _budget,
+                      l.thinkingBudget,
+                      validate: positive,
+                      keyboardType: TextInputType.number,
+                    ),
+                  if (_reasoning != ReasoningMode.off) ...[
+                    DropdownButtonFormField<String>(
+                      key: ValueKey('effort-$_editingModel'),
+                      isExpanded: true,
+                      initialValue: _effort,
+                      decoration: InputDecoration(labelText: l.reasoningEffort),
+                      items: [
+                        for (final effort in {
+                          'low',
+                          'medium',
+                          'high',
+                          'xhigh',
+                          'max',
+                          _effort,
+                        })
+                          DropdownMenuItem(
+                            value: effort,
+                            child: Text(
+                              effort == 'xhigh' ? 'Extra (xhigh)' : effort,
+                            ),
+                          ),
+                      ],
+                      onChanged: _working
+                          ? null
+                          : (value) => setState(() => _effort = value!),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ],
                 FilledButton(
                   onPressed: _working ? null : _save,

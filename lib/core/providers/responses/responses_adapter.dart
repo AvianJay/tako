@@ -1,6 +1,7 @@
 import '../../chat/content_block.dart';
 import '../../chat/message.dart';
 import '../../util/json.dart';
+import '../images/generated_image.dart';
 import '../provider_adapter.dart';
 import '../provider_config.dart';
 import '../provider_event.dart';
@@ -22,7 +23,7 @@ class ResponsesAdapter extends HttpProviderAdapter {
     'model': config.model,
     'stream': true,
     'store': false,
-    if (_webSearch(request)) 'max_tool_calls': 1,
+    if (_webSearch(request)) 'max_tool_calls': _imageGeneration ? 2 : 1,
     if (_webSearch(request) && request.forceBuiltInWebSearch)
       'tool_choice': {'type': 'web_search'},
     'instructions': request.systemPrompt,
@@ -33,9 +34,10 @@ class ResponsesAdapter extends HttpProviderAdapter {
     'input': [
       for (final message in request.messages) ..._items(message, request),
     ],
-    if (request.tools.isNotEmpty || _webSearch(request))
+    if (request.tools.isNotEmpty || _webSearch(request) || _imageGeneration)
       'tools': [
         if (_webSearch(request)) {'type': 'web_search'},
+        if (_imageGeneration) {'type': 'image_generation'},
         for (final tool in request.tools)
           if (!_webSearch(request) || tool.name != 'web_search')
             {
@@ -53,10 +55,13 @@ class ResponsesAdapter extends HttpProviderAdapter {
       config.capabilities.builtInWebSearch &&
       supportsBuiltInWebSearch(config);
 
+  bool get _imageGeneration =>
+      config.capabilities.imageGeneration == ImageGenerationMode.responsesTool;
+
   List<JsonMap> _items(ChatMessage message, ChatRequest request) {
     final state = message.content.whereType<ProviderStateBlock>().firstOrNull;
     if (state != null &&
-        _webSearch(request) &&
+        (_webSearch(request) || _imageGeneration) &&
         request.replayOpaqueReasoning &&
         message.status == MessageStatus.done &&
         message.role == MessageRole.assistant &&
@@ -65,7 +70,14 @@ class ResponsesAdapter extends HttpProviderAdapter {
         message.model == config.model &&
         state.promptHash == request.promptHash) {
       return [
-        for (final item in state.content) Map<String, Object?>.from(item),
+        for (final item in state.content)
+          if (item['type'] != 'image_generation_call')
+            Map<String, Object?>.from(item),
+        if (!state.content.any((item) => item['type'] == 'message') &&
+            message.text.isNotEmpty)
+          {'role': 'assistant', 'content': message.text},
+        for (final image in message.content.whereType<ImageBlock>())
+          if (imageUrl(image) case final url?) _assistantImage(url),
       ];
     }
     final items = <JsonMap>[];
@@ -100,7 +112,12 @@ class ResponsesAdapter extends HttpProviderAdapter {
         case ImageBlock():
           final url = imageUrl(block);
           if (url != null) {
-            content.add({'type': 'input_image', 'image_url': url});
+            if (message.role == MessageRole.assistant) {
+              flush();
+              items.add(_assistantImage(url));
+            } else {
+              content.add({'type': 'input_image', 'image_url': url});
+            }
           }
         case FileBlock():
           content.add({
@@ -168,6 +185,7 @@ class ResponsesAdapter extends HttpProviderAdapter {
     final citations = <String>{};
     final wireItems = <int, JsonMap>{};
     final searchReceipts = <String>{};
+    final images = <String>{};
     await for (final event in events) {
       if (event.data == '[DONE]') continue;
       final data = decodeEvent(event);
@@ -254,7 +272,10 @@ class ResponsesAdapter extends HttpProviderAdapter {
         case 'response.output_item.done':
           final item = asMap(data['item']);
           if (item != null) {
-            wireItems[asInt(data['output_index']) ?? wireItems.length] = item;
+            final index = asInt(data['output_index']) ?? wireItems.length;
+            wireItems[index] = _replayItem(item);
+            final image = _image(item, index, images);
+            if (image != null) yield image;
           }
           final itemId = asString(item?['id']);
           final searchReceipt = _searchReceipt(
@@ -316,19 +337,30 @@ class ResponsesAdapter extends HttpProviderAdapter {
           if (output != null) {
             for (var i = 0; i < output.length; i++) {
               if (asMap(output[i]) case final item?) {
-                wireItems[i] = item;
+                wireItems[i] = _replayItem(item);
+                final image = _image(item, i, images);
+                if (image != null) yield image;
                 final receipt = _searchReceipt(item, i, searchReceipts);
                 if (receipt != null) yield receipt;
               }
             }
           }
           if (wireItems.values.any(
-            (item) => item['type'] == 'web_search_call',
-          )) {
+                (item) =>
+                    item['type'] == 'web_search_call' ||
+                    item['type'] == 'image_generation_call',
+              ) &&
+              wireItems.values.any(
+                (item) => item['type'] != 'image_generation_call',
+              )) {
             final indices = wireItems.keys.toList()..sort();
             yield ProviderStateMetadata(
               sourceApi: ApiType.responses.name,
-              content: [for (final index in indices) wireItems[index]!],
+              content: [
+                for (final index in indices)
+                  if (wireItems[index]!['type'] != 'image_generation_call')
+                    wireItems[index]!,
+              ],
             );
           }
           final usage = asMap(response?['usage']);
@@ -346,6 +378,58 @@ class ResponsesAdapter extends HttpProviderAdapter {
           return;
       }
     }
+  }
+
+  // Requests use store:false. Replay locally persisted images as user context
+  // rather than relying on server-retained image IDs or sending input_image in
+  // an assistant output message, where the Responses schema rejects it.
+  JsonMap _assistantImage(String url) => {
+    'role': 'user',
+    'content': [
+      {
+        'type': 'input_text',
+        'text': '[Image generated in the preceding assistant reply]',
+      },
+      {'type': 'input_image', 'image_url': url},
+    ],
+  };
+
+  JsonMap _replayItem(JsonMap item) => item['type'] == 'image_generation_call'
+      ? {'type': 'image_generation_call'}
+      : item;
+
+  GeneratedImage? _image(JsonMap item, int index, Set<String> images) {
+    if (item['type'] != 'image_generation_call') return null;
+    final status = asString(item['status']);
+    if (status != null && status != 'completed') {
+      throw ProviderError(
+        status == 'failed'
+            ? 'Provider image generation failed'
+            : 'Provider image generation is incomplete',
+        code: status == 'failed'
+            ? 'image_generation_failed'
+            : 'incomplete_response',
+      );
+    }
+    final key = asString(item['id']) ?? 'index:$index';
+    if (!images.add(key)) return null;
+    final result = asString(item['result']);
+    if (result == null || result.isEmpty) {
+      throw const ProviderError(
+        'Provider returned an image generation result without image data',
+        code: 'invalid_image',
+      );
+    }
+    return generatedImageFromBase64(
+      result,
+      mimeType: switch (asString(item['output_format'])) {
+        'png' => 'image/png',
+        'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        _ => null,
+      },
+      alt: asString(item['revised_prompt']),
+    );
   }
 
   HostedSearchEvent? _searchReceipt(

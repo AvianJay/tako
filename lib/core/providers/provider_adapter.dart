@@ -9,6 +9,7 @@ import '../on_device/on_device_capability.dart';
 import '../util/json.dart';
 import 'cancel_token.dart';
 import 'chat_completions/chat_completions_adapter.dart';
+import 'images/images_adapter.dart';
 import 'messages/messages_adapter.dart';
 import 'on_device/on_device_adapter.dart';
 import 'provider_config.dart';
@@ -123,30 +124,42 @@ abstract class ProviderAdapter {
     Map<String, String> secretHeaders = const {},
     http.Client Function()? clientFactory,
     OnDeviceCapability? onDevice,
-  }) => switch (config.apiType) {
-    ApiType.onDevice => OnDeviceAdapter(
-      config,
-      onDevice ?? UnavailableOnDevice(),
-    ),
-    ApiType.chatCompletions => ChatCompletionsAdapter(
-      config,
-      apiKey: apiKey,
-      secretHeaders: secretHeaders,
-      clientFactory: clientFactory,
-    ),
-    ApiType.responses => ResponsesAdapter(
-      config,
-      apiKey: apiKey,
-      secretHeaders: secretHeaders,
-      clientFactory: clientFactory,
-    ),
-    ApiType.messages => MessagesAdapter(
-      config,
-      apiKey: apiKey,
-      secretHeaders: secretHeaders,
-      clientFactory: clientFactory,
-    ),
-  };
+  }) {
+    if (config.capabilities.imageGeneration == ImageGenerationMode.imagesApi &&
+        (config.apiType == ApiType.chatCompletions ||
+            config.apiType == ApiType.responses)) {
+      return ImagesAdapter(
+        config,
+        apiKey: apiKey,
+        secretHeaders: secretHeaders,
+        clientFactory: clientFactory,
+      );
+    }
+    return switch (config.apiType) {
+      ApiType.onDevice => OnDeviceAdapter(
+        config,
+        onDevice ?? UnavailableOnDevice(),
+      ),
+      ApiType.chatCompletions => ChatCompletionsAdapter(
+        config,
+        apiKey: apiKey,
+        secretHeaders: secretHeaders,
+        clientFactory: clientFactory,
+      ),
+      ApiType.responses => ResponsesAdapter(
+        config,
+        apiKey: apiKey,
+        secretHeaders: secretHeaders,
+        clientFactory: clientFactory,
+      ),
+      ApiType.messages => MessagesAdapter(
+        config,
+        apiKey: apiKey,
+        secretHeaders: secretHeaders,
+        clientFactory: clientFactory,
+      ),
+    };
+  }
 
   Stream<ProviderEvent> send(
     ChatRequest request, {
@@ -269,7 +282,13 @@ abstract class HttpProviderAdapter implements ProviderAdapter {
       final outgoing = _request('POST', endpoint, cancel)
         ..body = jsonEncode(buildBody(request));
       final response = await cancel.bind(
-        client.send(outgoing).timeout(const Duration(seconds: 45)),
+        client
+            .send(outgoing)
+            .timeout(
+              config.capabilities.imageGeneration == ImageGenerationMode.none
+                  ? const Duration(seconds: 45)
+                  : const Duration(minutes: 5),
+            ),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await cancel.bind(
@@ -298,7 +317,13 @@ abstract class HttpProviderAdapter implements ProviderAdapter {
           );
           return;
         }
-        yield event;
+        yield event is GeneratedImage
+            ? GeneratedImage(
+                base64: event.base64,
+                mimeType: event.mimeType,
+                alt: event.alt == null ? null : redact(event.alt!),
+              )
+            : event;
         if (event is Done) {
           terminal = true;
           break;

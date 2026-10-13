@@ -225,7 +225,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rewindOnly => 'Rewind chat only';
 
   @override
-  String get visionRequired => 'Choose a vision-capable model to send images.';
+  String get visionRequired =>
+      'Choose a model that supports vision or reference images to send images.';
 
   @override
   String get toolStepLimit =>
@@ -491,6 +492,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get visionCapability => 'Vision';
+
+  @override
+  String get visionCapabilityHelp =>
+      'Allows the model to understand images in chat. Image generation is configured separately.';
+
+  @override
+  String get imageGeneration => 'Image generation';
+
+  @override
+  String get imageGenerationNone => 'Off';
+
+  @override
+  String get imageGenerationImagesApi => 'Images API';
+
+  @override
+  String get imageGenerationChatOutput => 'Image output in chat';
+
+  @override
+  String get imageGenerationResponsesTool => 'Responses image tool';
+
+  @override
+  String get imageGenerationHelp =>
+      'Choose the image format supported by this model. You can select it for image generation or let a chat model call it through the image generation tool.';
+
+  @override
+  String get imageGenerationProtocolHelp =>
+      'Image generation requires an OpenAI-compatible Chat Completions or Responses provider.';
+
+  @override
+  String get imageReferenceInput => 'Reference images';
+
+  @override
+  String get imageReferenceInputHelp =>
+      'Allow attached images as references for generation or editing. Enable only when this model supports image input for generation.';
+
+  @override
+  String get imageGenerationTool => 'Generate image';
 
   @override
   String get reasoningCapability => 'Reasoning';

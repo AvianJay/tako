@@ -3,6 +3,21 @@ import 'package:tako/core/providers/model_catalog.dart';
 import 'package:tako/core/providers/provider_config.dart';
 
 void main() {
+  test('documented image models auto-select Images API and references', () {
+    for (final id in [
+      'gpt-image-1',
+      'gpt-image-1-mini',
+      'gpt-image-1.5',
+      'openai/gpt-image-1',
+    ]) {
+      final spec = ModelCatalog.detect(id)!;
+      expect(spec.capabilities.imageGeneration, ImageGenerationMode.imagesApi);
+      expect(spec.capabilities.imageReferenceInput, isTrue);
+      expect(spec.tools, isFalse);
+    }
+    expect(ModelCatalog.detect('gpt-image-99'), isNull);
+  });
+
   test(
     'common vendor models, versioned IDs and aliases are recognized explicitly',
     () {
