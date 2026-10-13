@@ -18,6 +18,7 @@ import 'package:tako/data/database.dart';
 import 'package:tako/l10n/gen/app_localizations.dart';
 import 'package:tako/platform/services.dart';
 import 'package:tako/ui/settings/device_control_screen.dart';
+import 'package:tako/ui/settings/remote_agent_settings.dart';
 import 'package:tako/ui/settings/tool_settings_screen.dart';
 
 import 'screen/fake_screen.dart';
@@ -257,6 +258,70 @@ void _show(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets(
+    'worker selector fits narrow Traditional Chinese screen and saves independently',
+    (tester) async {
+      final app = await _boot(
+        tester,
+        screen: _Screen(),
+        notifications: _Notifications(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: RemoteAgentSettings(),
+            ),
+          ),
+        ),
+      );
+      final mainId = app.selectedProvider!.id;
+      await tester.runAsync(
+        () => app.updateAppearance(language: const Locale('zh', 'TW')),
+      );
+      tester.view.physicalSize = const Size(320, 844);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appControllerProvider.overrideWith((ref) => app)],
+          child: MaterialApp(
+            locale: const Locale('zh', 'TW'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(1.3)),
+              child: child!,
+            ),
+            home: const Scaffold(
+              body: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: RemoteAgentSettings(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('委派手機操作'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      final dropdown = find.byWidgetPredicate(
+        (w) =>
+            w is DropdownButtonFormField<String> &&
+            w.key.toString().contains('remote-agent-provider'),
+      );
+      await tester.ensureVisible(dropdown);
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Local model').last);
+      await tester.pumpAndSettle();
+      expect(app.controlSettings.remoteAgentProviderId, 'local');
+      expect(app.remoteAgentProvider?.model, 'llama-server');
+      expect(app.selectedProvider!.id, mainId);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'approvals needed while hidden are drawn over other apps, with Stop',
     (tester) async {

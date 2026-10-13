@@ -42,11 +42,40 @@ class MessagesAdapter extends HttpProviderAdapter {
         messages.add({'role': role, 'content': content});
       }
     }
+    final tools = <JsonMap>[
+      if (_webSearch(request))
+        {'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': 1},
+      for (final tool in request.tools)
+        if (!_webSearch(request) || tool.name != 'web_search')
+          {
+            'name': tool.name,
+            'description': tool.description,
+            'input_schema': tool.schema,
+          },
+    ];
+    if (request.cachePrompt) {
+      if (tools.isNotEmpty) tools.last['cache_control'] = {'type': 'ephemeral'};
+      if (messages.isNotEmpty) {
+        final blocks = messages.last['content'] as List<JsonMap>;
+        if (blocks.isNotEmpty &&
+            !{'thinking', 'redacted_thinking'}.contains(blocks.last['type'])) {
+          blocks.last['cache_control'] = {'type': 'ephemeral'};
+        }
+      }
+    }
     return {
       'model': config.model,
       'stream': true,
       'max_tokens': maxTokens,
-      'system': request.systemPrompt,
+      'system': request.cachePrompt
+          ? [
+              {
+                'type': 'text',
+                'text': request.systemPrompt,
+                'cache_control': {'type': 'ephemeral'},
+              },
+            ]
+          : request.systemPrompt,
       'messages': messages,
       if (_webSearch(request) && request.forceBuiltInWebSearch)
         'tool_choice': {'type': 'tool', 'name': 'web_search'},
@@ -59,22 +88,7 @@ class MessagesAdapter extends HttpProviderAdapter {
         'thinking': {'type': 'adaptive'},
       if (config.reasoningMode == ReasoningMode.adaptive)
         'output_config': {'effort': config.reasoningEffort},
-      if (request.tools.isNotEmpty || _webSearch(request))
-        'tools': [
-          if (_webSearch(request))
-            {
-              'type': 'web_search_20250305',
-              'name': 'web_search',
-              'max_uses': 1,
-            },
-          for (final tool in request.tools)
-            if (!_webSearch(request) || tool.name != 'web_search')
-              {
-                'name': tool.name,
-                'description': tool.description,
-                'input_schema': tool.schema,
-              },
-        ],
+      if (tools.isNotEmpty) 'tools': tools,
     };
   }
 

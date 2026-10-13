@@ -23,6 +23,7 @@ import '../core/prompt/prompt_builder.dart';
 import '../core/providers/hosted_search_probe.dart';
 import '../core/providers/providers.dart';
 import '../core/screen/device_control_settings.dart';
+import '../core/screen/remote_control_agent.dart';
 import '../core/screen/screen_capability.dart';
 import '../core/screen/screen_history.dart';
 import '../core/search/search_service.dart';
@@ -342,6 +343,7 @@ class AppController extends ChangeNotifier {
           jsonEncode(value.toJson()),
         );
         controlSettings = value;
+        toolRegistry = _makeRegistry();
       });
 
   /// Re-reads device-control availability, e.g. after the user returns from
@@ -425,6 +427,82 @@ class AppController extends ChangeNotifier {
         ),
   );
 
+  /// A separate saved connection/model; the main chat retains its own model.
+  ProviderConfig? get remoteAgentProvider {
+    if (!controlSettings.remoteAgent) return null;
+    final configured = controlSettings.remoteAgentProviderId;
+    final connection = configured?.isNotEmpty == true
+        ? providers.where((p) => p.id == configured).firstOrNull
+        : providers
+              .where(
+                (p) =>
+                    p.apiType == ApiType.messages &&
+                    p.models.any((m) => m.id == 'claude-haiku-5-5'),
+              )
+              .firstOrNull;
+    if (connection == null) return null;
+    final requested = controlSettings.remoteAgentModelId;
+    if (requested?.isNotEmpty == true &&
+        !connection.models.any((m) => m.id == requested)) {
+      return null;
+    }
+    var worker = connection.forModel(
+      requested?.isNotEmpty == true
+          ? requested
+          : configured?.isNotEmpty == true
+          ? connection.model
+          : 'claude-haiku-5-5',
+    );
+    if (!worker.capabilities.tools) return null;
+    // Keep the requested Haiku Extra default; other models retain their saved
+    // capabilities, API, reasoning and limits instead of inheriting Haiku's.
+    if (worker.model == 'claude-haiku-5-5' &&
+        worker.apiType == ApiType.messages) {
+      worker = worker.copyWith(
+        reasoningMode: ReasoningMode.adaptive,
+        reasoningEffort: 'xhigh',
+        maxOutputTokens: max(8192, worker.maxOutputTokens),
+      );
+    }
+    final effort = controlSettings.remoteAgentEffort;
+    if (effort?.isNotEmpty == true && worker.capabilities.reasoning) {
+      worker = worker.copyWith(
+        reasoningMode: effort == 'off'
+            ? ReasoningMode.off
+            : worker.reasoningMode == ReasoningMode.off
+            ? ReasoningMode.enabled
+            : worker.reasoningMode,
+        reasoningEffort: effort == 'off' ? worker.reasoningEffort : effort,
+      );
+    }
+    return worker;
+  }
+
+  late final _remoteAgent = RemoteControlAgent(
+    screen: services.screen,
+    workspace: services.workspace,
+    deviceTools: (observer) =>
+        createDeviceTools(services.deviceTools, observer: observer),
+    permissions: permissionGate,
+    audit: audit,
+    available: () => toolSettings.enabled && remoteAgentProvider != null,
+    backend: () async {
+      final provider = remoteAgentProvider;
+      if (provider == null) throw StateError('Remote worker is not configured');
+      return (config: provider, adapter: await adapterFor(provider));
+    },
+    screenshots: () =>
+        controlSettings.screenshots && services.screen.screenshotsSupported,
+    disabledTools: () => toolSettings.disabled,
+    stepLimit: () => toolSettings.maxScreenSteps,
+  );
+  bool get delegatesScreen =>
+      remoteAgentProvider != null &&
+      services.screen.isAvailable &&
+      !toolSettings.disabled.contains('remote_control');
+  Set<String> get _mainScreenToolsHidden =>
+      delegatesScreen ? {...screenToolNames, 'open_app', 'open_url'} : const {};
+
   ToolRegistry _makeRegistry() => ToolRegistry([
     ...createDeviceTools(
       services.deviceTools,
@@ -470,12 +548,14 @@ class AppController extends ChangeNotifier {
       timeoutSeconds: () => controlSettings.shellTimeoutSeconds,
     ),
     ...createShortcutTools(services.shortcuts),
+    ..._remoteAgent.tools,
     ..._extraTools,
   ], disabledTools: toolSettings.disabled);
 
   /// Incognito chats never see memory tools, whatever the settings say.
   Set<String> _disabledTools({required bool incognito}) => {
     ...toolSettings.disabled,
+    ..._mainScreenToolsHidden,
     if (incognito) ...memoryToolNames,
   };
 
@@ -770,6 +850,7 @@ class AppController extends ChangeNotifier {
       'browser': tools.contains('browser_read'),
       'files': tools.contains('file_list'),
       'screen_control': tools.contains('read_screen'),
+      'screen_delegate': tools.contains('remote_control'),
       'screen_elements':
           tools.contains('read_screen') &&
           services.screen.observationModes.contains(

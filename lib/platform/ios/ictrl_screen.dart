@@ -184,22 +184,38 @@ class IctrlScreen extends RemoteScreen {
   Future<ScreenTree> _tree(CancelToken cancel) async {
     final source = await rpc('page_source', {
       'visible_only': true,
-      'max_elements': 180,
+      'max_elements': 400,
       // Scientific keypads can exceed 50 direct children without the server
       // reporting truncation. Keep the read bounded while exposing their tail.
       'max_children': 100,
     }, cancel);
+    final parsed = parseIctrlTree(
+      source,
+      token: ++_token,
+      width: _pointWidth,
+      height: _pointHeight,
+    );
+    final usefulLabels = parsed.nodes
+        .where(
+          (n) =>
+              n.className != 'Application' &&
+              n.className != 'Window' &&
+              (n.text?.isNotEmpty == true || n.description?.isNotEmpty == true),
+        )
+        .length;
     if (((source['channel'] as Map?)?['recommended'] == 'ocr' ||
-            source['truncated'] == true ||
+            source['truncated'] == true && usefulLabels < 5 ||
             source['sparse_hint'] != null ||
             source['viewport_warning'] != null) &&
         (source['ocr_items'] as List?)?.isNotEmpty != true) {
       final ocr = await rpc('screen_text', const {}, cancel);
       source['ocr_items'] = ocr['items'];
+    } else {
+      return parsed;
     }
     return parseIctrlTree(
       source,
-      token: ++_token,
+      token: parsed.token,
       width: _pointWidth,
       height: _pointHeight,
     );
@@ -301,6 +317,15 @@ class IctrlScreen extends RemoteScreen {
       throw const ScreenException('unknown_id_read_again');
     }
     final before = previous.nodes[node];
+    // Visible-only AX can include clipped cells whose center is outside the
+    // content area. Require the whole target in view before aiming at it.
+    if (before.bounds.area <= 0 ||
+        before.bounds.left < 0 ||
+        before.bounds.top < 0 ||
+        before.bounds.right > previous.width ||
+        before.bounds.bottom > previous.height) {
+      throw const ScreenException('element_offscreen_scroll_into_view');
+    }
     final label = before.viewId ?? before.description ?? before.text ?? '';
     // OCR and unnamed/ambiguous elements require a fresh viewport read.
     final sameLabel = previous.nodes
@@ -538,6 +563,7 @@ class IctrlScreen extends RemoteScreen {
       appLabel: tree?.appLabel ?? '',
       details: {
         'screen_changed': null,
+        'untrusted_receipt': receipt,
         for (final key in const [
           'warning',
           'hit_warning',
@@ -551,6 +577,45 @@ class IctrlScreen extends RemoteScreen {
           if (receipt[key] != null) key: receipt[key],
       },
     );
+  }
+
+  @override
+  bool get supportsTimedGestures => true;
+  @override
+  Future<ScreenActionOutcome> timedGesture(
+    ScreenAction action, {
+    required String app,
+    required int width,
+    required int height,
+    required CancelToken cancel,
+  }) async {
+    cancel.throwIfCancelled();
+    if (!modelActive) throw const ScreenException('cancelled');
+    // Inspect the Application root only; game frames do not need an expensive
+    // accessibility/OCR walk on every note. The server still handles alerts and
+    // blocks CAPTCHA gestures. Never replay into another app or orientation.
+    final root = await rpc('page_source', {
+      'visible_only': true,
+      'max_depth': 1,
+      'max_children': 1,
+      'max_elements': 8,
+    }, cancel);
+    final live = parseIctrlTree(
+      root,
+      token: _token,
+      width: _pointWidth,
+      height: _pointHeight,
+    );
+    if (live.packageName != app ||
+        live.ownAppInFront ||
+        live.width != width ||
+        live.height != height ||
+        root['system_alert'] == true ||
+        root['blocked_by'] != null) {
+      throw const ScreenException('game_app_or_geometry_changed');
+    }
+    cancel.throwIfCancelled();
+    return act(action);
   }
 
   @override

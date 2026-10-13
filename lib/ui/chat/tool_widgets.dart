@@ -37,6 +37,16 @@ String toolLabel(String name, AppLocalizations l) => switch (name) {
   'browser_back' => l.browserBackTool,
   'notifications_list' => l.notificationsListTool,
   'read_screen' => l.readScreenTool,
+  'remote_control' =>
+    l.localeName.startsWith('zh') ? '委派手機操作' : 'Delegate phone task',
+  'remote_control_check' =>
+    l.localeName.startsWith('zh') ? '檢查手機操作' : 'Check phone task',
+  'screen_sequence' =>
+    l.localeName.startsWith('zh') ? '連續螢幕操作' : 'Screen action sequence',
+  'screen_workflow' =>
+    l.localeName.startsWith('zh') ? '操作流程' : 'Screen workflow',
+  'screen_replay' =>
+    l.localeName.startsWith('zh') ? '遊戲輸入排程' : 'Timed game inputs',
   'tap' => l.tapTool,
   'long_press' => l.longPressTool,
   'swipe' => l.swipeTool,

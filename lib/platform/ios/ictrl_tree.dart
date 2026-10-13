@@ -21,7 +21,7 @@ ScreenTree parseIctrlTree(
   var dialog = false;
   for (final line in source.split('\n')) {
     final frame = frames.firstMatch(line);
-    if (frame == null || nodes.length >= 200) continue;
+    if (frame == null || nodes.length >= 400) continue;
     final indent = line.length - line.trimLeft().length;
     final type = line.trimLeft().split(',').first;
     String field(String name) {
@@ -228,7 +228,7 @@ ScreenTree parseIctrlTree(
         bounds: ScreenBounds(0, 0, width, height),
       ),
     ],
-    truncated: result['truncated'] == true || nodes.length >= 200,
+    truncated: result['truncated'] == true || nodes.length >= 400,
   );
 }
 
@@ -239,7 +239,7 @@ String normalizeIctrlOcr(String text) => String.fromCharCodes(
 ).replaceAll(RegExp(r'\s+'), '');
 
 String ictrlNodeClass(String type) => switch (type) {
-  'TextField' || 'SearchField' || 'SecureTextField' || 'TextView' => 'EditText',
+  'TextField' || 'SearchField' || 'SecureTextField' => 'EditText',
   'ScrollView' || 'Table' || 'CollectionView' || 'WebView' => 'ScrollView',
   'StaticText' => 'Text',
   _ => type,

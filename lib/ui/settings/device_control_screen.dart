@@ -10,6 +10,7 @@ import '../../core/screen/remote_screen.dart';
 import '../../core/shell/shell_capability.dart';
 import '../../l10n/gen/app_localizations.dart';
 import 'ictrl_settings.dart';
+import 'remote_agent_settings.dart';
 
 /// Enables `allow-external-apps` so other apps may use RUN_COMMAND.
 const termuxSetupCommand =
@@ -144,6 +145,7 @@ class _DeviceControlScreenState extends ConsumerState<DeviceControlScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 IctrlSettings(screen: screen),
+                const RemoteAgentSettings(),
                 SwitchListTile(
                   title: Text(l.screenshotsSetting),
                   subtitle: Text(l.screenshotsHelp),
@@ -322,6 +324,7 @@ class _DeviceControlScreenState extends ConsumerState<DeviceControlScreen> {
                       ]
                     : [Text(l.screenControlUnsupported)],
               ),
+              if (screen.supported) const RemoteAgentSettings(),
               section(
                 l.notificationAccess,
                 Icons.notifications_none,

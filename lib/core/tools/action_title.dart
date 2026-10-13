@@ -28,6 +28,11 @@ String? phoneActionTitle(ToolCallBlock call) {
     'type_text',
     'press_key',
     'open_app',
+    'open_url',
+    'remote_control',
+    'screen_sequence',
+    'screen_workflow',
+    'screen_replay',
   }.contains(call.name)) {
     return null;
   }

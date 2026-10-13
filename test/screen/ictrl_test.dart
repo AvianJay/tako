@@ -163,6 +163,119 @@ void main() {
     expect(client.secrets['ictrl.paused'], isNull);
     screen.dispose();
   });
+  test('multiline composers resolve without textfield-only filtering', () async {
+    final client = _DeviceClient()
+      ..source = {
+        'bundle_id': 'com.example.chat',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  TextView, label: 'Compose', {{30, 870}, {200, 39}}",
+      };
+    client.hit.addAll({'element_type': 'TextView', 'label': 'Compose'});
+    final screen = IctrlScreen(client: client);
+    await screen.connect();
+    final tree = await screen.snapshot(
+      screenshot: false,
+      cancel: CancelToken(),
+    );
+    final target = await screen.resolveNode(tree.token, 1, CancelToken());
+    expect(target.target!.editable, true);
+    expect(client.calls.last.$2.containsKey('element_type'), false);
+    screen.dispose();
+  });
+  test('clipped cells cannot redirect a tap into status bar', () async {
+    final client = _DeviceClient()
+      ..source = {
+        'bundle_id': 'com.example.list',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  Cell, {{224, -167}, {208, 354}}\n    StaticText, label: 'Candidate board', {{232, 48}, {192, 36}}",
+      };
+    final screen = IctrlScreen(client: client);
+    await screen.connect();
+    final tree = await screen.snapshot(
+      screenshot: false,
+      cancel: CancelToken(),
+    );
+    await expectLater(
+      screen.resolveNode(tree.token, 1, CancelToken()),
+      throwsA(
+        isA<ScreenException>().having(
+          (e) => e.code,
+          'code',
+          'element_offscreen_scroll_into_view',
+        ),
+      ),
+    );
+    expect(
+      client.calls.where((c) => c.$1 == 'tap' || c.$1 == 'find_element'),
+      isEmpty,
+    );
+    screen.dispose();
+  });
+  test('rich truncated AX skips OCR while sparse reads recover text', () async {
+    final client = _DeviceClient()
+      ..source = {
+        'bundle_id': 'com.example.list',
+        'truncated': true,
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n${List.generate(6, (i) => "  Button, label: 'Item $i', {{20, ${100 + i * 50}}, {80, 40}}").join('\n')}",
+      };
+    final screen = IctrlScreen(client: client);
+    await screen.connect();
+    await screen.snapshot(screenshot: false, cancel: CancelToken());
+    expect(client.calls.where((c) => c.$1 == 'screen_text'), isEmpty);
+    client.source = {
+      'bundle_id': 'com.example.list',
+      'truncated': true,
+      'source': 'Application, {{0, 0}, {440, 956}}',
+    };
+    client.ocrItems = [
+      {'label': 'Custom control', 'x': 20, 'y': 200, 'width': 80, 'height': 30},
+    ];
+    final tree = await screen.snapshot(
+      screenshot: false,
+      cancel: CancelToken(),
+    );
+    expect(
+      tree.nodes.where((n) => n.className == 'OCRText').single.text,
+      'Custom control',
+    );
+    expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
+    screen.dispose();
+  });
+  test(
+    'timed inputs use bounded root guard and stop on geometry change',
+    () async {
+      final client = _DeviceClient();
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      await screen.snapshot(screenshot: false, cancel: CancelToken());
+      screen.beginModelSession();
+      await screen.timedGesture(
+        const ScreenAction(action: 'tap', x: 50, y: 200),
+        app: 'com.apple.calculator',
+        width: 440,
+        height: 956,
+        cancel: CancelToken(),
+      );
+      expect(
+        client.calls.where((c) => c.$1 == 'page_source').last.$2['max_depth'],
+        1,
+      );
+      client.landscape = true;
+      await expectLater(
+        screen.timedGesture(
+          const ScreenAction(action: 'tap', x: 50, y: 200),
+          app: 'com.apple.calculator',
+          width: 440,
+          height: 956,
+          cancel: CancelToken(),
+        ),
+        throwsA(isA<ScreenException>()),
+      );
+      expect(client.calls.where((c) => c.$1 == 'tap'), hasLength(1));
+      screen.dispose();
+    },
+  );
   test(
     'remote sessions retain titles and end their native lifecycle once',
     () async {

@@ -64,6 +64,8 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
   - **`run_shell`** through Termux.
   - **`notifications_list`** to read current notifications.
 - **iOS screen control** through [iCTRL](https://github.com/OpenMinis/iCTRL):
+  - Delegate phone tasks to a separate worker in **Settings → Device control**. Choose its saved provider, model and reasoning effort independently from the main chat model. Automatic selection uses an available Haiku Messages connection.
+  - Generic workflows resolve exact labels against each fresh screen. Stable keypad sequences and calibrated timed game segments execute locally between model turns. The main model receives compact native evidence instead of the worker's full screen history.
   - Start the iCTRL runner on the phone. Tako detects `127.0.0.1:8200`, requests pairing once, and stores the approved key in secure storage.
   - **Settings → Device control** also accepts LAN and Tailscale endpoints. Enable iCTRL Remote Access for another device.
   - Compact accessibility reads, live element references, OCR recovery, optional screenshots, and actions without settling keep agent calls short. Stable sequences can skip intermediate observations.

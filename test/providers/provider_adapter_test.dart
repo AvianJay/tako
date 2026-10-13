@@ -66,6 +66,35 @@ class FakeClient extends http.BaseClient {
 
 void main() {
   test(
+    'worker cache breakpoints keep tools and system stable without changing normal requests',
+    () {
+      final adapter = MessagesAdapter(config(ApiType.messages));
+      final cached = adapter.buildBody(
+        ChatRequest(
+          systemPrompt: 'Worker',
+          cachePrompt: true,
+          messages: [
+            message(MessageRole.user, [const TextBlock('Task')]),
+          ],
+          tools: const [
+            ToolDefinition(
+              name: 'read',
+              description: 'Read',
+              schema: {'type': 'object'},
+            ),
+          ],
+        ),
+      );
+      final system = (cached['system'] as List).single as Map<String, Object?>;
+      final tools = cached['tools'] as List;
+      expect(system['cache_control'], {'type': 'ephemeral'});
+      expect((tools.single as Map<String, Object?>)['cache_control'], {
+        'type': 'ephemeral',
+      });
+      expect(adapter.buildBody(request)['system'], 'fixed system');
+    },
+  );
+  test(
     'native Messages no-argument tool remains a valid empty JSON object',
     () async {
       final adapter = MessagesAdapter(config(ApiType.messages));

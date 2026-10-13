@@ -27,6 +27,7 @@ class ChatRequest {
     this.replayOpaqueReasoning = true,
     this.builtInWebSearch = false,
     this.forceBuiltInWebSearch = false,
+    this.cachePrompt = false,
   });
   final String systemPrompt;
   final List<ChatMessage> messages;
@@ -44,6 +45,9 @@ class ChatRequest {
   /// Used only for an explicit capability probe. Still requires the normal
   /// search grant, model capability and endpoint checks.
   final bool forceBuiltInWebSearch;
+
+  /// Opt-in cache breakpoints for a stable tool-worker prefix.
+  final bool cachePrompt;
 }
 
 /// Official APIs are supported automatically; compatible custom endpoints

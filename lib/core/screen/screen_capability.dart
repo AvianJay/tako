@@ -302,6 +302,17 @@ abstract class ScreenCapability extends ChangeNotifier implements Capability {
   };
   bool get supportsDrag => false;
   bool get supportsFastActions => false;
+  bool get supportsTimedGestures => false;
+
+  /// An explicitly approved timed batch may skip element/OCR resolution, but
+  /// the backend must check foreground app and geometry before each dispatch.
+  Future<ScreenActionOutcome> timedGesture(
+    ScreenAction action, {
+    required String app,
+    required int width,
+    required int height,
+    required CancelToken cancel,
+  }) async => throw const ScreenException('timed_gestures_unavailable');
 
   @override
   bool get isAvailable => supported && enabled;

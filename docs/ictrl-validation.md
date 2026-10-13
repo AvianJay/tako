@@ -5,8 +5,8 @@ The implementation uses iCTRL's v1 authenticated envelopes and loopback pairing,
 ## Read and action costs
 
 - Reuse the HTTP client and approved key. Refreshes do not repeatedly fetch the schema or prompt for pairing.
-- Read the visible accessibility hierarchy with 180 elements and 100 children per container. The scientific Calculator keypad silently lost its last controls at 50 children; the new bound exposes them without an unbounded fetch. Strip server diagnostics before sending the listing to the model.
-- Recover truncated or sparse reads with OCR, so deep layout containers do not hide bottom navigation. Prefer AX labels over OCR duplicates.
+- Read the visible accessibility hierarchy with 400 elements and 100 children per container. The scientific Calculator keypad silently lost its last controls at 50 children; the new bound exposes them without an unbounded fetch. Strip server diagnostics before sending the listing to the model.
+- Recover sparse reads and server-recommended OCR views with OCR. Rich truncated trees avoid an extra OCR round; request a screenshot or scroll when the needed control is missing. Prefer AX labels over OCR duplicates.
 - Resolve labeled controls with a fresh live ref. Reject changed labels/types, offscreen matches, ambiguous results, and stale listing IDs. Unnamed containers are checked against their descendants.
 - Send mutations with `settle:false`; do not retry mutations automatically. Preserve warnings and page-change information in the tool receipt. A missing settling measurement is unknown, not evidence that the screen stayed unchanged.
 - Return one text observation after the final action of a response. Batch stable controls with `observe:false` on intermediate calls. Navigation still needs a fresh observation.
@@ -45,7 +45,36 @@ The same native Haiku configuration passed both Calculator assertions in scienti
 
 After integrating the Android floating overlay and operation titles, normal verification passed 523 tests, with the opt-in live test skipped, plus all 10 browser runtime checks. Analysis and formatting passed. A remote-session regression check verifies that titles update without restarting the native activity and disconnect ends it once. An unrelated pre-existing memory test had nondeterministic ordering for simultaneous saves; explicit fixture timestamps now test its intended oldest-first budget deterministically.
 
-## Reproduction
+## Isolated worker and generic local execution
+
+The main chat and phone worker use independently selected saved providers/models. Device control settings select the worker connection, model and effort; automatic selection uses Haiku Messages with Extra (`xhigh`). Other providers retain their saved API, capabilities and limits. Credentials belong to the selected connection. Raw screenshots and worker history stay out of the parent response; `remote_control_check` uses a fresh native read without a verifier model.
+
+`screen_workflow` runs known app/URL/tap/type steps locally, resolving exact labels or view IDs after each navigation, and stops on ambiguity, changed apps, diagnostics or failed postconditions. `screen_sequence` batches stable controls with one final observation. Every underlying action still uses the permission gate and audit log. Workflows are supplied plans, not automatically learned persistent macros. They contain no app-specific engine.
+
+The worker preserves signed reasoning provenance and opts into Messages prompt-cache breakpoints. Cache savings depend on the provider; this proxy's token reports are inconsistent, so cache-hit savings are not claimed. Offscreen cells are rejected rather than tapping their clipped centers. Multiline TextView composers resolve without a textfield-only filter. Exact verification excludes input fields and their descendants. A partial title match or an exhausted task cannot become verified completion.
+
+Measured delegated samples through the same Tailscale phone:
+
+| Task | Time | Worker rounds | Parent result | Evidence |
+| --- | ---: | ---: | ---: | --- |
+| Calculator 7 + 8 | 8.719 s | 1 | 387 chars | Native result 15 |
+| Calculator 123 + 456 | 11.747 s | 1 | 391 chars | Native result 579 |
+| Known search URL workflow | 10.735 s | 0 | 660 chars | Correct ESP32-S3 query and title/price in same card |
+| Settings → General → About | 29.955 s | 6 | 436 chars | Native About heading |
+| Discord Messages navigation | 23.179 s | 3 | 1083 chars | Worker visual report; semantic review required |
+| Discord final send and verify | 5.865 s | 1 | 478 chars | Sent history and empty composer independently checked |
+| Discord read latest reply and respond | 37.141 s | 5 | 791 chars | Worker report plus independent screenshot |
+| YouTube unsubscribe, resumed at channel feed | 44.867 s | 8 | 688 chars | Official @MrBeast header shows Subscribe; independently checked |
+
+Times exclude the outer main model. Discord final send starts with a prepared composer: contact discovery and input debugging are excluded, so it is not a complete DM benchmark. Shopping comparison still needed multiple attempts and has not produced verified cart addition. Do not claim the cheapest product from an advertised minimum price.
+
+`screen_replay` implements calibrated tap/hold/drag segments up to 30 seconds with no per-note model calls. It checks app and geometry before gestures, stops on lateness/Stop/errors and retains committed receipts. iCTRL 1.96.1 has no server-side replay queue; per-gesture root reads and network delay limit dense rhythm-game timing. The old report's A-grade was achieved by a separate calibrated Python controller on an iPad. It is not an in-app Tako game result.
+
+Local validation passed 557 tests with two opt-in live tests skipped, plus 10 browser runtime checks and clean analysis. Narrow Traditional Chinese settings, independent worker selection, signed reasoning replay, multiline input, clipped cells, sparse OCR recovery and timed-input interruption have regression coverage.
+
+The opt-in delegated test is `test/screen/remote_control_live_test.dart` with `TAKO_ICTRL_WORKER_LIVE=1`. Custom authorized tasks use `TAKO_ICTRL_WORKER_TASK`, `TAKO_ICTRL_WORKER_APP`, optional `TAKO_ICTRL_WORKER_TEXT` and `TAKO_ICTRL_WORKER_PREFIX`. Use `TAKO_ICTRL_WORKER_RESUME=1` to preserve the current app. `TAKO_ICTRL_WORKER_PLAN` supplies a JSON workflow. Keep account-specific evidence and credentials ignored.
+
+## Reproduction commands
 
 Use Flutter 3.41.6 / Dart 3.11.4. Run the normal suite first:
 
