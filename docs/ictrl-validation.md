@@ -294,6 +294,9 @@ Live Claude Low trials through the production Dart worker:
 | Discord to Nicko DM, read only | 30.728 s | 4 | 22.168 s | DM reached; message author remained ambiguous |
 | Calculator 7+8 | 11.048 s | 2 | 6.948 s | Native result 15 verified; first request had malformed tap_ids |
 | Calculator 123+456 | 9.831 s | 1 | 3.140 s | Native result 579 verified |
+| Settings storage heading, resumed page from Calculator | 4.551 s | 1 | 2.548 s | Exact heading verified; no full storage reading |
+| Discord navigation to Nicko header | 12.761 s | 2 | 8.914 s | Exact DM header verified with workflow; no message sent |
+| Shopee known URL search for ESP32-S3 | 6.460 s | 0 | 0 s | Native product title and price card verified with workflow |
 
 These are single trials with different starting states and tasks, not an A/B
 benchmark. Storage and Discord remain semantic-review results; their compact
@@ -301,8 +304,59 @@ native evidence does not prove the full meaning of the worker's claims. No
 extra Discord message was sent. Calculator main results were 429/431 characters.
 Schema guidance now explicitly requires tap_ids to be an integer JSON array.
 No claim of universal best speed or installed Tako osu gameplay is made.
+The last Shopee trial verifies a search result card at TWD2,568, not a cheapest
+variant or another cart addition. Settings resumed its stored page, so its
+4.551-second result cannot be compared to navigation from Settings root.
 
 Local checks after integrating the concurrent upstream updates: 659 tests passed
 with three opt-in tests skipped; clean Flutter
 analysis and Dart formatting; browser runtime 10/10. These checks are distinct
 from CI packaging and the later LCSign installed-app trial.
+
+Build 19 commit `20218be` passed all check, iOS and release jobs in
+[GitHub Actions run 38397126507](https://github.com/AvianJay/tako/actions/runs/38397126507).
+The downloaded 21,022,784-byte IPA passed ZIP integrity and app/extension
+build-number checks: both bundles report build 19, and the app enables
+`NSSupportsLiveActivities`.
+
+## Build 19 installed validation
+
+External Claude imported the downloaded IPA into LCSign and used the existing
+signer to sign and install it. The signing log records build 19 and source
+`Tako-20218be`; iOS installation was confirmed once. A later installed task
+populated Device control diagnostics with `build 19`, state `ended`,
+`registered=true`, `submitted=true` and `handler=true`, with no error shown.
+The app retained its existing chats, provider credentials and pairing at
+`http://127.0.0.1:8200`.
+
+Claude selected GPT 6.1 Sol in the main chat and CPA / Haiku 5.5 / Low in
+Device control. The saved worker readiness reads
+`Haiku 5.5 · messages · low`; the main header remains GPT 6.1 Sol. Automatic
+fetch was already enabled. Enabling CPA multi-API mode added mixed-format
+IDs while preserving the existing profiles, so the installed saved list
+showed 92 entries after refresh. This is a merged list, not 92 unique models
+reported by the Bearer endpoint, which returned 57 in the earlier live test.
+Reopening the saved provider editor independently confirmed both automatic
+fetch and CPA multi-API switches were on, with the stored-key retention note.
+
+The installed GPT main model resolved Settings and delegated one storage read
+to the production Haiku Low worker. Claude only submitted the task and later
+inspected it; all Settings actions came from the installed worker. The
+`remote_control` receipt reports 10.452 seconds, two model rounds, three steps,
+6.356 seconds of model time and `workflow_used=true`. Independent native
+observations matched the final answer: 178.43 GB used of 256 GB; the largest
+visible app was 異環 at 31.41 GB, with the list sorted by size. The receipt
+retained `status=reported_complete`, `verified=false` and
+`semantic_review_needed=true`, so the UI accurately showed Incomplete. This
+read task lacked exact completion assertions; independent inspection
+confirmed its figures, without turning arbitrary semantic claims into
+automatic verification. The 10.452-second worker measurement excludes main
+planning, response synthesis, and the QA controller's later inspection.
+
+On the installed app, tapping blank chat history changed native
+`keyboard.visible` from true to false and retained the unsent
+`keyboard dismiss smoke` draft. Refocusing reopened the keyboard. Dragging
+the initial blank chat did not dismiss it because it had no scrollable
+history. A separate trial in the populated storage chat confirmed a history
+drag changed `keyboard.visible` from true to false while preserving the draft.
+The phone was left on the GPT 6.1 Sol chat with the keyboard dismissed.
