@@ -694,3 +694,23 @@ reply was already saved at 01:57 before QA reopened Tako. QA inspection/wait
 time is separate from production worker elapsed time. The card image shows
 the selected 64G option and NT$402; genuine capacity and all other cards'
 64GB prices remain unverified.
+
+### Delivery and final phone state
+
+Source commit `b3451458b06faf23cff310346ce899767180f849` was pushed to main;
+`git ls-remote` returned the same SHA and the worktree was clean. Manual
+dispatch again returned HTTP 422, `Actions has been disabled for this user`.
+The commit's Actions API returned zero runs. There is no build-21 IPA to
+install, so the installed build-20 timings above cannot demonstrate the new
+code's speed. Native build/install and unguided post-install scenarios remain
+outstanding until Actions access is restored.
+
+At the end of testing iCTRL's direct `lock` operation timed out. Each attempt
+was allowed to finish; non-UI logs recorded a definite final failure and
+`is_locked` remained false before another approach was tried. Claude found
+no existing lock shortcut, then created `Tako QA Lock Screen` with exactly
+one built-in Apple `鎖定螢幕` action and ran it once. Independent final reads
+confirmed `is_locked.locked=true` and `device_info.system.screen_locked=true`,
+with SpringBoard foreground. No UI actions followed the successful lock. The
+new shortcut is retained; existing shortcuts and device settings were not
+modified.
