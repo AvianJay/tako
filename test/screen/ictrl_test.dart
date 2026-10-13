@@ -163,6 +163,25 @@ void main() {
     expect(client.secrets['ictrl.paused'], isNull);
     screen.dispose();
   });
+  test('scroll summaries cannot hide independently selectable child labels', () {
+    final tree = parseIctrlTree(
+      {
+        'bundle_id': 'com.example.options',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  ScrollView, label: 'Options Small Large', {{0, 100}, {440, 700}}\n    Other, label: 'Small', {{20, 200}, {80, 40}}\n    Other, label: 'Large', {{120, 200}, {80, 40}}",
+      },
+      token: 1,
+      width: 440,
+      height: 956,
+    );
+    final reading = ScreenReading.from(tree);
+    expect(
+      reading.elements.map((e) => e.label),
+      containsAll(['Small', 'Large']),
+    );
+    expect(tree.nodes[1].scrollable, true);
+    expect(tree.nodes[1].description, isNull);
+  });
   test('multiline composers resolve without textfield-only filtering', () async {
     final client = _DeviceClient()
       ..source = {

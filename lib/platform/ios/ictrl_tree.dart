@@ -115,8 +115,7 @@ ScreenTree parseIctrlTree(
     final n = nodes[i];
     // iCTRL's container labels may repeat all descendants. Keep leaf text and
     // actionable controls; omit repeated wrapper summaries from model input.
-    if (!n.actionable &&
-        n.className == 'Other' &&
+    if ((!n.actionable && n.className == 'Other' || n.scrollable) &&
         ends[i] > i &&
         nodes
             .sublist(i + 1, ends[i] + 1)

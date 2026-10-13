@@ -201,14 +201,18 @@ class ScreenReading {
         if (own.isNotEmpty) {
           label = own;
           // Children that only repeat the control's name are not listed.
-          for (var child = index + 1; child <= ends[index]; child++) {
-            final inner = ownLabel(nodes[child]).toLowerCase();
-            if (inner.isNotEmpty && own.toLowerCase().contains(inner)) {
-              covered.add(child);
+          if (!node.scrollable) {
+            for (var child = index + 1; child <= ends[index]; child++) {
+              final inner = ownLabel(nodes[child]).toLowerCase();
+              if (inner.isNotEmpty && own.toLowerCase().contains(inner)) {
+                covered.add(child);
+              }
             }
           }
         } else {
-          label = subtreeLabel(nodes, ends, index, used: covered);
+          label = node.scrollable
+              ? ''
+              : subtreeLabel(nodes, ends, index, used: covered);
           if (label.isEmpty) label = humanizeViewId(node.viewId);
         }
         if (label.isEmpty && !node.scrollable && !node.editable) {
