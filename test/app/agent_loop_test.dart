@@ -951,7 +951,7 @@ void main() {
       final failed = app.visibleMessages.last;
       expect(failed.status, MessageStatus.error);
       expect(tool.inputs, ['one']);
-      await app.regenerate(failed);
+      await app.retryResponse(failed);
       expect(tool.inputs, ['one']);
       expect(app.tree.siblingsOf(failed.id), hasLength(2));
       expect(adapter.requests.last.messages.last.role, MessageRole.tool);
@@ -959,44 +959,50 @@ void main() {
     },
   );
 
-  test(
-    'regenerating completed tool-call node keeps committed effects and retries its answer',
-    () async {
-      final tool = _Tool(
-        risk: RiskLevel.action,
-        onRun: (context) async => const ToolResult(
-          content: 'Written',
-          sideEffects: [
-            SideEffect(
-              kind: 'file_written',
-              summary: 'file.txt',
-              backupPath: 'backup',
-            ),
-          ],
-        ),
-      );
-      final adapter = _Adapter([
-        _calls(['one']),
-        _answer,
-        _answer,
-      ]);
-      final app = await _app(tool, adapter: adapter);
-      await app.savePermissionPolicy(
-        const PermissionPolicy(fullPermissions: true),
-      );
-      await app.send('Write and explain');
-      final callMessage = app.visibleMessages[1];
-      final receipt = app.visibleMessages[2];
-      final originalAnswer = app.visibleMessages.last;
-      await app.regenerate(callMessage);
-      expect(tool.inputs, ['one']);
-      expect(adapter.requests.last.messages.last.id, receipt.id);
-      expect(app.visibleMessages.last.parentId, receipt.id);
-      expect(app.tree.siblingsOf(originalAnswer.id), hasLength(2));
-      expect(app.sideEffectsAfter(app.visibleMessages.first), hasLength(1));
-      expect(await app.audit.list(), hasLength(1));
-    },
-  );
+  for (final finalAnswer in [false, true]) {
+    test(
+      'regenerating ${finalAnswer ? 'final answer' : 'tool-call node'} starts the entire turn again',
+      () async {
+        final tool = _Tool(
+          risk: RiskLevel.action,
+          onRun: (context) async => const ToolResult(
+            content: 'Written',
+            sideEffects: [
+              SideEffect(
+                kind: 'file_written',
+                summary: 'file.txt',
+                backupPath: 'backup',
+              ),
+            ],
+          ),
+        );
+        final adapter = _Adapter([
+          _calls(['one']),
+          _answer,
+          _calls(['two']),
+          _answer,
+        ]);
+        final app = await _app(tool, adapter: adapter);
+        await app.savePermissionPolicy(
+          const PermissionPolicy(fullPermissions: true),
+        );
+        await app.send('Write and explain');
+        final callMessage = app.visibleMessages[1];
+        final originalAnswer = app.visibleMessages.last;
+        final user = app.visibleMessages.first;
+        await app.regenerate(finalAnswer ? originalAnswer : callMessage);
+        expect(tool.inputs, ['one', 'two']);
+        expect(adapter.requests[2].messages.last.id, user.id);
+        expect(adapter.requests[2].messages, hasLength(1));
+        expect(app.visibleMessages[1].parentId, user.id);
+        expect(app.tree.siblingsOf(callMessage.id), hasLength(2));
+        expect(app.sideEffectsAfter(app.visibleMessages.first), hasLength(1));
+        expect(await app.audit.list(), hasLength(2));
+        await app.switchBranch(callMessage);
+        expect(app.visibleMessages.last.id, originalAnswer.id);
+      },
+    );
+  }
 
   test(
     'reused call ID in a failed later stream cannot pair with old receipts',

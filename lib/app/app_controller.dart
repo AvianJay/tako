@@ -1461,7 +1461,24 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> regenerate(ChatMessage message) async {
+  /// Regenerate the entire assistant turn, including its tool rounds.
+  Future<void> regenerate(ChatMessage message) =>
+      _regenerate(message, wholeTurn: true);
+
+  /// Retry an interrupted stream from its original context and tool receipts.
+  Future<void> retryResponse(ChatMessage message) async {
+    if (message.role != MessageRole.assistant ||
+        (message.status != MessageStatus.error &&
+            message.status != MessageStatus.stopped)) {
+      return;
+    }
+    await _regenerate(message, wholeTurn: false);
+  }
+
+  Future<void> _regenerate(
+    ChatMessage message, {
+    required bool wholeTurn,
+  }) async {
     if (busy || _disposed) return;
     if (message.conversationId != conversation?.id ||
         !messages.any((m) => m.id == message.id)) {
@@ -1473,38 +1490,14 @@ class AppController extends ChangeNotifier {
       _emit();
       return;
     }
-    var parentId = message.role == MessageRole.user
-        ? message.id
+    final parentId = wholeTurn
+        ? tree
+              .pathTo(message.id)
+              .reversed
+              .where((node) => node.role == MessageRole.user)
+              .firstOrNull
+              ?.id
         : message.parentId;
-    if (message.role == MessageRole.assistant &&
-        message.status == MessageStatus.done) {
-      final callIds = message.content
-          .whereType<ToolCallBlock>()
-          .map((call) => call.id)
-          .toSet();
-      if (callIds.isNotEmpty) {
-        final receipts = tree.childrenOf(message.id).where((child) {
-          if (child.role != MessageRole.tool ||
-              child.status != MessageStatus.done) {
-            return false;
-          }
-          final resultIds = child.content
-              .whereType<ToolResultBlock>()
-              .map((result) => result.toolCallId)
-              .toSet();
-          return resultIds.containsAll(callIds);
-        }).toList();
-        final visibleIds = visibleMessages.map((item) => item.id).toSet();
-        final receipt =
-            receipts
-                .where((child) => visibleIds.contains(child.id))
-                .firstOrNull ??
-            receipts.lastOrNull;
-        // Regenerate the explanation after completed tools. Their receipts
-        // remain in history, so file/device changes cannot silently run again.
-        if (receipt != null) parentId = receipt.id;
-      }
-    }
     if (parentId == null) return;
     await _respondFrom(provider, parentId);
   }

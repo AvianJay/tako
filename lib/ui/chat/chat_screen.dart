@@ -1060,7 +1060,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           TextButton.icon(
             onPressed: app.busy
                 ? null
-                : () => _run(() => app.regenerate(message)),
+                : () => _run(() => app.retryResponse(message)),
             icon: const Icon(Icons.refresh, size: 16),
             label: Text(l.retry),
           ),
