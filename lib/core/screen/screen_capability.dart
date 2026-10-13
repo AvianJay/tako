@@ -330,6 +330,14 @@ abstract class ScreenCapability extends ChangeNotifier implements Capability {
     required bool screenshot,
     required CancelToken cancel,
   });
+
+  /// Model reads may include an image when native text cannot describe the
+  /// controls. The caller grants image access; ordinary native reads ignore it.
+  Future<ScreenTree> snapshotForModel({
+    required bool screenshot,
+    required bool automaticScreenshot,
+    required CancelToken cancel,
+  }) => snapshot(screenshot: screenshot, cancel: cancel);
   Future<ScreenTargetInfo> resolveNode(int token, int node, CancelToken cancel);
   Future<ScreenTargetInfo> resolvePoint(double x, double y, CancelToken cancel);
   Future<ScreenTargetInfo> resolveFocus(CancelToken cancel);

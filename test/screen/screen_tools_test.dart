@@ -9,6 +9,7 @@ import 'package:tako/core/chat/content_block.dart';
 import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/cancel_token.dart';
+import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/tools/screen_tools.dart';
 import 'package:tako/core/tools/tool.dart';
 import 'package:tako/core/tools/tool_executor.dart';
@@ -38,6 +39,26 @@ class _Workspace implements WorkspaceCapability {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SparseScreen extends FakeScreen {
+  _SparseScreen(FakeScreen source)
+    : super(source.views, start: source.current, screenshots: true) {
+    fastActions = true;
+  }
+  final imageAccess = <bool>[];
+  @override
+  Future<ScreenTree> snapshotForModel({
+    required bool screenshot,
+    required bool automaticScreenshot,
+    required CancelToken cancel,
+  }) {
+    imageAccess.add(automaticScreenshot);
+    return snapshot(
+      screenshot: screenshot || automaticScreenshot,
+      cancel: cancel,
+    );
+  }
 }
 
 void main() {
@@ -183,6 +204,46 @@ void main() {
       expect(tapped.isError, false);
       expect(tapped.attachments, hasLength(1));
       expect(tapped.content, contains('screenshot: attached'));
+      expect(screen.actions, hasLength(1));
+    },
+  );
+  test(
+    'sparse action observation respects the screenshot preference',
+    () async {
+      final sparse = _SparseScreen(phoneScreen());
+      screen = sparse;
+      final readings = ScreenReadings();
+      gate.policy = const PermissionPolicy(fullPermissions: true);
+      executor = ToolExecutor(
+        registry: ToolRegistry(
+          createScreenTools(
+            screen,
+            workspace: workspace,
+            readings: readings,
+            screenshots: () => screenshots,
+            observer: ScreenObserver(
+              screen: screen,
+              workspace: workspace,
+              readings: readings,
+              screenshots: () => screenshots,
+              allowed: (_) => true,
+            ),
+          ),
+        ),
+        permissions: gate,
+        audit: AuditRepository(database),
+      );
+      screen.show('messages');
+      screenshots = false;
+      final hidden = await run('read_screen', {});
+      expect(hidden.attachments, isEmpty);
+      screenshots = true;
+      final read = await run('read_screen', {});
+      expect(read.attachments, hasLength(1));
+      final action = await run('tap', {'id': 4});
+      expect(action.isError, false);
+      expect(action.attachments, hasLength(1));
+      expect(sparse.imageAccess, [false, true, true]);
       expect(screen.actions, hasLength(1));
     },
   );

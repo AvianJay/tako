@@ -4,6 +4,7 @@ on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -54,11 +55,11 @@ jobs:
       # One APK per ABI: llama.cpp makes a universal APK about 130 MB.
       - name: Build Android release APKs
         env:
-          KEYSTORE_BASE64: ${{ github.event_name == 'push' && secrets.KEYSTORE_BASE64 || '' }}
-          KEYSTORE_ALIAS: ${{ github.event_name == 'push' && secrets.KEYSTORE_ALIAS || '' }}
-          KEYSTORE_PASSWORD: ${{ github.event_name == 'push' && secrets.KEYSTORE_PASSWORD || '' }}
+          KEYSTORE_BASE64: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.KEYSTORE_BASE64 || '' }}
+          KEYSTORE_ALIAS: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.KEYSTORE_ALIAS || '' }}
+          KEYSTORE_PASSWORD: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.KEYSTORE_PASSWORD || '' }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             if [[ -z "$KEYSTORE_BASE64" || -z "$KEYSTORE_ALIAS" || -z "$KEYSTORE_PASSWORD" ]]; then
               echo "::error::Android release signing requires KEYSTORE_BASE64, KEYSTORE_ALIAS, and KEYSTORE_PASSWORD."
               exit 1
@@ -78,7 +79,7 @@ jobs:
             done
           done
       - name: Remove Android release keystore
-        if: ${{ always() && github.event_name == 'push' }}
+        if: ${{ always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
         run: rm -f -- "$RUNNER_TEMP/tako-release.jks"
       - uses: actions/upload-artifact@v4
         with:
@@ -130,7 +131,7 @@ jobs:
   # Publish both platforms together so asset cleanup keeps the unsigned IPA.
   release:
     needs: [check, ios]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       # Moves the nightly tag and replaces its release assets.

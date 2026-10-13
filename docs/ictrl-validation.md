@@ -565,3 +565,69 @@ Build-21 local verification: 692 tests passed, three opt-in device tests
 skipped; clean Flutter analysis/format and browser runtime 10/10. These
 checks verify the shared implementation; installed task speed is measured
 separately after installation.
+
+### Sparse screens and build availability
+
+Additional build-21 changes attach the current screenshot to a model
+observation when iCTRL reports sparse/custom accessibility content, provided
+the user enabled screenshots. Dense native screens still omit images unless
+requested, and Tako's own chat is excluded. This applies to every app and
+avoids a separate worker turn just to request an image of unnamed controls.
+Native verification reads do not trigger this automatic image path. Failed
+stale/ambiguous navigation selectors now return a fresh screen/image before
+the next worker decision, within the same three-recovery bound; failed
+gestures are never replayed. Tests cover disabled image access, dense screens,
+own-app exclusion, action observations and failed-selector recovery.
+The final local suite passes 696 tests with three opt-in device tests skipped;
+Flutter analysis is clean, all 224 Dart files are formatted unchanged, browser
+runtime checks pass 10/10, and Actions YAML parses with the expected triggers
+and release dependencies. Native Swift still requires the unavailable iOS
+CI build.
+
+The source was pushed as `3cf9d5ff3c1d24d3bdf81595bee43add29f783fb`,
+but GitHub rejected the build request with HTTP 422,
+`Actions has been disabled for this user`. The workflow itself reports active.
+No Actions run or build-21 IPA was available at the current check; installed
+Tako still reports build 20. GitHub CLI's authentication check also failed,
+and the credential-manager REST requests returned an account rate-limit
+error. Neither condition is a Flutter/Xcode compilation result.
+A manual workflow trigger is included for retry after access is restored;
+manual runs retain Android release signing and wait for both platform jobs
+before publishing nightly assets. It cannot remove an account restriction.
+
+Earlier build-20 Actions links recorded above currently return HTTP 404.
+The public nightly release still says `0.5.0+20`, with release notes naming
+`6253ecb`. Retained installation evidence and native build-20 diagnostics
+remain separate evidence; those old run links are not confirmation of
+current CI availability or a build-21 release.
+
+### Additional unguided installed build-20 baseline
+
+External Claude submitted each ordinary prompt once through the installed
+GPT 6.1 Sol main agent; Sonnet 5.5 / Medium / Messages selected all target
+actions. These are baseline failures/partial outcomes, not measurements of
+the uninstalled build-21 code. Existing pairing, settings, chats and
+credentials were retained.
+
+| Ordinary request | Actual saved result | Timing and limits |
+| --- | --- | --- |
+| Foldable phone stands and several cheap prices | Cancelled before product results; no cart mutation. Native diagnostics showed background expiration. QA also reopened Tako too early. | 15.412 s main + 91.823 s worker; nine worker rounds / ten steps. Old model timer excluded an interrupted call. |
+| Discord servers and one server's channels, read only | Worker reported server `AI`, text channel `一般` and voice channel `一般`; screenshot independently confirms that channel list. Other server names were not identified. Receipt remains `reported_complete`, `verified=false`, `semantic_review_needed=true`; server enumeration is incomplete. | 11.586 s main + 50.143 s worker = at least 61.729 s; five worker rounds / six steps, 31.160 s worker model time. |
+| 台中高工考成表 link | Main found the official page titled `考程表`, containing 109/110-year dates; current exam schedule was not verified. | Approximately one minute by chat timestamps; no remote-worker timing receipt, because it used page/browser tools. |
+
+Discord QA left the phone untouched after submission. Its observation limit
+elapsed without a visible completion signal because the finished worker left
+Discord foreground. A later inspection found the saved 01:17 final reply.
+QA initially claimed timing/model fields were absent, but its retained
+screenshot of the receipt bottom plainly shows Sonnet 5.5, Medium and the
+metrics above. Independent screenshot review overrides that QA inference.
+No Discord message was sent.
+
+Independent public-site verification fetched the official search form and
+the discovered [考程表 page](https://tcivs.tc.edu.tw/p/404-1081-39504.php).
+It contains the listed old exam dates; shared site navigation/news at the
+top does not make it a generic home link. The title spelling alone is not
+evidence of a wrong task because the user's wording may be a typo. Its
+age and unverified latest announcement prevent a current-schedule success
+claim. No known URL or procedural guidance was inserted into the installed
+test prompt.

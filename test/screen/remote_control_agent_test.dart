@@ -755,6 +755,50 @@ void main() {
     },
   );
   test(
+    'failed selector returns a fresh image without retrying the action',
+    () async {
+      adapter = _Adapter([
+        call('tap', {'title': 'Unknown target', 'id': 999}),
+        call('tap', {'title': 'Start', 'id': 1}),
+      ]);
+      build();
+      final receipt = tryDecodeObject((await run()).content)!;
+      expect(receipt['status'], 'verified');
+      expect(receipt['observation_recoveries'], 1);
+      expect(adapter.requests, hasLength(2));
+      expect(screen.actions, hasLength(1));
+      final fresh = adapter.requests[1].messages.last.content;
+      expect(fresh.whereType<ImageBlock>(), hasLength(1));
+      expect(fresh.whereType<TextBlock>().first.text, contains('not retried'));
+      expect(fresh.whereType<TextBlock>().last.text, contains('Start'));
+    },
+  );
+  test('ambiguous workflow returns a fresh image for replanning', () async {
+    adapter = _Adapter([
+      call('screen_workflow', {
+        'title': 'Find route',
+        'steps': [
+          {
+            'tool': 'tap',
+            'label': 'Missing',
+            'expect_app': 'com.example.fixture',
+          },
+        ],
+      }),
+      call('tap', {'title': 'Start', 'id': 1}),
+    ]);
+    build();
+    final receipt = tryDecodeObject((await run()).content)!;
+    expect(receipt['status'], 'verified');
+    expect(receipt['observation_recoveries'], 1);
+    expect(adapter.requests, hasLength(2));
+    expect(screen.actions, hasLength(1));
+    expect(
+      adapter.requests[1].messages.last.content.whereType<ImageBlock>(),
+      hasLength(1),
+    );
+  });
+  test(
     'back workflow never repeats a tap when its page remains unchanged',
     () async {
       screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [

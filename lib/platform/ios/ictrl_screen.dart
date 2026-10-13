@@ -69,6 +69,7 @@ class IctrlScreen extends RemoteScreen {
   ScreenTree? _latest;
   bool _observationPending = false;
   bool _sourceLoading = false;
+  bool _sourceNeedsImage = false;
   String? _launchedApp;
 
   /// A successful action may return before its UI transition starts. Only the
@@ -226,10 +227,13 @@ class IctrlScreen extends RemoteScreen {
               (n.text?.isNotEmpty == true || n.description?.isNotEmpty == true),
         )
         .length;
-    if (((source['channel'] as Map?)?['recommended'] == 'ocr' ||
-            source['truncated'] == true && usefulLabels < 5 ||
-            source['sparse_hint'] != null ||
-            source['viewport_warning'] != null) &&
+    _sourceNeedsImage =
+        (source['channel'] as Map?)?['recommended'] == 'ocr' ||
+        source['truncated'] == true && usefulLabels < 5 ||
+        source['sparse_hint'] != null ||
+        source['viewport_warning'] != null ||
+        usefulLabels == 0;
+    if (_sourceNeedsImage &&
         (source['ocr_items'] as List?)?.isNotEmpty != true) {
       final ocr = await rpc('screen_text', const {}, cancel);
       source['ocr_items'] = ocr['items'];
@@ -290,12 +294,30 @@ class IctrlScreen extends RemoteScreen {
   Future<ScreenTree> snapshot({
     required bool screenshot,
     required CancelToken cancel,
+  }) => _snapshot(screenshot: screenshot, cancel: cancel);
+
+  @override
+  Future<ScreenTree> snapshotForModel({
+    required bool screenshot,
+    required bool automaticScreenshot,
+    required CancelToken cancel,
+  }) => _snapshot(
+    screenshot: screenshot,
+    automaticScreenshot: automaticScreenshot,
+    cancel: cancel,
+  );
+
+  Future<ScreenTree> _snapshot({
+    required bool screenshot,
+    bool automaticScreenshot = false,
+    required CancelToken cancel,
   }) async {
     final tree = await _observedTree(cancel);
     Uint8List? bytes;
     var iw = 0;
     var ih = 0;
-    if (screenshot && !tree.ownAppInFront) {
+    if ((screenshot || automaticScreenshot && _sourceNeedsImage) &&
+        !tree.ownAppInFront) {
       final shot = await rpc('screenshot', {
         // On phones one image pixel per point avoids coordinate conversion
         // mistakes. Tablets keep the smaller payload.

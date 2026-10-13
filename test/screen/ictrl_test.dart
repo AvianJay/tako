@@ -495,6 +495,60 @@ void main() {
     screen.dispose();
   });
   test(
+    'sparse model reads attach an image only when image access is enabled',
+    () async {
+      final client = _DeviceClient()
+        ..source = {
+          'bundle_id': 'com.example.list',
+          'sparse_hint': 'Recycled rows have no accessible labels',
+          'source': 'Application, {{0, 0}, {440, 956}}',
+        };
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      final hidden = await screen.snapshotForModel(
+        screenshot: false,
+        automaticScreenshot: false,
+        cancel: CancelToken(),
+      );
+      expect(hidden.image, isNull);
+      expect(client.calls.where((c) => c.$1 == 'screenshot'), isEmpty);
+      final shown = await screen.snapshotForModel(
+        screenshot: false,
+        automaticScreenshot: true,
+        cancel: CancelToken(),
+      );
+      expect(shown.image, [1, 2, 3]);
+      expect(shown.imageWidth, 440);
+      expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
+      client.source = {
+        'bundle_id': 'com.example.native',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  Button, label: 'Next', {{20, 180}, {60, 40}}",
+      };
+      final native = await screen.snapshotForModel(
+        screenshot: false,
+        automaticScreenshot: true,
+        cancel: CancelToken(),
+      );
+      expect(native.image, isNull);
+      expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
+      client.source = {
+        'bundle_id': 'tw.avianjay.tako',
+        'sparse_hint': 'Private chat',
+        'source': 'Application, {{0, 0}, {440, 956}}',
+      };
+      final own = await screen.snapshotForModel(
+        screenshot: false,
+        automaticScreenshot: true,
+        cancel: CancelToken(),
+      );
+      expect(own.image, isNull);
+      expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
+      expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(4));
+      screen.dispose();
+    },
+  );
+  test(
     'timed inputs use bounded root guard and stop on geometry change',
     () async {
       final client = _DeviceClient();
@@ -951,6 +1005,7 @@ class _DeviceClient extends IctrlClient {
                   "Application, label: 'Calculator', {{0, 0}, {${landscape ? '956, 440' : '440, 956'}}}\n  Key, label: '7', id: 'Seven', {{20, 180}, {60, 40}}",
             },
       'screen_text' => {'items': ocrItems},
+      'screenshot' => {'data': 'AQID', 'pixel_width': 440, 'pixel_height': 956},
       'find_element' => hit,
       'tap' => actionReceipt,
       'resolve_app' => {'apps': apps},

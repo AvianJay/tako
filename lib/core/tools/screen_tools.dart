@@ -51,9 +51,11 @@ Future<({ScreenReading reading, ImageBlock? image})?> _readScreen(
   ScreenReadings readings,
   ToolContext ctx, {
   required bool screenshot,
+  bool automaticScreenshot = false,
 }) async {
-  final tree = await screen.snapshot(
+  final tree = await screen.snapshotForModel(
     screenshot: screenshot,
+    automaticScreenshot: automaticScreenshot,
     cancel: ctx.cancel,
   );
   final reading = ScreenReading.from(tree);
@@ -117,6 +119,7 @@ class ScreenObserver {
         screenshot: screen.supportsFastActions
             ? screenshot && screenshots()
             : screenshots(),
+        automaticScreenshot: screen.supportsFastActions && screenshots(),
       );
       if (seen == null) return null;
       return (
@@ -542,6 +545,7 @@ class ScreenTool extends Tool implements TargetResolvingTool {
       readings,
       ctx,
       screenshot: screenshot,
+      automaticScreenshot: screen.supportsFastActions && screenshots(),
     );
     if (seen == null) {
       return ToolResult(
