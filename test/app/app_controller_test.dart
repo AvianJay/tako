@@ -84,6 +84,7 @@ void main() {
     services = FakeServices();
     adapter = FakeAdapter();
     app = AppController(
+      titleGenerator: (_, _, _) async => null,
       database: database,
       services: services,
       promptTemplate: '{{provider_name}} on {{device_model}}',

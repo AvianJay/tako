@@ -9,6 +9,12 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get generateChatTitle => '??????';
+
+  @override
+  String get titleGenerationFailed => '????????????????';
+
+  @override
   String toolRunSummary(String tool, int count) {
     return '$tool · $count 個步驟';
   }
@@ -1472,6 +1478,12 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
 class AppLocalizationsZhTw extends AppLocalizationsZh {
   AppLocalizationsZhTw() : super('zh_TW');
+
+  @override
+  String get generateChatTitle => '??????';
+
+  @override
+  String get titleGenerationFailed => '????????????????';
 
   @override
   String toolRunSummary(String tool, int count) {

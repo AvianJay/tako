@@ -13,6 +13,7 @@ import '../core/chat/conversation_tree.dart';
 import '../core/chat/generated_image_store.dart';
 import '../core/chat/message.dart';
 import '../core/chat/response_accumulator.dart';
+import '../core/chat/title_generator.dart';
 import '../core/memory/memory.dart';
 import '../core/memory/settings.dart';
 import '../core/on_device/on_device_capability.dart';
@@ -69,6 +70,7 @@ class AppController extends ChangeNotifier {
     required this.services,
     required this.promptTemplate,
     AdapterFactory? adapterFactory,
+    TitleGenerator? titleGenerator,
     List<Tool>? extraTools,
   }) : _adapterFactory =
            adapterFactory ??
@@ -78,6 +80,7 @@ class AppController extends ChangeNotifier {
              secretHeaders: headers,
              onDevice: services.onDevice,
            )),
+       _titleGenerator = titleGenerator ?? generateChatTitle,
        _extraTools = extraTools ?? const [],
        chats = ChatRepository(database),
        providerRepository = ProviderRepository(database),
@@ -102,6 +105,9 @@ class AppController extends ChangeNotifier {
   final AppServices services;
   final String promptTemplate;
   final AdapterFactory _adapterFactory;
+  final TitleGenerator _titleGenerator;
+  final _titleJobs = <String, CancelToken>{};
+  bool get isGeneratingTitle => _titleJobs.containsKey(conversation?.id);
   final List<Tool> _extraTools;
   late final AuditRepository audit = AuditRepository(database);
   late final MemoryRepository memory = MemoryRepository(database);
@@ -1333,6 +1339,8 @@ class AppController extends ChangeNotifier {
       _emit();
       return;
     }
+    final isNewConversation = conversation == null;
+    _titleJobs[conversation?.id]?.cancel();
     _generating = true;
     errorCode = null;
     providerError = null;
@@ -1447,6 +1455,18 @@ class AppController extends ChangeNotifier {
       if (editing == null) draftAttachments = [];
       await _refresh();
       await _generate(provider, message.id);
+      final answer = visibleMessages.lastOrNull;
+      if (isNewConversation &&
+          !token.isCancelled &&
+          errorCode == null &&
+          answer?.role == MessageRole.assistant &&
+          answer?.status == MessageStatus.done &&
+          _hasAnswer(answer!.content) &&
+          !answer.content.any((b) => b is ToolCallBlock)) {
+        unawaited(
+          _updateConversationTitle(provider, conversation!, visibleMessages),
+        );
+      }
     } on RequestCancelled {
       await _refresh();
     } catch (_) {
@@ -1520,6 +1540,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _respondFrom(ProviderConfig provider, String parentId) async {
+    _titleJobs[conversation?.id]?.cancel();
     _generating = true;
     errorCode = null;
     providerError = null;
@@ -2083,11 +2104,71 @@ class AppController extends ChangeNotifier {
 
   Future<void> renameConversation(String title) => _mutate(() async {
     if (conversation == null || title.trim().isEmpty) return;
+    _titleJobs[conversation!.id]?.cancel();
     await chats.saveConversation(conversation!.copyWith(title: title.trim()));
     await _refresh();
   });
 
+  Future<bool> generateConversationTitle() async {
+    final current = conversation;
+    final provider = selectedProvider;
+    if (busy ||
+        _disposed ||
+        isGeneratingTitle ||
+        current == null ||
+        provider == null) {
+      return false;
+    }
+    return _updateConversationTitle(provider, current, visibleMessages);
+  }
+
+  Future<bool> _updateConversationTitle(
+    ProviderConfig provider,
+    Conversation current,
+    List<ChatMessage> path,
+  ) async {
+    if (_disposed ||
+        current.incognito ||
+        provider.capabilities.imageGeneration != ImageGenerationMode.none ||
+        _titleJobs.containsKey(current.id)) {
+      return false;
+    }
+    final token = CancelToken();
+    _titleJobs[current.id] = token;
+    _emit();
+    final timer = Timer(const Duration(seconds: 30), token.cancel);
+    try {
+      final adapter = await token.bind(
+        adapterFor(provider.copyWith(reasoningMode: ReasoningMode.off)),
+      );
+      final title = await token.bind(_titleGenerator(adapter, path, token));
+      token.throwIfCancelled();
+      if (_disposed || title == null || title.trim().isEmpty) return false;
+      final updated = await chats.updateTitle(
+        current.id,
+        title.trim().characters.take(80).toString(),
+        expectedTitle: current.title,
+      );
+      if (updated && !_disposed) {
+        if (conversation?.id == current.id) {
+          final loaded = await chats.getConversation(current.id);
+          if (conversation?.id == current.id) conversation = loaded;
+        }
+        conversations = await chats.listConversations();
+      }
+      return updated;
+    } catch (_) {
+      // Title generation is best effort and never changes response errors.
+      return false;
+    } finally {
+      timer.cancel();
+      _titleJobs.remove(current.id);
+      _emit();
+    }
+  }
+
   Future<void> deleteConversation(String id) => _mutate(() async {
+    _titleJobs[id]?.cancel();
     await _discardScreenshots(await chats.deleteConversation(id));
     if (conversation?.id == id) await _newChat();
     conversations = await chats.listConversations();
@@ -2096,6 +2177,9 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    for (final token in _titleJobs.values) {
+      token.cancel();
+    }
     stop();
     if (services.browser.onTakeOver == stop) services.browser.onTakeOver = null;
     if (services.screen.onTakeOver == stop) services.screen.onTakeOver = null;

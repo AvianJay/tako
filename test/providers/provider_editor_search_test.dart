@@ -106,6 +106,7 @@ Future<_Harness> _boot(
   final database = AppDatabase(NativeDatabase.memory());
   final services = _Services();
   final app = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: database,
     services: services,
     promptTemplate: 'Assistant',

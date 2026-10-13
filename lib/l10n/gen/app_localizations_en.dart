@@ -9,6 +9,13 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get generateChatTitle => 'Generate chat title';
+
+  @override
+  String get titleGenerationFailed =>
+      'Could not generate a title. The current title was kept.';
+
+  @override
   String toolRunSummary(String tool, int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

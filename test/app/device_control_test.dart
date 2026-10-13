@@ -213,6 +213,7 @@ Future<(AppController, _Services)> _app(
   final db = AppDatabase(NativeDatabase.memory());
   final services = _Services(screen ?? phoneScreen());
   final app = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: db,
     services: services,
     promptTemplate: _template,

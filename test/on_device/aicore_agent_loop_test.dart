@@ -174,6 +174,7 @@ void main() {
     });
     database = AppDatabase(NativeDatabase.memory());
     app = AppController(
+      titleGenerator: (_, _, _) async => null,
       database: database,
       services: _Services(engine),
       promptTemplate: 'Use the supplied tools. Never invent tool results.',

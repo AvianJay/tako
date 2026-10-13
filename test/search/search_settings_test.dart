@@ -34,6 +34,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final services = _Services();
       final app = AppController(
+        titleGenerator: (_, _, _) async => null,
         database: db,
         services: services,
         promptTemplate: 'Assistant',
@@ -105,6 +106,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final services = _Services();
       final app = AppController(
+        titleGenerator: (_, _, _) async => null,
         database: db,
         services: services,
         promptTemplate: 'Assistant',
@@ -144,6 +146,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final services = _Services();
       final app = AppController(
+        titleGenerator: (_, _, _) async => null,
         database: db,
         services: services,
         promptTemplate: 'Assistant',

@@ -81,6 +81,7 @@ Future<AppController> _boot(
   addTearDown(tester.view.resetDevicePixelRatio);
   final database = AppDatabase(NativeDatabase.memory());
   final controller = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: database,
     services: _Services(browser),
     promptTemplate: 'You are {{app_name}}.',

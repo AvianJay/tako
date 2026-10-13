@@ -32,6 +32,7 @@ void main() {
       expect(splash, findsOneWidget);
       expect(find.byType(ChatScreen), findsNothing);
       final controller = AppController(
+        titleGenerator: (_, _, _) async => null,
         database: database,
         services: PlatformServices(),
         promptTemplate: 'test',

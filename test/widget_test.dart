@@ -210,6 +210,7 @@ Future<AppController> boot(
   }
   final database = AppDatabase(NativeDatabase.memory());
   final controller = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: database,
     services: services ?? FakePlatformServices(),
     promptTemplate: 'You are {{app_name}}.',

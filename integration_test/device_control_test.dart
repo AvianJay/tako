@@ -139,6 +139,7 @@ Future<AppController> _start(
   final services = PlatformServices();
   final database = AppDatabase(NativeDatabase.memory());
   final app = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: database,
     services: services,
     promptTemplate: await rootBundle.loadString(

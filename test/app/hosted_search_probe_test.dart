@@ -160,6 +160,7 @@ void main() {
     services = _Services();
     adapter = _Adapter();
     app = AppController(
+      titleGenerator: (_, _, _) async => null,
       database: database,
       services: services,
       promptTemplate: 'Private configured system prompt',

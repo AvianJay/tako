@@ -45,6 +45,7 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         final database = AppDatabase(NativeDatabase.memory());
         final app = AppController(
+          titleGenerator: (_, _, _) async => null,
           database: database,
           services: _NoServices(),
           promptTemplate: '',

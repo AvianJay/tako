@@ -192,6 +192,19 @@ final class ChatRepository {
     await setActiveLeaf(conversationId, tree.preferredLeafFrom(messageId));
   }
 
+  /// Background metadata must not restore a deleted chat, overwrite a rename,
+  /// or replace the active leaf saved by a newer response.
+  Future<bool> updateTitle(
+    String conversationId,
+    String title, {
+    required String expectedTitle,
+  }) => database.transaction(() async {
+    final current = await getConversation(conversationId);
+    if (current == null || current.title != expectedTitle) return false;
+    await saveConversation(current.copyWith(title: title));
+    return true;
+  });
+
   /// Rewinds to the target and deletes every descendant, including branches
   /// beneath it, while keeping sibling branches at or above the target.
   /// Returns the deleted messages.

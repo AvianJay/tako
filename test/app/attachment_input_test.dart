@@ -119,6 +119,7 @@ void main() {
     media = _Media();
     adapter = _Adapter();
     app = AppController(
+      titleGenerator: (_, _, _) async => null,
       database: database,
       services: _Services(workspace, media),
       promptTemplate: '{{app_name}}',

@@ -132,6 +132,7 @@ Future<AppController> _app(
 }) async {
   final db = database ?? AppDatabase(NativeDatabase.memory());
   final app = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: db,
     services: _Services(browser ?? UnavailableBrowser()),
     promptTemplate: template ?? _template,

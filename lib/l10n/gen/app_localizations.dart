@@ -99,6 +99,18 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @generateChatTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'??????'**
+  String get generateChatTitle;
+
+  /// No description provided for @titleGenerationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'????????????????'**
+  String get titleGenerationFailed;
+
   /// No description provided for @toolRunSummary.
   ///
   /// In zh, this message translates to:

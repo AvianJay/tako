@@ -98,6 +98,7 @@ void main() {
             ],
     );
     app = AppController(
+      titleGenerator: (_, _, _) async => null,
       database: db,
       services: _Services(workspace),
       promptTemplate: '{{app_name}}',

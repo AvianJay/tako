@@ -200,6 +200,7 @@ Future<AppController> _app(
 }) async {
   final database = AppDatabase(NativeDatabase.memory());
   final app = AppController(
+    titleGenerator: (_, _, _) async => null,
     database: database,
     services: _Services(),
     promptTemplate: 'Fixture prompt',
