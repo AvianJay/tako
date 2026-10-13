@@ -9,6 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get toolLoopDetected =>
+      'A repeated tool loop was stopped. Review the explanation, then press Continue to try a different approach.';
+
+  @override
   String get appUpdates => 'App updates';
 
   @override
@@ -88,11 +92,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolsEnabled => 'Enable tools';
 
   @override
-  String get maxToolSteps => 'Maximum tool calls per turn';
+  String get maxToolSteps => 'Start loop detection after this many tool calls';
 
   @override
   String get maxScreenToolSteps =>
-      'Maximum tool calls per turn when controlling the screen';
+      'Start loop detection after this many screen tool calls';
 
   @override
   String get toolOutputLimit => 'Tool result limit (characters)';

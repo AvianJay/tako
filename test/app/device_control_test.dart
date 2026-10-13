@@ -426,8 +426,8 @@ void main() {
     expect(services.screen.modelActive, isFalse);
   });
 
-  group('tool-call limit', () {
-    test('a turn that controls the screen gets the screen limit', () async {
+  group('tool-loop threshold', () {
+    test('changing screen results continue beyond the threshold', () async {
       final adapter = _Adapter([
         _call('open_app', {'name': 'Settings'}),
         _call('read_screen'),
@@ -444,6 +444,7 @@ void main() {
         _call('open_app', {'name': 'Messages'}),
         _call('open_app', {'name': 'Settings'}),
         _call('open_app', {'name': 'Messages'}),
+        _say((_) => 'Opened the apps.'),
       ]);
       final (app, services) = await _app(adapter);
       await app.saveToolSettings(
@@ -462,55 +463,71 @@ void main() {
       expect(results[2].content, contains('screen after the action:'));
 
       await _approveAll(app, app.send('Open a few apps'));
-      expect(app.errorCode, 'toolStepLimit');
-      expect(adapter.requests, hasLength(7));
+      expect(app.errorCode, isNull);
+      expect(adapter.requests, hasLength(9));
       // open_app now returned the screen, so that response used the screen.
       expect(_results(app).last.content, contains('screen after the action:'));
       expect(services.screen.sessions, 2);
       expect(services.screen.modelActive, isFalse);
     });
 
-    test('Continue goes on from the last results with a new budget', () async {
+    test(
+      'Continue goes on after a repeated screen loop was explained',
+      () async {
+        final adapter = _Adapter([
+          _call('open_app', {'name': 'Settings'}),
+          _call('read_screen'),
+          _call('read_screen'),
+          _call('read_screen'),
+          _call('read_screen'),
+          _say((_) => 'The screen is unchanged. Try another approach.'),
+          _say((_) => 'Trying another approach.'),
+        ]);
+        final (app, _) = await _app(adapter);
+        await app.saveToolSettings(
+          const ToolSettings(maxSteps: 1, maxScreenSteps: 1),
+        );
+        await _approveAll(app, app.send('Look at Settings'));
+        expect(app.errorCode, 'toolLoopDetected');
+        expect(app.canContinueAfterLimit, isTrue);
+        expect(app.visibleMessages.last.role, MessageRole.assistant);
+        expect(adapter.requests.last.tools, isEmpty);
+        expect(
+          adapter.requests.last.systemPrompt,
+          contains('stuck in a tool-use loop'),
+        );
+        expect(_lastResult(adapter.requests[1]), contains('"launched":true'));
+        await _approveAll(app, app.continueAfterLimit());
+        expect(app.errorCode, isNull);
+        expect(app.canContinueAfterLimit, isFalse);
+        expect(app.visibleMessages.last.text, 'Trying another approach.');
+        // The fourth identical read is blocked and kept as an error receipt.
+        expect(_results(app).map((result) => result.toolName), [
+          'open_app',
+          'read_screen',
+          'read_screen',
+          'read_screen',
+          'read_screen',
+        ]);
+        expect(_results(app).last.isError, isTrue);
+      },
+    );
+
+    test('Continue is offered only while that response is shown', () async {
       final adapter = _Adapter([
-        _call('open_app', {'name': 'Settings'}),
-        _call('read_screen'),
-        _say((r) => 'Seen: ${_lastResult(r).contains('About phone')}'),
+        for (var i = 0; i < 4; i++) _call('read_screen'),
+        _say((_) => 'The screen is unchanged.'),
       ]);
       final (app, _) = await _app(adapter);
       await app.saveToolSettings(
         const ToolSettings(maxSteps: 1, maxScreenSteps: 1),
       );
-      await _approveAll(app, app.send('Look at Settings'));
-      expect(app.errorCode, 'toolStepLimit');
-      expect(app.canContinueAfterLimit, isTrue);
-      expect(app.visibleMessages.last.role, MessageRole.tool);
-      await _approveAll(app, app.continueAfterLimit());
-      // The model saw what open_app returned, then reached the limit again.
-      expect(_lastResult(adapter.requests[1]), contains('"launched":true'));
-      expect(app.errorCode, 'toolStepLimit');
-      await _approveAll(app, app.continueAfterLimit());
-      expect(app.errorCode, isNull);
-      expect(app.canContinueAfterLimit, isFalse);
-      expect(app.visibleMessages.last.text, 'Seen: true');
-      // Nothing ran twice.
-      expect(_results(app).map((result) => result.toolName), [
-        'open_app',
-        'read_screen',
-      ]);
-    });
-
-    test('Continue is offered only while that response is shown', () async {
-      final adapter = _Adapter([
-        _call('open_app', {'name': 'Settings'}),
-      ]);
-      final (app, _) = await _app(adapter);
-      await app.saveToolSettings(const ToolSettings(maxSteps: 1));
       await _approveAll(app, app.send('Open Settings'));
       expect(app.canContinueAfterLimit, isTrue);
       await app.rewind(app.visibleMessages.first);
       expect(app.canContinueAfterLimit, isFalse);
       await app.continueAfterLimit();
-      expect(adapter.requests, hasLength(1));
+      expect(adapter.requests, hasLength(5));
     });
   });
 

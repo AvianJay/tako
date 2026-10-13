@@ -99,6 +99,12 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @toolLoopDetected.
+  ///
+  /// In zh, this message translates to:
+  /// **'??????????????????????????????????'**
+  String get toolLoopDetected;
+
   /// No description provided for @appUpdates.
   ///
   /// In zh, this message translates to:
@@ -228,13 +234,13 @@ abstract class AppLocalizations {
   /// No description provided for @maxToolSteps.
   ///
   /// In zh, this message translates to:
-  /// **'每回合工具呼叫上限'**
+  /// **'????????????????'**
   String get maxToolSteps;
 
   /// No description provided for @maxScreenToolSteps.
   ///
   /// In zh, this message translates to:
-  /// **'操控螢幕時每回合工具呼叫上限'**
+  /// **'??????????????????'**
   String get maxScreenToolSteps;
 
   /// No description provided for @toolOutputLimit.

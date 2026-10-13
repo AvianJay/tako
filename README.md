@@ -170,7 +170,7 @@ and `KEYSTORE_PASSWORD`, before running the build commands.
 2. Optional: set up device control under **Settings → Device control**:
    - **Android:** enable accessibility, notification access, and the Termux integration as needed;
    - **iOS:** start iCTRL, open this screen, and approve Tako's pairing request. The default address is `http://127.0.0.1:8200`.
-3. Optional: under **Settings → Tools and permissions**, adjust tool limits, per-tool permissions and high-risk keywords.
+3. Optional: under **Settings → Tools and permissions**, adjust loop-detection thresholds, per-tool permissions and high-risk keywords. Turns may continue beyond the threshold while inputs or outcomes change. Unchanged single or multi-step tool cycles are blocked after three repetitions; the model receives a loop explanation and can describe a different approach.
 
 ## Development
 

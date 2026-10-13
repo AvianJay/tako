@@ -651,22 +651,36 @@ void main() {
     },
   );
 
-  test('hosted pause_turn is bounded by max steps', () async {
-    final adapter = _Adapter([pausedSearch, pausedSearch, _answer]);
-    final app = await _app(
-      _Tool(),
-      adapter: adapter,
-      api: ApiType.messages,
-      hostedSearch: true,
-      baseUrl: 'https://api.anthropic.com/v1',
-    );
-    await app.saveToolSettings(const ToolSettings(maxSteps: 2));
-    await app.send('Do not loop forever');
-    expect(adapter.requests, hasLength(2));
-    expect(app.errorCode, 'toolStepLimit');
-    expect(app.busy, isFalse);
-    expect(await app.audit.list(), hasLength(2));
-  });
+  test(
+    'repeated hosted pause_turn injects a tool-free loop explanation',
+    () async {
+      final adapter = _Adapter([
+        pausedSearch,
+        pausedSearch,
+        pausedSearch,
+        _answer,
+      ]);
+      final app = await _app(
+        _Tool(),
+        adapter: adapter,
+        api: ApiType.messages,
+        hostedSearch: true,
+        baseUrl: 'https://api.anthropic.com/v1',
+      );
+      await app.saveToolSettings(const ToolSettings(maxSteps: 2));
+      await app.send('Do not loop forever');
+      expect(adapter.requests, hasLength(4));
+      expect(app.errorCode, 'toolLoopDetected');
+      expect(adapter.requests.last.builtInWebSearch, isFalse);
+      expect(adapter.requests.last.tools, isEmpty);
+      expect(
+        adapter.requests.last.systemPrompt,
+        contains('stuck in a tool-use loop'),
+      );
+      expect(app.busy, isFalse);
+      expect(await app.audit.list(), hasLength(3));
+    },
+  );
 
   for (final includeText in [false, true]) {
     test(
@@ -912,28 +926,26 @@ void main() {
     },
   );
 
-  test(
-    'step limit cannot execute remaining tools and receipts stay paired',
-    () async {
-      final tool = _Tool();
-      final adapter = _Adapter([
-        _calls(['one', 'two']),
-      ]);
-      final app = await _app(tool, adapter: adapter);
-      await app.saveToolSettings(const ToolSettings(maxSteps: 1));
-      await app.send('Execute too many tools');
-      expect(tool.inputs, ['one']);
-      expect(adapter.requests, hasLength(1));
-      expect(app.errorCode, 'toolStepLimit');
-      expect(app.busy, isFalse);
-      final results = app.visibleMessages.last.content
-          .whereType<ToolResultBlock>()
-          .toList();
-      expect(results, hasLength(2));
-      expect(jsonDecode(results.last.content), {'error': 'step_limit'});
-      expect(await app.audit.list(), hasLength(2));
-    },
-  );
+  test('productive tools continue beyond the loop-check threshold', () async {
+    final tool = _Tool();
+    final adapter = _Adapter([
+      _calls(['one', 'two']),
+      _answer,
+    ]);
+    final app = await _app(tool, adapter: adapter);
+    await app.saveToolSettings(const ToolSettings(maxSteps: 1));
+    await app.send('Execute too many tools');
+    expect(tool.inputs, ['one', 'two']);
+    expect(adapter.requests, hasLength(2));
+    expect(app.errorCode, isNull);
+    expect(app.busy, isFalse);
+    final results = app.visibleMessages[2].content
+        .whereType<ToolResultBlock>()
+        .toList();
+    expect(results, hasLength(2));
+    expect(results.every((r) => !r.isError), isTrue);
+    expect(await app.audit.list(), hasLength(2));
+  });
 
   test(
     'retry after provider failure reuses tool receipts without repeating actions',
@@ -957,6 +969,68 @@ void main() {
       expect(app.tree.siblingsOf(failed.id), hasLength(2));
       expect(adapter.requests.last.messages.last.role, MessageRole.tool);
       expect(app.visibleMessages.last.text, 'Completed');
+    },
+  );
+
+  for (final doubleLoop in [false, true]) {
+    test(
+      '${doubleLoop ? 'double' : 'single'} loop blocks tools and injects context',
+      () async {
+        final cycle = doubleLoop ? ['one', 'two'] : ['one'];
+        final tool = _Tool();
+        final adapter = _Adapter([
+          for (var i = 0; i < 4; i++) _calls(cycle, prefix: 'round_$i'),
+          _answer,
+          _answer,
+        ]);
+        final app = await _app(tool, adapter: adapter);
+        await app.saveToolSettings(const ToolSettings(maxSteps: 1));
+        await app.send('Avoid repeating unchanged results');
+        expect(tool.inputs, [for (var i = 0; i < 3; i++) ...cycle]);
+        expect(app.errorCode, 'toolLoopDetected');
+        expect(app.canContinueAfterLimit, isTrue);
+        expect(
+          adapter.requests.last.systemPrompt,
+          contains('stuck in a tool-use loop'),
+        );
+        expect(
+          adapter.requests.last.systemPrompt,
+          contains('${cycle.length}-step sequence'),
+        );
+        expect(adapter.requests.last.tools, isEmpty);
+        expect(app.visibleMessages.last.text, 'Completed');
+        final receipt = app.visibleMessages[app.visibleMessages.length - 2];
+        expect(
+          receipt.content.whereType<ToolResultBlock>().every(
+            (r) => tryDecodeObject(r.content)?['error'] == 'tool_loop_detected',
+          ),
+          isTrue,
+        );
+        await app.continueAfterLimit();
+        expect(app.errorCode, isNull);
+        expect(app.canContinueAfterLimit, isFalse);
+      },
+    );
+  }
+
+  test(
+    'identical polling calls with changing outcomes can keep progressing',
+    () async {
+      late _Tool tool;
+      tool = _Tool(
+        onRun: (_) async =>
+            ToolResult(content: 'progress ${tool.inputs.length}'),
+      );
+      final adapter = _Adapter([
+        for (var i = 0; i < 6; i++) _calls(['poll']),
+        _answer,
+      ]);
+      final app = await _app(tool, adapter: adapter);
+      await app.saveToolSettings(const ToolSettings(maxSteps: 1));
+      await app.send('Wait for progress');
+      expect(tool.inputs, hasLength(6));
+      expect(app.errorCode, isNull);
+      expect(adapter.requests, hasLength(7));
     },
   );
 

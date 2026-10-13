@@ -463,8 +463,12 @@ void main() {
     },
   );
 
-  testWidgets('at the tool-call limit, Continue goes on', (tester) async {
-    final adapter = _Adapter([_call('read', 'read_screen', {})]);
+  testWidgets('after a tool loop is explained, Continue goes on', (
+    tester,
+  ) async {
+    final adapter = _Adapter([
+      for (var i = 0; i < 4; i++) _call('read_$i', 'read_screen', {}),
+    ]);
     final app = await _boot(
       tester,
       screen: _Screen(),
@@ -484,12 +488,12 @@ void main() {
     await _waitFor(tester, () => done);
     expect(
       find.text(
-        'Tool-call limit reached. Review the results, then press Continue if needed.',
+        'A repeated tool loop was stopped. Review the explanation, then press Continue to try a different approach.',
       ),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('continue-tools')));
-    await _waitFor(tester, () => adapter.calls == 2 && !app.busy);
+    await _waitFor(tester, () => adapter.calls == 6 && !app.busy);
     expect(app.errorCode, isNull);
     expect(app.visibleMessages.last.text, 'Done.');
     expect(find.byKey(const Key('continue-tools')), findsNothing);
@@ -513,7 +517,7 @@ void main() {
       find.descendant(
         of: field,
         matching: find.text(
-          'Maximum tool calls per turn when controlling the screen',
+          'Start loop detection after this many screen tool calls',
         ),
       ),
       findsOneWidget,

@@ -710,6 +710,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     'imageUnavailable' => l.imageUnavailable,
     'unsupportedImage' => l.unsupportedImage,
     'toolStepLimit' => l.toolStepLimit,
+    'toolLoopDetected' => l.toolLoopDetected,
     'localModelMissing' => l.localModelMissing,
     'localModelLoad' => l.localModelLoad,
     'aicoreUnavailable' => l.aicoreUnavailable,

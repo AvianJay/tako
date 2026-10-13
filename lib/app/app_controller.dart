@@ -40,6 +40,7 @@ import '../core/tools/shell_tools.dart';
 import '../core/tools/shortcut_tools.dart';
 import '../core/tools/tool.dart';
 import '../core/tools/tool_executor.dart';
+import '../core/tools/tool_loop_detector.dart';
 import '../core/tools/tool_registry.dart';
 import '../core/tools/tool_settings.dart';
 import '../core/util/ids.dart';
@@ -615,7 +616,7 @@ class AppController extends ChangeNotifier {
   String? errorCode;
   String? providerError;
 
-  /// The last message of a response that stopped at the tool-call limit.
+  /// The last message of a response stopped for a repeated tool loop.
   String? _limitedAt;
   ThemeMode themeMode = ThemeMode.system;
   Locale locale = const Locale('zh', 'TW');
@@ -1522,16 +1523,16 @@ class AppController extends ChangeNotifier {
     await _respondFrom(provider, parentId);
   }
 
-  /// Whether the response that stopped at the tool-call limit can go on: its
+  /// Whether the response stopped for a tool loop can go on: its
   /// last message must still be the end of the shown branch.
   bool get canContinueAfterLimit =>
       !busy &&
-      errorCode == 'toolStepLimit' &&
+      (errorCode == 'toolStepLimit' || errorCode == 'toolLoopDetected') &&
       _limitedAt != null &&
       _limitedAt == conversation?.activeLeafId;
 
-  /// Continues a response that stopped at the tool-call limit: from its last
-  /// tool results, with a new budget. The user asks for it explicitly.
+  /// Continues a response stopped for a tool loop from its explanation, with
+  /// a fresh loop detector. The user asks for it explicitly.
   Future<void> continueAfterLimit() async {
     final provider = selectedProvider;
     final leaf = _limitedAt;
@@ -1597,20 +1598,30 @@ class AppController extends ChangeNotifier {
     );
     var leaf = parentId;
     var executed = 0;
-    var rounds = 0;
+    final loops = ToolLoopDetector();
+    Future<void> remember(ToolCallBlock call, ToolResultBlock result) async {
+      try {
+        final attachments = result.attachments.any((b) => b is ImageBlock)
+            ? await services.workspace.hydrateBlocks(
+                result.attachments,
+                vision: true,
+                cancel: token,
+              )
+            : result.attachments;
+        loops.record(call, result, attachments: attachments);
+      } catch (_) {
+        // Loop bookkeeping must never lose a committed tool receipt.
+        if (!token.isCancelled) loops.record(call, result);
+      }
+    }
+
     // Controlling the screen takes an action and a look per step, so a turn
-    // that uses screen tools gets the larger screen limit.
+    // that uses screen tools gets the larger loop-check threshold.
     var screenTurn = false;
     int limit() => screenTurn
         ? max(toolSettings.maxSteps, toolSettings.maxScreenSteps)
         : toolSettings.maxSteps;
     while (!token.isCancelled) {
-      if (rounds++ >= limit()) {
-        errorCode = 'toolStepLimit';
-        _limitedAt = leaf;
-        _emit();
-        return;
-      }
       var hostedAllowed = false;
       int? hostedAudit;
       if (wantsHostedSearch) {
@@ -1684,6 +1695,33 @@ class AppController extends ChangeNotifier {
       final calls = response.content.whereType<ToolCallBlock>().toList();
       if (calls.isEmpty) {
         if (hostedAllowed && _lastStopReason == 'pause_turn') {
+          const call = ToolCallBlock(
+            id: 'hosted',
+            name: 'provider_web_search',
+            arguments: '{}',
+          );
+          loops.record(
+            call,
+            ToolResultBlock(
+              toolCallId: call.id,
+              toolName: call.name,
+              content: jsonEncode([
+                for (final state
+                    in response.content.whereType<ProviderStateBlock>())
+                  for (final item in state.content)
+                    {
+                      for (final entry in item.entries)
+                        if (entry.key != 'id') entry.key: entry.value,
+                    },
+                response.text,
+              ]),
+            ),
+          );
+          final loop = executed >= limit() ? loops.repeatingBefore(call) : null;
+          if (loop != null) {
+            await _finishToolLoop(provider, response.id, loop);
+            return;
+          }
           leaf = response.id;
           continue;
         }
@@ -1691,7 +1729,7 @@ class AppController extends ChangeNotifier {
       }
       final results = <ContentBlock>[];
       final seen = <String>{};
-      var limited = false;
+      ToolLoop? blockedLoop;
       for (final (index, call) in calls.indexed) {
         activeToolCallId = call.id;
         _emit();
@@ -1699,9 +1737,13 @@ class AppController extends ChangeNotifier {
             registry.get(call.name) != null) {
           screenTurn = true;
         }
-        if (executed >= limit() || call.id.isEmpty || !seen.add(call.id)) {
-          final code = executed >= limit() ? 'step_limit' : 'invalid_tool_call';
-          limited = true;
+        blockedLoop ??= executed >= limit()
+            ? loops.repeatingBefore(call)
+            : null;
+        if (blockedLoop != null || call.id.isEmpty || !seen.add(call.id)) {
+          final code = blockedLoop != null
+              ? 'tool_loop_detected'
+              : 'invalid_tool_call';
           final id = await audit.start(
             conversationId: response.conversationId,
             messageId: response.id,
@@ -1713,7 +1755,10 @@ class AppController extends ChangeNotifier {
           final result = ToolResultBlock(
             toolCallId: call.id,
             toolName: call.name,
-            content: jsonEncode({'error': code}),
+            content: jsonEncode({
+              'error': code,
+              if (blockedLoop != null) 'message': blockedLoop.contextHint,
+            }),
             isError: true,
           );
           await audit.finish(
@@ -1723,6 +1768,10 @@ class AppController extends ChangeNotifier {
             isError: true,
           );
           results.add(result);
+          if (blockedLoop == null) {
+            await remember(call, result);
+            executed++;
+          }
         } else {
           final execution = await executor.execute(
             call,
@@ -1734,6 +1783,8 @@ class AppController extends ChangeNotifier {
             ),
           );
           results.add(execution.result);
+          // Persist committed actions even if Stop prevents image hydration.
+          if (!token.isCancelled) await remember(call, execution.result);
           executed++;
           if (!token.isCancelled && services.screen.modelActive) {
             services.screen.updateModelSession(
@@ -1759,14 +1810,31 @@ class AppController extends ChangeNotifier {
       await chats.saveMessage(resultMessage);
       await _refresh();
       if (token.isCancelled) return;
-      if (limited || executed >= limit()) {
-        errorCode = 'toolStepLimit';
-        _limitedAt = resultMessage.id;
-        _emit();
+      if (blockedLoop != null) {
+        await _finishToolLoop(provider, resultMessage.id, blockedLoop);
         return;
       }
       leaf = resultMessage.id;
     }
+  }
+
+  Future<void> _finishToolLoop(
+    ProviderConfig provider,
+    String leaf,
+    ToolLoop loop,
+  ) async {
+    // One tool-free response makes the injected hint visible to the model and
+    // lets it explain the blockage without executing the same actions again.
+    final response = await _streamResponse(
+      provider,
+      leaf,
+      const [],
+      contextHint: loop.contextHint,
+    );
+    if (_cancel!.isCancelled) return;
+    errorCode = 'toolLoopDetected';
+    _limitedAt = response?.id ?? leaf;
+    _emit();
   }
 
   Future<ChatMessage?> _streamResponse(
@@ -1774,9 +1842,13 @@ class AppController extends ChangeNotifier {
     String parentId,
     List<ToolDefinition> definitions, {
     bool builtInWebSearch = false,
+    String? contextHint,
   }) async {
     _lastStopReason = null;
     final current = conversation!;
+    final systemPrompt = contextHint == null
+        ? current.systemPrompt
+        : '${current.systemPrompt}\n\n$contextHint';
     final token = _cancel!;
     token.throwIfCancelled();
     final rawPath = tree.pathTo(parentId);
@@ -1860,7 +1932,7 @@ class AppController extends ChangeNotifier {
             exceedsBudget: false,
           )
         : ContextBudget.trim(
-            systemPrompt: current.systemPrompt,
+            systemPrompt: systemPrompt,
             messages: screenHistory.messages,
             contextWindow: provider.capabilities.contextWindow ?? 32768,
             reserveOutputTokens:
@@ -1911,7 +1983,7 @@ class AppController extends ChangeNotifier {
     );
     await chats.saveMessage(response);
     await _refresh();
-    final fingerprint = promptFingerprint(current.systemPrompt);
+    final fingerprint = promptFingerprint(systemPrompt);
     final accumulator = ResponseAccumulator(
       sourceApi: provider.apiType.name,
       promptHash: fingerprint,
@@ -1938,7 +2010,7 @@ class AppController extends ChangeNotifier {
       if (!token.isCancelled) {
         await for (final event in adapter.send(
           ChatRequest(
-            systemPrompt: current.systemPrompt,
+            systemPrompt: systemPrompt,
             messages: preparedMessages,
             tools: definitions,
             builtInWebSearch: builtInWebSearch,

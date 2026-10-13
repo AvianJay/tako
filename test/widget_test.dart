@@ -1132,7 +1132,10 @@ void main() {
     expect(controller.permissionGate.policy.fullPermissions, isTrue);
     expect(controller.permissionGate.policy.skipHighRiskConfirmations, isFalse);
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Maximum tool calls per turn'),
+      find.widgetWithText(
+        TextFormField,
+        'Start loop detection after this many tool calls',
+      ),
       '7',
     );
     tester.testTextInput.hide();

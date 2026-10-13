@@ -9,9 +9,12 @@ class ToolSettings {
     this.disabled = const {},
   });
   final bool enabled;
+
+  /// Start checking for repeated tool sequences after this many calls.
+  /// Productive turns may continue beyond this threshold.
   final int maxSteps;
 
-  /// The limit for a turn that controls the screen: each step there is an
+  /// The loop-check threshold for a turn that controls the screen: each step is an
   /// action and a look, so it needs more calls than other tasks.
   final int maxScreenSteps;
   final int maxOutputChars;

@@ -1,4 +1,5 @@
 {
+  "toolLoopDetected": "A repeated tool loop was stopped. Review the explanation, then press Continue to try a different approach.",
   "appUpdates": "App updates",
   "appUpdatesHelp": "Check and install Android full updates from GitHub nightly releases.",
   "installedVersion": "Installed version",
@@ -30,8 +31,8 @@
   "deleteAttachmentBody": "This attachment may be used by earlier chats. Deleting it will make those image/file references unavailable. A backup and Undo will be offered.",
   "toolsSettings": "Tools and permissions",
   "toolsEnabled": "Enable tools",
-  "maxToolSteps": "Maximum tool calls per turn",
-  "maxScreenToolSteps": "Maximum tool calls per turn when controlling the screen",
+  "maxToolSteps": "Start loop detection after this many tool calls",
+  "maxScreenToolSteps": "Start loop detection after this many screen tool calls",
   "toolOutputLimit": "Tool result limit (characters)",
   "permissions": "Permissions",
   "fullPermissions": "Full permissions",
