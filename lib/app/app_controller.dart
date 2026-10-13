@@ -961,6 +961,9 @@ class AppController extends ChangeNotifier {
               supportsBuiltInWebSearch(provider),
       'browser': tools.contains('browser_read'),
       'files': tools.contains('file_list'),
+      'full_permissions': permissionGate.policy.fullPermissions,
+      'skip_high_risk_confirmations':
+          permissionGate.policy.skipHighRiskConfirmations,
       'screen_control': tools.contains('read_screen'),
       'screen_delegate': tools.contains('remote_control'),
       'screen_elements':
@@ -999,6 +1002,9 @@ class AppController extends ChangeNotifier {
       ],
       'screenVision': tools.contains('read_screen') && _screenVision(provider),
       'screenFast': services.screen.supportsFastActions,
+      'fullPermissions': permissionGate.policy.fullPermissions,
+      'skipHighRiskConfirmations':
+          permissionGate.policy.skipHighRiskConfirmations,
       // Turning memory off mid-chat removes the profile from the prompt.
       'memory': _usesMemory(incognito: incognito),
       // An app update that changes the template re-renders a chat once.
@@ -1689,6 +1695,9 @@ class AppController extends ChangeNotifier {
 
   Future<void> _generate(ProviderConfig provider, String parentId) async {
     final token = _cancel!;
+    final turnTimer = Stopwatch()..start();
+    var mainModelMs = 0;
+    var mainRounds = 0;
     final allowed =
         toolSettings.enabled &&
         provider.capabilities.tools &&
@@ -1791,6 +1800,8 @@ class AppController extends ChangeNotifier {
         }
       }
       ChatMessage? response;
+      final mainTimer = Stopwatch()..start();
+      mainRounds++;
       try {
         response = await _streamResponse(
           provider,
@@ -1799,6 +1810,7 @@ class AppController extends ChangeNotifier {
           builtInWebSearch: hostedAllowed,
         );
       } finally {
+        mainModelMs += mainTimer.elapsedMilliseconds;
         if (hostedAudit != null) {
           await audit.finish(
             hostedAudit,
@@ -1890,6 +1902,7 @@ class AppController extends ChangeNotifier {
             executed++;
           }
         } else {
+          final beforeWorkerMs = turnTimer.elapsedMilliseconds;
           final execution = await executor.execute(
             call,
             ToolContext(
@@ -1899,9 +1912,30 @@ class AppController extends ChangeNotifier {
               lastCall: index == calls.length - 1,
             ),
           );
-          results.add(execution.result);
+          var receipt = execution.result;
+          if (call.name == 'remote_control') {
+            final data = tryDecodeObject(receipt.content);
+            if (data?['task_id'] is String) {
+              receipt = ToolResultBlock(
+                toolCallId: receipt.toolCallId,
+                toolName: receipt.toolName,
+                content: jsonEncode({
+                  ...data!,
+                  'main_timing': {
+                    'elapsed_before_worker_ms': beforeWorkerMs,
+                    'model_ms_before_worker': mainModelMs,
+                    'model_rounds_before_worker': mainRounds,
+                  },
+                }),
+                isError: receipt.isError,
+                sideEffects: receipt.sideEffects,
+                attachments: receipt.attachments,
+              );
+            }
+          }
+          results.add(receipt);
           // Persist committed actions even if Stop prevents image hydration.
-          if (!token.isCancelled) await remember(call, execution.result);
+          if (!token.isCancelled) await remember(call, receipt);
           executed++;
           if (!token.isCancelled && services.screen.modelActive) {
             services.screen.updateModelSession(
@@ -1930,6 +1964,57 @@ class AppController extends ChangeNotifier {
       if (blockedLoop != null) {
         await _finishToolLoop(provider, resultMessage.id, blockedLoop);
         return;
+      }
+      if (calls.length == 1 &&
+          results.length == 1 &&
+          calls.single.name == 'remote_control' &&
+          tryDecodeObject(calls.single.arguments)?['reply_direct'] == true) {
+        final result = results.single as ToolResultBlock;
+        final outcome = tryDecodeObject(result.content);
+        final note = outcome?['worker_note'] as String?;
+        final verified =
+            outcome?['verified'] == true &&
+            outcome?['semantic_review_needed'] != true;
+        if (outcome?['task_id'] is String &&
+            (note?.trim().isNotEmpty == true || verified) &&
+            {
+              'verified',
+              'reported_complete',
+              'blocked',
+              'incomplete',
+            }.contains(outcome?['status'])) {
+          final zh = locale.languageCode == 'zh';
+          final heading = verified
+              ? (zh ? '已由畫面核對。' : 'Verified on the device.')
+              : outcome?['status'] == 'reported_complete'
+              ? (zh
+                    ? '操作模型回報（尚未獨立驗證）：'
+                    : 'Worker report (not independently verified):')
+              : (zh ? '操作未完成。' : 'The phone task is incomplete.');
+          final details = note?.trim().isNotEmpty == true
+              ? note!.trim()
+              : (asList(outcome?['matched_text']) ?? [])
+                    .whereType<String>()
+                    .join(' · ');
+          final now = DateTime.now();
+          await chats.saveMessage(
+            ChatMessage(
+              id: newId(),
+              conversationId: response.conversationId,
+              parentId: resultMessage.id,
+              role: MessageRole.assistant,
+              content: [
+                TextBlock('$heading${details.isEmpty ? '' : '\n$details'}'),
+              ],
+              createdAt: now,
+              timezoneOffsetMinutes: now.timeZoneOffset.inMinutes,
+              providerId: outcome?['worker_provider_id'] as String?,
+              model: outcome?['worker_model'] as String?,
+            ),
+          );
+          await _refresh();
+          return;
+        }
       }
       leaf = resultMessage.id;
     }

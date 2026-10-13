@@ -456,7 +456,13 @@ class ScreenTool extends Tool implements TargetResolvingTool {
         if (key is! String) throw const ScreenException('invalid_arguments');
         return _done(
           ctx,
-          await screen.act(ScreenAction(action: 'key', key: key)),
+          await screen.act(
+            ScreenAction(
+              action: 'key',
+              key: key,
+              settle: args['observe'] != false,
+            ),
+          ),
           observe: args['observe'] != false,
           screenshot: args['screenshot'] == true,
         );
@@ -496,6 +502,7 @@ class ScreenTool extends Tool implements TargetResolvingTool {
           toX: destination.$1,
           toY: destination.$2,
           duration: (args['duration'] as num?)?.toDouble(),
+          settle: args['observe'] != false,
         ),
       );
       final kind = switch (name) {

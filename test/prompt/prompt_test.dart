@@ -18,6 +18,25 @@ ChatMessage message(String id, MessageRole role, List<ContentBlock> content) =>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('permission instructions match the selected modes', () async {
+    final builder = PromptBuilder(
+      await rootBundle.loadString('assets/prompts/system_prompt.md'),
+    );
+    final defaults = builder.render({'screen_delegate': true});
+    expect(defaults, isNot(contains('Full permissions are enabled')));
+    expect(defaults, isNot(contains('user enabled skipping')));
+    expect(defaults, contains('Per-tool ask/deny rules still apply'));
+    final automatic = builder.render({
+      'screen_delegate': true,
+      'full_permissions': true,
+      'skip_high_risk_confirmations': true,
+    });
+    expect(automatic, contains('Full permissions are enabled'));
+    expect(automatic, contains('user enabled skipping'));
+    expect(automatic, contains('Do not ask the user to navigate manually'));
+    expect(automatic, contains('uncertain mutation outcome'));
+  });
+
   test('envelope captures explicit timezone, optional values and long gap', () {
     final now = DateTime.utc(2026, 10, 9, 17, 31);
     expect(

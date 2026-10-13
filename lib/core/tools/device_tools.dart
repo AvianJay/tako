@@ -87,6 +87,7 @@ class _DeviceTool extends Tool {
           maxChars: maxChars,
           sideEffects: effects,
           title: actionTitle(args),
+          screenshot: args['screenshot'] == true,
         );
       }
       return ToolResult(content: jsonEncode(result), sideEffects: effects);
@@ -166,6 +167,8 @@ bool validDeviceArguments(String name, Map<String, Object?> args) {
           value.length > (rule['maxLength'] as int? ?? 100000)) {
         return false;
       }
+    } else if (rule['type'] == 'boolean') {
+      if (value is! bool) return false;
     } else if (rule['type'] == 'integer') {
       if (value is! num ||
           !value.isFinite ||
@@ -320,7 +323,11 @@ final _schemas = <String, Map<String, Object?>>{
     ['seconds'],
   ),
   'open_url': _object(
-    {'url': _string(8192, min: 1), 'title': actionTitleSchema},
+    {
+      'url': _string(8192, min: 1),
+      'title': actionTitleSchema,
+      'screenshot': {'type': 'boolean'},
+    },
     ['url'],
   ),
   'open_app': _object(
@@ -328,6 +335,7 @@ final _schemas = <String, Map<String, Object?>>{
       'title': actionTitleSchema,
       'name': _string(100, min: 1),
       'package': _string(255, min: 3),
+      'screenshot': {'type': 'boolean'},
     },
     ['title'],
   ),

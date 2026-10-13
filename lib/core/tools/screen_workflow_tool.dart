@@ -21,9 +21,17 @@ const screenWorkflowStepsSchema = {
     'properties': {
       'tool': {
         'type': 'string',
-        'enum': ['open_app', 'open_url', 'tap', 'type_text', 'read_screen'],
+        'enum': [
+          'open_app',
+          'open_url',
+          'tap',
+          'type_text',
+          'read_screen',
+          'back',
+        ],
       },
       'package': {'type': 'string', 'minLength': 1, 'maxLength': 255},
+      'name': {'type': 'string', 'minLength': 1, 'maxLength': 100},
       'url': {'type': 'string', 'minLength': 1, 'maxLength': 3000},
       'label': {'type': 'string', 'minLength': 1, 'maxLength': 200},
       'view_id': {'type': 'string', 'minLength': 1, 'maxLength': 255},
@@ -31,6 +39,10 @@ const screenWorkflowStepsSchema = {
       'submit': {'type': 'boolean'},
       'expect_app': {'type': 'string', 'minLength': 1, 'maxLength': 255},
       'expect_text': {'type': 'string', 'minLength': 1, 'maxLength': 200},
+      'screenshot': {'type': 'boolean'},
+      'max_back': {'type': 'integer', 'minimum': 1, 'maximum': 6},
+      'until_label': {'type': 'string', 'minLength': 1, 'maxLength': 200},
+      'until_view_id': {'type': 'string', 'minLength': 1, 'maxLength': 255},
     },
     'required': ['tool'],
     'additionalProperties': false,
@@ -57,6 +69,8 @@ class ScreenWorkflowTool extends Tool {
       'Run up to 12 planned navigation steps locally. '
       'Select controls by exact label or view_id from each fresh screen; never reuse ids or coordinates. '
       'For tap/type_text require expect_app. Each action is independently checked, permitted and audited. '
+      'open_app accepts package OR name; installed app names and aliases are resolved locally. '
+      'back repeats at most max_back (default 4) visible BackButton taps from fresh screens until until_label/until_view_id is visible, or no BackButton remains. Require expect_app. '
       'Stops on ambiguity, warnings, changed app or failed text checks. Use known links to skip navigation. '
       'expect_text matches a complete label/value exactly, not a substring. '
       'Returns completed steps and the final screen; never replay completed steps.';
@@ -94,13 +108,19 @@ class ScreenWorkflowTool extends Tool {
             'tap',
             'type_text',
             'read_screen',
+            'back',
           }.contains(tool) ||
-          tool == 'open_app' && step['package'] is! String ||
+          tool == 'open_app' &&
+              (step.containsKey('package') == step.containsKey('name') ||
+                  (step['package'] ?? step['name']) is! String) ||
           tool == 'open_url' && step['url'] is! String ||
           {'tap', 'type_text'}.contains(tool) &&
               (step['expect_app'] is! String ||
                   step.containsKey('label') == step.containsKey('view_id')) ||
           tool == 'type_text' && step['text'] is! String) {
+        return _error('invalid_workflow_step');
+      }
+      if (tool == 'back' && step['expect_app'] is! String) {
         return _error('invalid_workflow_step');
       }
     }
@@ -121,6 +141,110 @@ class ScreenWorkflowTool extends Tool {
       }
       final step = asMap(value)!;
       final tool = step['tool'] as String;
+      if (tool == 'back') {
+        var reached = false;
+        for (var back = 0; back < (step['max_back'] as int? ?? 4); back++) {
+          ctx.cancel.throwIfCancelled();
+          final current = readings.latest(ctx.conversationId);
+          if (current == null ||
+              current.tree.packageName != step['expect_app'] ||
+              current.tree.ownAppInFront) {
+            error = 'workflow_app_changed';
+            break;
+          }
+          final untilLabel = step['until_label'] as String?;
+          final untilView = step['until_view_id'] as String?;
+          if (untilLabel != null &&
+                  current.elements.any(
+                    (e) =>
+                        e.viewId != 'BackButton' &&
+                        _normalize(e.label) == _normalize(untilLabel),
+                  ) ||
+              untilView != null &&
+                  current.elements.any((e) => e.viewId == untilView)) {
+            reached = true;
+            break;
+          }
+          final buttons = current.elements
+              .where(
+                (e) =>
+                    e.viewId == 'BackButton' &&
+                    current.tree.nodes[e.node].actionable &&
+                    current.tree.nodes[e.node].enabled,
+              )
+              .toList();
+          if (buttons.isEmpty && untilLabel == null && untilView == null) {
+            reached = true;
+            break;
+          }
+          if (buttons.length != 1 || remaining() <= 0) {
+            error = buttons.length != 1
+                ? 'workflow_back_unavailable'
+                : 'step_limit';
+            break;
+          }
+          final result = (await executor().execute(
+            ToolCallBlock(
+              id: '${ctx.messageId}-workflow-$index-back-$back',
+              name: 'tap',
+              arguments: jsonEncode({'title': title, 'id': buttons.single.id}),
+            ),
+            ToolContext(
+              conversationId: ctx.conversationId,
+              messageId: '${ctx.messageId}-workflow-$index-back-$back',
+              cancel: ctx.cancel,
+            ),
+          )).result;
+          onStep(result);
+          effects.addAll(result.sideEffects);
+          attachments = result.attachments;
+          receipts.add({
+            'step': index + 1,
+            'tool': 'back',
+            'receipt': result.content.split('\nscreen after the action:').first,
+            'error': result.isError,
+          });
+          if (result.isError) {
+            error = 'workflow_step_failed';
+            break;
+          }
+          final next = readings.latest(ctx.conversationId);
+          if (next == null || next.tree.token == current.tree.token) {
+            error = 'workflow_observation_unavailable';
+            break;
+          }
+          if (next.toToolText() == current.toToolText()) {
+            error = 'workflow_back_unchanged';
+            break;
+          }
+        }
+        if (!reached && error == null) {
+          final current = readings.latest(ctx.conversationId);
+          reached =
+              current != null &&
+              current.tree.packageName == step['expect_app'] &&
+              (step['until_label'] != null &&
+                      current.elements.any(
+                        (e) =>
+                            e.viewId != 'BackButton' &&
+                            _normalize(e.label) ==
+                                _normalize(step['until_label'] as String),
+                      ) ||
+                  step['until_view_id'] != null &&
+                      current.elements.any(
+                        (e) => e.viewId == step['until_view_id'],
+                      ) ||
+                  step['until_label'] == null &&
+                      step['until_view_id'] == null &&
+                      !current.elements.any((e) => e.viewId == 'BackButton'));
+        }
+        if (!reached) {
+          error ??= 'workflow_back_limit';
+          break;
+        }
+        completed++;
+        continue;
+      }
       final current = readings.latest(ctx.conversationId);
       final app = step['expect_app'] as String?;
       if ({'tap', 'type_text'}.contains(tool) &&
@@ -153,6 +277,22 @@ class ScreenWorkflowTool extends Tool {
               .where((e) => current.tree.nodes[e.node].actionable)
               .toList();
           if (controls.isNotEmpty) matches = controls;
+          // iOS exposes a row Cell and its nested Button with the same label.
+          // They are one control, not two choices. Prefer the deepest matching
+          // actionable node; identical sibling controls remain ambiguous.
+          matches = matches
+              .where(
+                (candidate) => !matches.any((other) {
+                  if (other.node == candidate.node) return false;
+                  var parent = current.tree.nodes[other.node].parent;
+                  while (parent >= 0) {
+                    if (parent == candidate.node) return true;
+                    parent = current.tree.nodes[parent].parent;
+                  }
+                  return false;
+                }),
+              )
+              .toList();
         }
         if (matches.length != 1) {
           error = 'workflow_target_missing_or_ambiguous';
@@ -166,9 +306,13 @@ class ScreenWorkflowTool extends Tool {
           name: tool,
           arguments: jsonEncode({
             'title': title,
-            if (tool == 'open_app') 'package': step['package'],
+            if (tool == 'open_app' && step['package'] != null)
+              'package': step['package'],
+            if (tool == 'open_app' && step['name'] != null)
+              'name': step['name'],
             if (tool == 'open_url') 'url': step['url'],
             'id': ?id,
+            if (step['screenshot'] == true) 'screenshot': true,
             if (tool == 'type_text') ...{
               'text': step['text'],
               'submit': step['submit'] ?? false,

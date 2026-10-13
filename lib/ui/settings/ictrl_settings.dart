@@ -134,6 +134,7 @@ class _IctrlSettingsState extends State<IctrlSettings> {
             'registered=${screen.sessionDiagnostics['registered']}, '
             'submitted=${screen.sessionDiagnostics['submitted']}, '
             'handler=${screen.sessionDiagnostics['handler_started']}'
+            '${screen.sessionDiagnostics['custom_activity_visible'] == null ? '' : ', custom_status=${screen.sessionDiagnostics['custom_activity_visible']}'}'
             '${screen.sessionDiagnostics['error_code'] == null ? '' : ', ${screen.sessionDiagnostics['error_domain']}:${screen.sessionDiagnostics['error_code']}'}',
           ),
           const SizedBox(height: 12),
@@ -147,8 +148,8 @@ class _IctrlSettingsState extends State<IctrlSettings> {
         const SizedBox(height: 16),
         Text(
           tr(
-            'Dynamic Island and the Lock Screen show the task and action count. On iOS 26 or later, user-started tasks request continued background processing. If unavailable, iOS grants only a short background window. System cancellation or expiration stops actions; reopen Tako to continue.',
-            '動態島與鎖定畫面會顯示任務與操作次數。iOS 26 以上會為你開始的任務申請持續背景處理；若不可用，則只有短暫的背景執行時間。系統取消或時間用完後會停止操作；請返回 Tako 繼續。',
+            'On iOS 26 or later, tasks request continued background processing with system status. Extra app status hides automatically; task completion removes it immediately. Swipe an expanded system banner upward if it covers controls. If continued processing is unavailable, iOS grants only a short background window. System cancellation or expiration stops actions.',
+            'iOS 26 以上會為任務申請持續背景處理，並由系統顯示狀態。額外的 App 狀態會自動隱藏，任務結束會立即移除；系統橫幅若遮住操作，可向上滑收起。若持續背景處理不可用，則只有短暫的背景執行時間。系統取消或時間用完後會停止操作。',
           ),
         ),
       ],

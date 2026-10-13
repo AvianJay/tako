@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tako/app/app_controller.dart';
 import 'package:tako/core/chat/content_block.dart';
 import 'package:tako/core/chat/message.dart';
+import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/services.dart';
@@ -96,7 +97,8 @@ void main() {
       titleGenerator: (_, _, _) async => null,
       database: database,
       services: services,
-      promptTemplate: '{{provider_name}} on {{device_model}}',
+      promptTemplate:
+          '{{provider_name}} on {{device_model}}{{#full_permissions}} full permissions{{/full_permissions}}{{#skip_high_risk_confirmations}} skip confirmations{{/skip_high_risk_confirmations}}',
       adapterFactory: (_, key, headers) => adapter,
     );
     await app.initialize();
@@ -159,6 +161,44 @@ void main() {
       expect(
         app.providers.single.toJson().toString(),
         isNot(contains('secure-test-key')),
+      );
+    },
+  );
+  test(
+    'permission modes refresh a cached prompt without losing the chat',
+    () async {
+      await app.send('First message');
+      final id = app.conversation!.id;
+      final first = app.conversation!.systemPrompt;
+      await app.savePermissionPolicy(
+        const PermissionPolicy(
+          fullPermissions: true,
+          skipHighRiskConfirmations: true,
+          overrides: {'tap': ToolPermission.deny},
+        ),
+      );
+      await app.send('Second message');
+      expect(app.conversation!.id, id);
+      expect(app.conversation!.systemPrompt, isNot(first));
+      expect(adapter.requests.last.systemPrompt, contains('full permissions'));
+      expect(
+        adapter.requests.last.systemPrompt,
+        contains('skip confirmations'),
+      );
+      expect(app.permissionGate.policy.overrides['tap'], ToolPermission.deny);
+      final changed = app.conversation!.systemPrompt;
+      await app.savePermissionPolicy(app.permissionGate.policy);
+      await app.send('Third message');
+      expect(app.conversation!.systemPrompt, changed);
+      await app.savePermissionPolicy(const PermissionPolicy());
+      await app.send('Fourth message');
+      expect(
+        app.conversation!.systemPrompt,
+        isNot(contains('full permissions')),
+      );
+      expect(
+        app.conversation!.systemPrompt,
+        isNot(contains('skip confirmations')),
       );
     },
   );

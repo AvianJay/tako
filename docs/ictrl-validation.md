@@ -8,7 +8,7 @@ The implementation uses iCTRL's v1 authenticated envelopes and loopback pairing,
 - Read the visible accessibility hierarchy with 400 elements and 100 children per container. The scientific Calculator keypad silently lost its last controls at 50 children; the new bound exposes them without an unbounded fetch. Strip server diagnostics before sending the listing to the model.
 - Recover sparse reads and server-recommended OCR views with OCR. Rich truncated trees avoid an extra OCR round; request a screenshot or scroll when the needed control is missing. Prefer AX labels over OCR duplicates.
 - Resolve labeled controls with a fresh live ref. Reject changed labels/types, offscreen matches, ambiguous results, and stale listing IDs. Unnamed containers are checked against their descendants.
-- Send mutations with `settle:false`; do not retry mutations automatically. Preserve warnings and page-change information in the tool receipt. A missing settling measurement is unknown, not evidence that the screen stayed unchanged.
+- Observed navigation requests native settling with a 1.2-second cap. Stable-key sequences and timed/game input keep `settle:false`. When the server has not confirmed stability, only the next observation makes bounded local reads for unchanged, loading or wrong-launch pages. Never retry committed mutations automatically. Preserve warnings and page-change information; missing settling evidence is unknown.
 - Return one text observation after the final action of a response. Batch stable controls with `observe:false` on intermediate calls. Navigation still needs a fresh observation.
 - Request screenshots explicitly when the provider has vision and the listing cannot answer the task. JPEG quality defaults to 0.55. Phones up to 512 points wide use scale 1 so screenshot pixels and device points coincide; tablets use 0.75. Large authenticated responses decrypt off the UI isolate.
 - Navigation actions accept `screenshot:true`, returning image and text in the same tool result instead of a second model/read round. Only two recent remote screen images are uploaded during an active turn; saved conversation images and text receipts remain intact.
@@ -360,3 +360,86 @@ the initial blank chat did not dismiss it because it had no scrollable
 history. A separate trial in the populated storage chat confirmed a history
 drag changed `keyboard.visible` from true to false while preserving the draft.
 The phone was left on the GPT 6.1 Sol chat with the keyboard dismissed.
+
+## Android-style execution and direct results (build 20)
+
+The Android source uses native Pigeon/AccessibilityNodeInfo operations, a real
+OS Back action, hides its own overlay around input/capture, and waits for
+accessibility change/quiet before returning a screen. These are source
+observations, not a paired Android hardware latency benchmark. iOS still uses
+remote XCTest RPCs and visible navigation controls; the platforms do not have
+identical transport or background presentation APIs.
+
+The common executor now resolves app names inside an `open_app` workflow,
+without a separate main-model lookup round. Known exact label/view-ID steps
+run locally from fresh observations. A bounded `back` step resolves the live
+BackButton after each page, stops on unchanged pages/app changes/ambiguity,
+and can find an exact destination within at most six back steps. Nested Cell
+and Button representations of one row resolve to the deepest control; sibling
+duplicates remain ambiguous. These primitives contain no Shopee-specific
+navigation rules and do not persist learned macros.
+
+Observed iOS navigation asks for native settling, capped at 1.2 seconds. If
+native stability is unconfirmed, the next read permits at most three extra
+reads with cancellable 100/180/180-ms waits. Server `loading:true` metadata is
+also honored. Keypad and timed actions skip native settling; repeated keys
+reuse the exact live server selector only within the same observation. The
+server re-resolves that selector on every tap, and a fresh snapshot invalidates
+the local cache. Other controls still require fresh target validation. A UI
+timeout that may remain queued stops the run before another action or proof
+read; regression checks cover initial reads, supplied workflows and two
+model-emitted calls in one response.
+
+Worker prompts and retained generated screen history are smaller. At most two
+worker observations/images are retained while task text, action receipts,
+errors and decisions are preserved; main user attachments are untouched. A
+partial launch workflow no longer makes three pointless completion polls
+before worker navigation. A single standalone `remote_control` with
+`reply_direct:true` returns its compact note/native evidence immediately,
+without another main-model summary call. Unverified reports are labeled as
+such; mixed tasks and missing proof/note retain the ordinary main-agent path.
+Receipts include model/effort, worker timing and main time/rounds before
+delegation. Unit tests check one main request for direct results versus two
+for the ordinary summary, honest failure labels, and permission-mode prompt
+cache invalidation. Main and worker selections remain independent.
+
+Live Sonnet 5.5 Medium trials on this phone:
+
+| Task/sample | Elapsed | Worker rounds | Model time | Outcome |
+| --- | ---: | ---: | ---: | --- |
+| Baseline Calculator 7+8 | 16.549 s | 2 | 8.843 s | Native 15 verified |
+| Baseline Calculator 123+456 | 10.056 s | 1 | 3.320 s | Native 579 verified |
+| Reduced polling Calculator 7+8 | 10.182 s | 1 | 4.981 s | Native 15 verified |
+| Reduced polling Calculator 123+456 | 43.292 s | 1 | 35.003 s | Native 579 verified; slow provider response |
+| Initial nested Settings recovery | 239.854 s | 12 | 127.771 s | Failed with repeated UI/provider timeouts; motivated bounded busy stop |
+| Settings About after native settling | 58.128 s | 7 | 45.422 s | iOS 27.0/model reported; independent inspection matched |
+| Supplied Settings root/General/About workflow | 8.681 s | 0 | 0 s | Exact iPhone 16 Pro Max/app verified |
+| Shopee free-coin availability inspection | 78.786 s | 6 | 62.197 s | Today already claimed; balance 0.16; no new reward action |
+
+These are individual trials with different starting screens and intermediate
+code revisions, not a controlled speedup benchmark. The Calculator samples
+precede the last key-ref/native-settle adjustments. The 8.681-second Settings
+sample measures a supplied known local route, excluding main planning; it
+does not measure autonomous discovery. Settings reading and coin inspection
+remain semantic-review reports rather than exact automatic verification.
+Coin inspection excluded the already-claimed treasure, wheel and unrelated
+points tasks; it does not prove every possible free reward is unavailable.
+One provider round took 35 seconds despite a small action plan. No universal
+best-speed, measured Android parity, or installed rhythm-game result is
+claimed. In an earlier Calculator RPC sample, average find/tap/page-source
+costs were 187/430/265 ms respectively, separate from model latency.
+
+On iOS 26+, successful continued-processing submission already supplies a
+system Live Activity, so build 20 does not create a duplicate custom one. The
+custom fallback status ends after three seconds and immediately on completion;
+per-action system subtitle rewriting was removed. Background processing is
+preserved. Apple's public API cannot hide an active system continued-processing
+Live Activity while preserving its execution task; an expanded banner can
+still be swiped upward when it obstructs navigation. See Apple's
+[continued-processing documentation](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados/)
+and [immediate ActivityKit dismissal](https://developer.apple.com/documentation/activitykit/activityuidismissalpolicy/immediate).
+
+Local build-20 verification: **685 passed, three opt-in tests skipped**,
+clean Flutter analysis, unchanged Dart formatting and browser runtime 10/10.
+The latest requested installed configuration is main GPT 6.1 Sol and worker
+Sonnet 5.5 / Medium / Messages. CI and installed validation follow separately.

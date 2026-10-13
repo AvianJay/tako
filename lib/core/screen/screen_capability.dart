@@ -197,6 +197,7 @@ class ScreenAction {
     this.toX,
     this.toY,
     this.duration,
+    this.settle,
   });
   final String action;
   final int token;
@@ -212,6 +213,10 @@ class ScreenAction {
   final double? toX;
   final double? toY;
   final double? duration;
+
+  /// Wait for native UI settling only when observing the resulting screen.
+  /// Null keeps backend defaults for direct/timed callers.
+  final bool? settle;
 }
 
 class ScreenActionOutcome {

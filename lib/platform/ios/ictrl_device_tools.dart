@@ -32,6 +32,7 @@ class IctrlDeviceTools implements DeviceToolsCapability {
       screen.beginModelSession();
       try {
         await screen.rpc('open_url', {'url': arguments['url']});
+        screen.expectObservation();
       } on Exception {
         throw const DeviceToolException(
           'url_open_failed_check_screen_before_retry',
@@ -68,6 +69,7 @@ class IctrlDeviceTools implements DeviceToolsCapability {
     screen.beginModelSession();
     try {
       await screen.rpc('launch_app', {'bundle_id': bundle, 'settle': false});
+      screen.expectObservation(app: bundle);
     } on Exception {
       throw const DeviceToolException(
         'app_launch_failed_check_screen_before_retry',

@@ -64,6 +64,17 @@ class IctrlScreen extends RemoteScreen {
   int _pointWidth = 0;
   int _pointHeight = 0;
   ScreenTree? _latest;
+  bool _observationPending = false;
+  bool _sourceLoading = false;
+  String? _launchedApp;
+
+  /// A successful action may return before its UI transition starts. Only the
+  /// next observation waits locally; fast sequences and game input never wait.
+  void expectObservation({String? app}) {
+    _observationPending = true;
+    _launchedApp = app;
+  }
+
   final _refs = <(int, int), String>{};
   final _points = <(int, int), (double, double)>{};
   void _status(RemoteScreenStatus value, [String? error]) {
@@ -197,6 +208,7 @@ class IctrlScreen extends RemoteScreen {
       // reporting truncation. Keep the read bounded while exposing their tail.
       'max_children': 100,
     }, cancel);
+    _sourceLoading = source['loading'] == true;
     final parsed = parseIctrlTree(
       source,
       token: ++_token,
@@ -229,12 +241,54 @@ class IctrlScreen extends RemoteScreen {
     );
   }
 
+  bool _loading(ScreenTree tree) => tree.nodes.any(
+    (n) =>
+        const {
+          'ActivityIndicator',
+          'ProgressIndicator',
+        }.contains(n.className) ||
+        RegExp(
+          r'^(?:loading|載入中|加载中|正在載入)(?:[.\s…]*)$',
+          caseSensitive: false,
+        ).hasMatch(ownLabel(n)),
+  );
+
+  String _screenState(ScreenTree tree) =>
+      '${tree.packageName}|${tree.width}x${tree.height}|'
+      '${tree.nodes.map((n) => '${n.className}:${ownLabel(n)}:${n.bounds.left},${n.bounds.top}').join('|')}';
+
+  Future<ScreenTree> _observedTree(CancelToken cancel) async {
+    final pending = _observationPending;
+    final app = _launchedApp;
+    _observationPending = false;
+    _launchedApp = null;
+    var tree = await _tree(cancel);
+    if (!pending) return tree;
+    final previous = _latest == null ? null : _screenState(_latest!);
+    // Android waits for accessibility events to become quiet. iCTRL has no
+    // event channel: bounded fresh reads handle unchanged/loading transitions
+    // without a model round or any replay of the committed action.
+    for (var retry = 0; retry < 3; retry++) {
+      final waiting =
+          _sourceLoading ||
+          _loading(tree) ||
+          tree.nodes.every((n) => ownLabel(n).isEmpty) ||
+          app != null && tree.packageName != app;
+      if (!waiting && (retry > 0 || previous != _screenState(tree))) break;
+      await cancel.bind(
+        Future<void>.delayed(Duration(milliseconds: retry == 0 ? 100 : 180)),
+      );
+      tree = await _tree(cancel);
+    }
+    return tree;
+  }
+
   @override
   Future<ScreenTree> snapshot({
     required bool screenshot,
     required CancelToken cancel,
   }) async {
-    final tree = await _tree(cancel);
+    final tree = await _observedTree(cancel);
     Uint8List? bytes;
     var iw = 0;
     var ih = 0;
@@ -325,6 +379,12 @@ class IctrlScreen extends RemoteScreen {
       throw const ScreenException('unknown_id_read_again');
     }
     final before = previous.nodes[node];
+    // A ref is an exact live selector, re-resolved by iCTRL on every action.
+    // Repeated keys in one stable sequence can reuse it without an extra
+    // find RPC. A new observation/app/orientation invalidates this cache.
+    if (before.className == 'Key' && _refs.containsKey((token, node))) {
+      return _info(previous, node);
+    }
     // Visible-only AX can include clipped cells whose center is outside the
     // content area. Require the whole target in view before aiming at it.
     if (before.bounds.area <= 0 ||
@@ -485,7 +545,7 @@ class IctrlScreen extends RemoteScreen {
   Future<ScreenActionOutcome> act(ScreenAction action) async {
     final tree = _latest;
     if (tree?.ownAppInFront == true) throw const ScreenException('own_app');
-    final ref = _refs.remove((action.token, action.node));
+    final ref = _refs[(action.token, action.node)];
     final node =
         tree != null && action.node >= 0 && action.node < tree.nodes.length
         ? tree.nodes[action.node]
@@ -504,7 +564,11 @@ class IctrlScreen extends RemoteScreen {
             ? _pointHeight / 2
             : (node.bounds.top + node.bounds.bottom) / 2);
     final (px, py) = _point(x, y);
-    final params = <String, Object?>{'settle': false};
+    final settle = action.settle == true && node?.className != 'Key';
+    final params = <String, Object?>{
+      'settle': settle,
+      if (settle) 'settle_timeout': 1.2,
+    };
     final String method;
     switch (action.action) {
       case 'key':
@@ -580,6 +644,12 @@ class IctrlScreen extends RemoteScreen {
     }
     // No cancellation or retries after dispatch: retain the committed receipt.
     final receipt = await rpc(method, params);
+    if ((receipt['settle'] as Map?)?['stable'] == true) {
+      _observationPending = false;
+      _launchedApp = null;
+    } else {
+      expectObservation();
+    }
     _actions++;
     unawaited(progressChanged?.call(method, _actions));
     return ScreenActionOutcome(

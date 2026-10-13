@@ -21,6 +21,8 @@ final class RemoteSessionController: NSObject {
   private var submitted = false
   private var handlerStarted = false
   private var submissionError: NSError?
+  private var activityHide: DispatchWorkItem?
+  private var statusAutoHidden = false
 
   /// Continued tasks may register at user initiation. Register the same concrete
   /// identifier we submit, not the Info.plist permission wildcard. Each ID is
@@ -66,8 +68,8 @@ final class RemoteSessionController: NSObject {
           // Reflect completed device actions, never a timer-based heartbeat.
           continued.progress.totalUnitCount = Int64(max(200, self.actions + 1))
           continued.progress.completedUnitCount = Int64(self.actions)
-          continued.updateTitle(self.localized("Remote phone task", "手機遠端任務"),
-            subtitle: self.localized("Actions: \(self.actions)", "已操作 \(self.actions) 次"))
+          // Keep the system presentation quiet. Rewriting the subtitle for
+          // every tap can repeatedly expand the banner over app navigation.
         }
         if Date().timeIntervalSince(self.lastUpdate) > 1 {
           self.lastUpdate = Date()
@@ -96,7 +98,9 @@ final class RemoteSessionController: NSObject {
       "processing_state": processingState,
       "registered": registered,
       "submitted": submitted,
-      "handler_started": handlerStarted
+      "handler_started": handlerStarted,
+      "custom_activity_visible": activity != nil,
+      "status_auto_hidden": statusAutoHidden
     ]
     if let error = submissionError {
       values["error_domain"] = error.domain
@@ -110,6 +114,7 @@ final class RemoteSessionController: NSObject {
   private func start() {
     guard !active else { return }
     active = true; expired = false; actions = 0
+    statusAutoHidden = false
     registered = false; submitted = false; handlerStarted = false
     submissionError = nil; processingState = "bounded"
     if #available(iOS 26.0, *),
@@ -139,11 +144,17 @@ final class RemoteSessionController: NSObject {
       }
     }
     publishDiagnostics()
-    if ActivityAuthorizationInfo().areActivitiesEnabled {
+    // iOS 26 continued processing already supplies a system Live Activity.
+    // Avoid a duplicate custom activity. The fallback status is brief and
+    // ending it never ends the actual background execution task.
+    if !submitted && ActivityAuthorizationInfo().areActivitiesEnabled {
       let state = RemoteActivityAttributes.ContentState(message: localized("Controlling the screen", "正在操作螢幕"), actions: 0, running: true)
       do {
         activity = try Activity.request(attributes: RemoteActivityAttributes(startedAt: Date()),
           content: ActivityContent(state: state, staleDate: Date().addingTimeInterval(45)), pushType: nil)
+        let hide = DispatchWorkItem { [weak self] in self?.hideActivity() }
+        activityHide = hide
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: hide)
       } catch { /* Activity authorization never blocks a remote task. */ }
     }
     if UIApplication.shared.applicationState == .background { background() }
@@ -175,6 +186,15 @@ final class RemoteSessionController: NSObject {
     let state = RemoteActivityAttributes.ContentState(message: message, actions: actions, running: running)
     Task { await current.update(ActivityContent(state: state, staleDate: Date().addingTimeInterval(45))) }
   }
+  private func hideActivity() {
+    activityHide?.cancel()
+    activityHide = nil
+    guard let current = activity else { return }
+    activity = nil
+    statusAutoHidden = true
+    Task { await current.end(nil, dismissalPolicy: .immediate) }
+    publishDiagnostics()
+  }
   private func finish() {
     active = false
     if !expired { processingState = "ended" }
@@ -191,12 +211,15 @@ final class RemoteSessionController: NSObject {
       BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
     }
     endBackgroundTask()
-    publishDiagnostics()
-    guard let current = activity else { return }
+    activityHide?.cancel()
+    activityHide = nil
+    let current = activity
     activity = nil
+    publishDiagnostics()
+    guard let current = current else { return }
     let message = expired ? localized("Paused — open Tako to continue", "已暫停，請開啟 Tako 繼續") : localized("Remote task ended", "遠端任務已結束")
     let state = RemoteActivityAttributes.ContentState(message: message, actions: actions, running: false)
-    Task { await current.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: expired ? .default : .after(Date().addingTimeInterval(15))) }
+    Task { await current.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .immediate) }
   }
   func handle(_ url: URL) -> Bool {
     guard url.scheme == "tako", url.host == "remote" else { return false }

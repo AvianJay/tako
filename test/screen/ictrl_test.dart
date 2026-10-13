@@ -16,6 +16,138 @@ import 'package:tako/platform/ios/ictrl_screen.dart';
 import 'package:tako/platform/ios/ictrl_tree.dart';
 
 void main() {
+  test(
+    'repeated keypad keys reuse live selectors until a fresh observation',
+    () async {
+      final client = _DeviceClient();
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      final tree = await screen.snapshot(
+        screenshot: false,
+        cancel: CancelToken(),
+      );
+      for (var i = 0; i < 3; i++) {
+        await screen.resolveNode(tree.token, 1, CancelToken());
+        await screen.act(
+          ScreenAction(action: 'tap', token: tree.token, node: 1),
+        );
+      }
+      expect(client.calls.where((c) => c.$1 == 'find_element'), hasLength(1));
+      expect(client.calls.where((c) => c.$1 == 'tap'), hasLength(3));
+      final fresh = await screen.snapshot(
+        screenshot: false,
+        cancel: CancelToken(),
+      );
+      await screen.resolveNode(fresh.token, 1, CancelToken());
+      expect(client.calls.where((c) => c.$1 == 'find_element'), hasLength(2));
+      screen.dispose();
+    },
+  );
+  test(
+    'observed action settles natively; stable result skips local polling',
+    () async {
+      final client = _DeviceClient()
+        ..actionReceipt = {
+          'settle': {'stable': true},
+        }
+        ..source = {
+          'bundle_id': 'com.example.app',
+          'source':
+              "Application, label: 'App', {{0, 0}, {440, 956}}\n  Button, label: 'Start', {{20, 180}, {60, 40}}",
+        };
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      final tree = await screen.snapshot(
+        screenshot: false,
+        cancel: CancelToken(),
+      );
+      await screen.act(
+        ScreenAction(action: 'tap', token: tree.token, node: 1, settle: true),
+      );
+      final tap = client.calls.last;
+      expect(tap.$2['settle'], true);
+      expect(tap.$2['settle_timeout'], 1.2);
+      await screen.snapshot(screenshot: false, cancel: CancelToken());
+      expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(2));
+      screen.dispose();
+    },
+  );
+  test('post-action unchanged screen polls locally without replay', () async {
+    final client = _DeviceClient();
+    final screen = IctrlScreen(client: client);
+    await screen.connect();
+    final before = await screen.snapshot(
+      screenshot: false,
+      cancel: CancelToken(),
+    );
+    await screen.act(ScreenAction(action: 'tap', token: before.token, node: 1));
+    client.sources = [
+      {
+        'bundle_id': 'com.apple.calculator',
+        'source':
+            "Application, label: 'Calculator', {{0, 0}, {440, 956}}\n  Key, label: '7', id: 'Seven', {{20, 180}, {60, 40}}",
+      },
+      {
+        'bundle_id': 'com.apple.calculator',
+        'source':
+            "Application, label: 'Calculator', {{0, 0}, {440, 956}}\n  StaticText, label: '15', {{20, 180}, {60, 40}}",
+      },
+    ];
+    final after = await screen.snapshot(
+      screenshot: false,
+      cancel: CancelToken(),
+    );
+    expect(after.nodes.last.text, '15');
+    expect(client.calls.where((c) => c.$1 == 'tap'), hasLength(1));
+    expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(3));
+    screen.dispose();
+  });
+  test(
+    'loading is polled to a bound and cancellation does not repeat actions',
+    () async {
+      final client = _DeviceClient()
+        ..source = {
+          'bundle_id': 'com.example.app',
+          'source':
+              "Application, label: 'App', {{0, 0}, {440, 956}}\n  StaticText, label: '載入中…', {{20, 180}, {60, 40}}",
+        };
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      screen.expectObservation();
+      await screen.snapshot(screenshot: false, cancel: CancelToken());
+      expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(4));
+      final cancel = CancelToken();
+      screen.expectObservation();
+      final reading = screen.snapshot(screenshot: false, cancel: cancel);
+      cancel.cancel();
+      await expectLater(reading, throwsA(isA<RequestCancelled>()));
+      expect(client.calls.where((c) => c.$1 == 'tap'), isEmpty);
+      screen.dispose();
+    },
+  );
+  test(
+    'server loading metadata delays an apparently populated page locally',
+    () async {
+      final client = _DeviceClient();
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      const source =
+          "Application, label: 'App', {{0, 0}, {440, 956}}\n  StaticText, label: 'Ready', {{20, 180}, {60, 40}}";
+      client.sources = [
+        {'bundle_id': 'com.example.app', 'source': source, 'loading': true},
+        {'bundle_id': 'com.example.app', 'source': source},
+      ];
+      screen.expectObservation(app: 'com.example.app');
+      final tree = await screen.snapshot(
+        screenshot: false,
+        cancel: CancelToken(),
+      );
+      expect(tree.nodes.last.text, 'Ready');
+      expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(2));
+      expect(client.calls.where((c) => c.$1 == 'tap'), isEmpty);
+      screen.dispose();
+    },
+  );
   test('envelope request matches the upstream Python reference vector', () {
     final envelope = IctrlCrypto.seal(
       List.generate(32, (i) => i),
@@ -746,6 +878,8 @@ class _DeviceClient extends IctrlClient {
     {'name': 'Shopee', 'bundle_id': 'com.beeasy.shopee.tw'},
   ];
   Map<String, Object?>? source;
+  List<Map<String, Object?>> sources = [];
+  Map<String, Object?> actionReceipt = {};
   List<Map<String, Object?>> ocrItems = [];
   final hit = <String, Object?>{
     'exists': true,
@@ -767,6 +901,9 @@ class _DeviceClient extends IctrlClient {
     if (method == 'find_element' && findFailure) {
       throw const ScreenException('ictrl_rpc_failed_read_again');
     }
+    if (method == 'page_source' && sources.isNotEmpty) {
+      return sources.removeAt(0);
+    }
     return switch (method) {
       'device_info' => {'point_width': 440, 'point_height': 956},
       'page_source' =>
@@ -778,6 +915,7 @@ class _DeviceClient extends IctrlClient {
             },
       'screen_text' => {'items': ocrItems},
       'find_element' => hit,
+      'tap' => actionReceipt,
       'resolve_app' => {'apps': apps},
       'list_apps' => {'apps': apps, 'source': 'opened_history'},
       _ => <String, Object?>{},

@@ -180,6 +180,28 @@ class _Adapter implements ProviderAdapter {
   }
 }
 
+class _RemoteReceipt extends _Tool {
+  _RemoteReceipt(Map<String, Object?> outcome, {bool error = false})
+    : super(
+        onRun: (_) async => ToolResult(
+          content: jsonEncode({'task_id': 'fixture-task', ...outcome}),
+          isError: error,
+        ),
+      );
+  @override
+  String get name => 'remote_control';
+  @override
+  JsonMap get schema => const {
+    'type': 'object',
+    'properties': {
+      'text': {'type': 'string'},
+      'reply_direct': {'type': 'boolean'},
+    },
+    'required': ['text'],
+    'additionalProperties': false,
+  };
+}
+
 List<ProviderEvent> _calls(List<String> texts, {String prefix = 'call'}) => [
   for (var i = 0; i < texts.length; i++) ...[
     ToolCallStart('${prefix}_$i', 'fixture_tool'),
@@ -354,168 +376,246 @@ List<JsonMap> _maps(Object? value) => [
 ];
 
 void main() {
-  test(
-    'main delegates to a distinct Haiku Messages connection and sees only compact evidence',
-    () async {
-      final database = AppDatabase(NativeDatabase.memory());
-      final screen = FakeScreen({
-        'ready': FakeView('com.example.fixture', 'Fixture', [
-          FakeWindow(box([button('Start', opens: 'done')])),
-        ]),
-        'done': FakeView('com.example.fixture', 'Fixture', [
-          FakeWindow(box([label('Done'), label('Private screen payload')])),
-        ]),
-      }, start: 'ready')..fastActions = true;
-      final main = _Adapter([
-        [
-          const ToolCallStart('delegate', 'remote_control'),
-          ToolCallArgsDelta(
-            'delegate',
-            jsonEncode({
-              'title': 'Start task',
-              'task': 'Tap Start',
-              'success_criteria': 'Done is visible',
-              'expected_text': ['Done'],
-              'expected_app': 'com.example.fixture',
-            }),
+  for (final status in ['reported_complete', 'incomplete', 'blocked']) {
+    test(
+      'direct $status result preserves verification limits without another request',
+      () async {
+        final tool = _RemoteReceipt({
+          'status': status,
+          'worker_note': 'Observed task outcome.',
+          'verified': status == 'reported_complete',
+          'semantic_review_needed': true,
+          'worker_model': 'claude-sonnet-5-5',
+          'worker_provider_id': 'worker',
+        }, error: status != 'reported_complete');
+        final adapter = _Adapter([
+          [
+            const ToolCallStart('remote', 'remote_control'),
+            ToolCallArgsDelta(
+              'remote',
+              jsonEncode({'text': 'task', 'reply_direct': true}),
+            ),
+            const ToolCallEnd('remote'),
+            const Done('tool_calls'),
+          ],
+        ]);
+        final app = await _app(tool, adapter: adapter);
+        await app.send('Standalone phone task');
+        expect(adapter.requests, hasLength(1));
+        expect(
+          app.visibleMessages.last.text,
+          contains('Observed task outcome.'),
+        );
+        expect(app.visibleMessages.last.text, isNot(contains('已由畫面核對')));
+        expect(
+          app.visibleMessages.last.text,
+          contains(status == 'reported_complete' ? '尚未獨立驗證' : '操作未完成'),
+        );
+        expect(app.visibleMessages.last.model, 'claude-sonnet-5-5');
+      },
+    );
+  }
+  for (final mixed in [false, true]) {
+    test(
+      'direct result falls back for ${mixed ? 'multiple calls' : 'missing note/evidence'}',
+      () async {
+        final tool = _RemoteReceipt({'status': 'incomplete'});
+        final adapter = _Adapter([
+          [
+            for (final id in mixed ? ['one', 'two'] : ['one']) ...[
+              ToolCallStart(id, 'remote_control'),
+              ToolCallArgsDelta(
+                id,
+                jsonEncode({'text': 'task', 'reply_direct': true}),
+              ),
+              ToolCallEnd(id),
+            ],
+            const Done('tool_calls'),
+          ],
+          _answer,
+        ]);
+        final app = await _app(tool, adapter: adapter);
+        await app.send('Task');
+        expect(adapter.requests, hasLength(2));
+        expect(app.visibleMessages.last.text, 'Completed');
+      },
+    );
+  }
+  for (final direct in [false, true]) {
+    test(
+      'main delegates with direct reply $direct and sees only compact evidence',
+      () async {
+        final database = AppDatabase(NativeDatabase.memory());
+        final screen = FakeScreen({
+          'ready': FakeView('com.example.fixture', 'Fixture', [
+            FakeWindow(box([button('Start', opens: 'done')])),
+          ]),
+          'done': FakeView('com.example.fixture', 'Fixture', [
+            FakeWindow(box([label('Done'), label('Private screen payload')])),
+          ]),
+        }, start: 'ready')..fastActions = true;
+        final main = _Adapter([
+          [
+            const ToolCallStart('delegate', 'remote_control'),
+            ToolCallArgsDelta(
+              'delegate',
+              jsonEncode({
+                'title': 'Start task',
+                'task': 'Tap Start',
+                'success_criteria': 'Done is visible',
+                'expected_text': ['Done'],
+                'expected_app': 'com.example.fixture',
+                'reply_direct': direct,
+              }),
+            ),
+            const ToolCallEnd('delegate'),
+            const Done('tool_calls'),
+          ],
+          _answer,
+        ]);
+        final child = _Adapter([
+          [
+            const ToolCallStart('tap', 'tap'),
+            ToolCallArgsDelta('tap', jsonEncode({'title': 'Start', 'id': 1})),
+            const ToolCallEnd('tap'),
+            const Done('tool_use'),
+          ],
+        ]);
+        ProviderConfig? childConfig;
+        final app = AppController(
+          database: database,
+          services: _RemoteServices(screen),
+          promptTemplate:
+              '{{#screen_delegate}}Delegate phone tasks{{/screen_delegate}}{{^screen_control}}No direct screen{{/screen_control}}',
+          adapterFactory: (config, key, headers) {
+            if (config.id == 'worker') {
+              childConfig = config;
+              return child;
+            }
+            return main;
+          },
+        );
+        addTearDown(() async {
+          app.dispose();
+          screen.dispose();
+          await database.close();
+        });
+        await app.initialize();
+        await app.saveProvider(
+          ProviderConfig(
+            id: 'main',
+            displayName: 'Main',
+            apiType: ApiType.chatCompletions,
+            baseUrl: 'https://main.invalid/v1',
+            model: 'main-model',
+            capabilities: const ProviderCapabilities(tools: true),
           ),
-          const ToolCallEnd('delegate'),
-          const Done('tool_calls'),
-        ],
-        _answer,
-      ]);
-      final child = _Adapter([
-        [
-          const ToolCallStart('tap', 'tap'),
-          ToolCallArgsDelta('tap', jsonEncode({'title': 'Start', 'id': 1})),
-          const ToolCallEnd('tap'),
-          const Done('tool_use'),
-        ],
-      ]);
-      ProviderConfig? childConfig;
-      final app = AppController(
-        database: database,
-        services: _RemoteServices(screen),
-        promptTemplate:
-            '{{#screen_delegate}}Delegate phone tasks{{/screen_delegate}}{{^screen_control}}No direct screen{{/screen_control}}',
-        adapterFactory: (config, key, headers) {
-          if (config.id == 'worker') {
-            childConfig = config;
-            return child;
-          }
-          return main;
-        },
-      );
-      addTearDown(() async {
-        app.dispose();
-        screen.dispose();
-        await database.close();
-      });
-      await app.initialize();
-      await app.saveProvider(
-        ProviderConfig(
-          id: 'main',
-          displayName: 'Main',
-          apiType: ApiType.chatCompletions,
-          baseUrl: 'https://main.invalid/v1',
-          model: 'main-model',
-          capabilities: const ProviderCapabilities(tools: true),
-        ),
-      );
-      await app.saveProvider(
-        ProviderConfig(
-          id: 'worker',
-          displayName: 'Worker',
-          apiType: ApiType.messages,
-          baseUrl: 'https://worker.invalid/v1',
-          model: 'claude-haiku-5-5',
-          capabilities: const ProviderCapabilities(tools: true),
-        ),
-      );
-      await app.savePermissionPolicy(
-        const PermissionPolicy(fullPermissions: true),
-      );
-      await app.send('Start the phone task');
-      expect(main.requests, hasLength(2));
-      expect(child.requests, hasLength(1));
-      expect(childConfig!.model, 'claude-haiku-5-5');
-      expect(childConfig!.apiType, ApiType.messages);
-      expect(childConfig!.reasoningEffort, 'xhigh');
-      expect(childConfig!.reasoningMode, ReasoningMode.adaptive);
-      expect(
-        main.requests.first.tools.map((t) => t.name),
-        contains('remote_control'),
-      );
-      expect(
-        main.requests.first.tools.map((t) => t.name),
-        isNot(contains('read_screen')),
-      );
-      expect(
-        main.requests.first.systemPrompt,
-        contains('Delegate phone tasks'),
-      );
-      final parentResults = main.requests.last.messages
-          .expand((m) => m.content)
-          .whereType<ToolResultBlock>()
-          .toList();
-      expect(parentResults, hasLength(1));
-      expect(
-        (jsonDecode(parentResults.single.content)
-            as Map<String, Object?>)['verified'],
-        true,
-      );
-      expect(
-        parentResults.single.content,
-        isNot(contains('Private screen payload')),
-      );
-      expect(parentResults.single.attachments, isEmpty);
-      expect(
-        app.visibleMessages
+        );
+        await app.saveProvider(
+          ProviderConfig(
+            id: 'worker',
+            displayName: 'Worker',
+            apiType: ApiType.messages,
+            baseUrl: 'https://worker.invalid/v1',
+            model: 'claude-haiku-5-5',
+            capabilities: const ProviderCapabilities(tools: true),
+          ),
+        );
+        await app.savePermissionPolicy(
+          const PermissionPolicy(fullPermissions: true),
+        );
+        await app.send('Start the phone task');
+        expect(main.requests, hasLength(direct ? 1 : 2));
+        expect(child.requests, hasLength(1));
+        expect(childConfig!.model, 'claude-haiku-5-5');
+        expect(childConfig!.apiType, ApiType.messages);
+        expect(childConfig!.reasoningEffort, 'xhigh');
+        expect(childConfig!.reasoningMode, ReasoningMode.adaptive);
+        expect(
+          main.requests.first.tools.map((t) => t.name),
+          contains('remote_control'),
+        );
+        expect(
+          main.requests.first.tools.map((t) => t.name),
+          isNot(contains('read_screen')),
+        );
+        expect(
+          main.requests.first.systemPrompt,
+          contains('Delegate phone tasks'),
+        );
+        final parentResults = app.visibleMessages
             .expand((m) => m.content)
-            .whereType<ToolCallBlock>()
-            .map((c) => c.name),
-        ['remote_control'],
-      );
-      await app.saveControlSettings(
-        const DeviceControlSettings(remoteAgent: false),
-      );
-      expect(app.delegatesScreen, false);
-      await app.saveProvider(
-        ProviderConfig(
-          id: 'other-worker',
-          displayName: 'Any worker',
-          apiType: ApiType.responses,
-          baseUrl: 'https://another.invalid/v1',
-          model: 'gpt-6.1-sol',
-          capabilities: const ProviderCapabilities(
-            tools: true,
-            vision: true,
-            reasoning: true,
+            .whereType<ToolResultBlock>()
+            .toList();
+        expect(parentResults, hasLength(1));
+        expect(
+          (jsonDecode(parentResults.single.content)
+              as Map<String, Object?>)['verified'],
+          true,
+        );
+        expect(
+          parentResults.single.content,
+          isNot(contains('Private screen payload')),
+        );
+        expect(parentResults.single.attachments, isEmpty);
+        final timing =
+            (jsonDecode(parentResults.single.content) as Map)['main_timing']
+                as Map;
+        expect(timing['model_rounds_before_worker'], 1);
+        if (direct) {
+          expect(app.visibleMessages.last.text, contains('已由畫面核對。'));
+          expect(app.visibleMessages.last.model, 'claude-haiku-5-5');
+          expect(app.visibleMessages.last.providerId, 'worker');
+          expect(app.visibleMessages.last.parentId, app.visibleMessages[2].id);
+        }
+        expect(
+          app.visibleMessages
+              .expand((m) => m.content)
+              .whereType<ToolCallBlock>()
+              .map((c) => c.name),
+          ['remote_control'],
+        );
+        await app.saveControlSettings(
+          const DeviceControlSettings(remoteAgent: false),
+        );
+        expect(app.delegatesScreen, false);
+        await app.saveProvider(
+          ProviderConfig(
+            id: 'other-worker',
+            displayName: 'Any worker',
+            apiType: ApiType.responses,
+            baseUrl: 'https://another.invalid/v1',
+            model: 'gpt-6.1-sol',
+            capabilities: const ProviderCapabilities(
+              tools: true,
+              vision: true,
+              reasoning: true,
+            ),
+            reasoningMode: ReasoningMode.enabled,
+            reasoningEffort: 'medium',
+            maxOutputTokens: 4096,
           ),
-          reasoningMode: ReasoningMode.enabled,
-          reasoningEffort: 'medium',
-          maxOutputTokens: 4096,
-        ),
-      );
-      await app.saveControlSettings(
-        const DeviceControlSettings(
-          remoteAgent: true,
-          remoteAgentProviderId: 'other-worker',
-          remoteAgentModelId: 'gpt-6.1-sol',
-          remoteAgentEffort: 'low',
-        ),
-      );
-      expect(app.remoteAgentProvider!.model, 'gpt-6.1-sol');
-      expect(app.remoteAgentProvider!.apiType, ApiType.responses);
-      expect(app.remoteAgentProvider!.reasoningEffort, 'low');
-      expect(app.remoteAgentProvider!.maxOutputTokens, 4096);
-      expect(app.selectedProvider!.id, 'main');
-      await app.saveControlSettings(
-        app.controlSettings.copyWith(remoteAgentModelId: 'removed-model'),
-      );
-      expect(app.remoteAgentProvider, isNull);
-    },
-  );
+        );
+        await app.saveControlSettings(
+          const DeviceControlSettings(
+            remoteAgent: true,
+            remoteAgentProviderId: 'other-worker',
+            remoteAgentModelId: 'gpt-6.1-sol',
+            remoteAgentEffort: 'low',
+          ),
+        );
+        expect(app.remoteAgentProvider!.model, 'gpt-6.1-sol');
+        expect(app.remoteAgentProvider!.apiType, ApiType.responses);
+        expect(app.remoteAgentProvider!.reasoningEffort, 'low');
+        expect(app.remoteAgentProvider!.maxOutputTokens, 4096);
+        expect(app.selectedProvider!.id, 'main');
+        await app.saveControlSettings(
+          app.controlSettings.copyWith(remoteAgentModelId: 'removed-model'),
+        );
+        expect(app.remoteAgentProvider, isNull);
+      },
+    );
+  }
   for (final api in [ApiType.responses, ApiType.messages]) {
     for (final deny in [false, true]) {
       test(

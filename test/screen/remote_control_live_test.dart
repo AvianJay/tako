@@ -30,6 +30,58 @@ class _Workspace implements WorkspaceCapability {
       throw StateError('No persistent worker images');
 }
 
+class _MeasuredClient extends IctrlClient {
+  _MeasuredClient({
+    required super.readSecret,
+    required super.writeSecret,
+    required super.endpoint,
+  });
+  final timings = <Map<String, Object?>>[];
+  @override
+  Future<Map<String, Object?>> call(
+    String method, [
+    Map<String, Object?> params = const {},
+    CancelToken? cancel,
+  ]) async {
+    final timer = Stopwatch()..start();
+    try {
+      return await super.call(method, params, cancel);
+    } finally {
+      timings.add({'method': method, 'elapsed_ms': timer.elapsedMilliseconds});
+    }
+  }
+}
+
+class _ObservedAdapter implements ProviderAdapter {
+  _ObservedAdapter(this.inner, this.prefix, this.secret);
+  final ProviderAdapter inner;
+  final String prefix;
+  final String secret;
+  @override
+  Future<List<ModelInfo>> listModels({CancelToken? cancel}) =>
+      inner.listModels(cancel: cancel);
+  @override
+  Stream<ProviderEvent> send(
+    ChatRequest request, {
+    required CancelToken cancel,
+  }) async* {
+    await for (final event in inner.send(request, cancel: cancel)) {
+      if (event is ProviderError) {
+        File(
+          '.build/ictrl-smoke/$prefix-provider-error.json',
+        ).writeAsStringSync(
+          jsonEncode({
+            'code': event.code,
+            'status': event.statusCode,
+            'message': event.message.replaceAll(secret, '[REDACTED]'),
+          }),
+        );
+      }
+      yield event;
+    }
+  }
+}
+
 void main() {
   final search = Platform.environment['TAKO_ICTRL_WORKER_SHOPEE'] == '1';
   final workflow = Platform.environment['TAKO_ICTRL_WORKER_WORKFLOW'] == '1';
@@ -43,8 +95,11 @@ void main() {
   final prefix = Platform.environment['TAKO_ICTRL_WORKER_PREFIX'];
   final customWorkflow = Platform.environment['TAKO_ICTRL_WORKER_PLAN'];
   final effort = Platform.environment['TAKO_ICTRL_WORKER_EFFORT'] ?? 'xhigh';
+  final model =
+      Platform.environment['TAKO_ICTRL_WORKER_MODEL'] ?? 'claude-haiku-5-5';
+  final api = model.startsWith('gpt-') ? ApiType.responses : ApiType.messages;
   test(
-    'Haiku $effort delegates ${customApp != null
+    '$model $effort delegates ${customApp != null
         ? 'cross-app task'
         : search
         ? 'Shopee search'
@@ -59,7 +114,7 @@ void main() {
       final key =
           (stored[Uri.parse(endpoint).authority] as Map)['key'] as String;
       final secrets = <String, String>{'ictrl.key.$endpoint': key};
-      final client = IctrlClient(
+      final client = _MeasuredClient(
         endpoint: endpoint,
         readSecret: (k) async => secrets[k],
         writeSecret: (k, v) async {
@@ -85,11 +140,13 @@ void main() {
       final config = withWorkerReasoning(
         ProviderConfig(
           id: 'worker-live',
-          displayName: 'Haiku Extra',
-          apiType: ApiType.messages,
+          displayName: 'Remote test',
+          apiType: api,
           baseUrl: env['api_endpoint']!,
-          model: 'claude-haiku-5-5',
-          reasoningMode: ReasoningMode.adaptive,
+          model: model,
+          reasoningMode: api == ApiType.messages
+              ? ReasoningMode.adaptive
+              : ReasoningMode.enabled,
           reasoningEffort: 'xhigh',
           maxOutputTokens: 8192,
           capabilities: const ProviderCapabilities(
@@ -121,7 +178,11 @@ void main() {
         audit: audit,
         backend: () async => (
           config: config,
-          adapter: ProviderAdapter.create(config, apiKey: env['api_key']),
+          adapter: _ObservedAdapter(
+            ProviderAdapter.create(config, apiKey: env['api_key']),
+            prefix ?? 'haiku-worker',
+            env['api_key']!,
+          ),
         ),
         available: () => true,
         screenshots: () => true,
@@ -225,6 +286,8 @@ void main() {
           final receipt = jsonDecode(result.content) as Map<String, Object?>;
           metrics.add({
             'problem': problem.$1,
+            'worker_model': model,
+            'worker_effort': effort,
             ...receipt,
             'main_result_characters': result.content.length,
           });
@@ -266,6 +329,9 @@ void main() {
           );
         }
       } finally {
+        File(
+          '.build/ictrl-smoke/${prefix ?? 'worker'}-rpc-latency.json',
+        ).writeAsStringSync(jsonEncode(client.timings));
         screen.dispose();
         await database.close();
       }

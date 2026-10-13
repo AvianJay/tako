@@ -12,6 +12,7 @@ import 'package:tako/core/tools/device_tools.dart';
 import 'package:tako/core/tools/tool.dart';
 import 'package:tako/core/tools/tool_executor.dart';
 import 'package:tako/core/tools/tool_registry.dart';
+import 'package:tako/core/util/json.dart';
 import 'package:tako/data/audit_repository.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/device_tools_capability.dart';
@@ -65,8 +66,38 @@ class _Launch implements DeviceToolsCapability {
     Map<String, Object?> arguments, {
     required CancelToken cancel,
   }) async {
-    screen.launch(arguments['package'] as String);
+    screen.launch(arguments['package'] as String? ?? 'com.example.fixture');
     return {'launched': true};
+  }
+}
+
+class _BusyScreen extends FakeScreen {
+  _BusyScreen(super.views) : super(start: 'start');
+  int reads = 0;
+  bool busyInitially = false;
+  @override
+  Future<ScreenTree> snapshot({
+    required bool screenshot,
+    required CancelToken cancel,
+  }) {
+    reads++;
+    if (busyInitially) {
+      throw const ScreenException(
+        'ictrl_rpc_failed_read_again',
+        detail:
+            'page_source exceeded 15s and may still be running on the device.',
+      );
+    }
+    return super.snapshot(screenshot: screenshot, cancel: cancel);
+  }
+
+  @override
+  Future<ScreenActionOutcome> act(ScreenAction action) async {
+    actions.add(action);
+    throw const ScreenException(
+      'ictrl_rpc_failed_read_again',
+      detail: 'tap exceeded 15s and may still be running on the device.',
+    );
   }
 }
 
@@ -376,6 +407,94 @@ void main() {
       expect(screen.actions, isEmpty);
     }
   });
+  test('navigation handoffs recover even without exact final labels', () async {
+    for (final note in [
+      'Please return to the home page and say continue.',
+      'I need you to dismiss the progress banner or confirm I may use the back gesture.',
+      '請先回到首頁，再跟我說「繼續」。',
+      "I haven't reached the free wheel yet. Next I'd tap the back arrow. No spin has been performed.",
+    ]) {
+      adapter = _Adapter([
+        [TextDelta(note), const Done('end_turn')],
+        call('tap', {'title': 'Recover navigation', 'id': 1}),
+        [const TextDelta('Done is visible.'), const Done('end_turn')],
+      ]);
+      build();
+      final receipt = jsonDecode((await run(expected: [])).content) as Map;
+      expect(receipt['status'], 'reported_complete', reason: note);
+      expect(receipt['recovery_attempts'], 1);
+      expect(adapter.requests, hasLength(3));
+      final recovery = adapter.requests[1].messages.last.content;
+      expect(recovery.whereType<ImageBlock>(), hasLength(1));
+      expect(
+        recovery.whereType<TextBlock>().first.text,
+        contains('already authorized'),
+      );
+      expect(
+        adapter.requests.first.systemPrompt,
+        contains('Full permissions enabled'),
+      );
+      screen.show('start');
+      screen.actions.clear();
+    }
+  });
+  test('an uncertain spin outcome is not retried as navigation', () async {
+    adapter = _Adapter([
+      [
+        const TextDelta(
+          'Cannot confirm the spin outcome. Please return to the home page and say continue.',
+        ),
+        const Done('end_turn'),
+      ],
+    ]);
+    build();
+    final receipt = jsonDecode((await run(expected: [])).content) as Map;
+    expect(receipt['status'], 'incomplete');
+    expect(receipt['reason'], 'worker_mutation_outcome_uncertain');
+    expect(receipt['recovery_attempts'], 0);
+    expect(adapter.requests, hasLength(1));
+    expect(screen.actions, isEmpty);
+  });
+  test(
+    'a workflow image reaches the worker without another read round',
+    () async {
+      adapter = _Adapter([
+        [const TextDelta('Start is visible.'), const Done('end_turn')],
+      ]);
+      build();
+      final result = await run(
+        expected: [],
+        workflow: [
+          {
+            'tool': 'open_app',
+            'package': 'com.example.fixture',
+            'screenshot': true,
+          },
+        ],
+      );
+      expect(adapter.requests, hasLength(1));
+      expect(
+        adapter.requests.single.messages.single.content.whereType<ImageBlock>(),
+        hasLength(1),
+      );
+      expect((jsonDecode(result.content) as Map)['steps'], 2);
+    },
+  );
+  test(
+    'a partial launch plan never polls for criteria before worker actions',
+    () async {
+      build();
+      final result = await run(
+        workflow: [
+          {'tool': 'open_app', 'package': 'com.example.fixture'},
+        ],
+      );
+      expect(tryDecodeObject(result.content)!['status'], 'verified');
+      final records = await AuditRepository(database).list();
+      expect(records.where((r) => r.toolName == 'read_screen'), hasLength(1));
+      expect(adapter.requests, hasLength(1));
+    },
+  );
   test('unfinished recovery is bounded to one attempt', () async {
     adapter = _Adapter([
       [const TextDelta('Not completed: stuck'), const Done('end_turn')],
@@ -433,6 +552,176 @@ void main() {
       expect(receipt['model_rounds'], 0);
       expect(adapter.requests, isEmpty);
       expect(screen.actions, hasLength(1));
+    },
+  );
+  test(
+    'nested back navigation executes locally with fresh ids and exact destination',
+    () async {
+      screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(
+          box([label('Detail'), icon(viewId: 'BackButton', opens: 'middle')]),
+        ),
+      ]);
+      screen.views['middle'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(
+          box([label('Category'), icon(viewId: 'BackButton', opens: 'root')]),
+        ),
+      ]);
+      screen.views['root'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(box([button('Start', opens: 'done')])),
+      ]);
+      build();
+      final receipt = tryDecodeObject(
+        (await run(
+          workflow: [
+            {
+              'tool': 'back',
+              'expect_app': 'com.example.fixture',
+              'until_label': 'Start',
+              'max_back': 4,
+            },
+            {
+              'tool': 'tap',
+              'label': 'Start',
+              'expect_app': 'com.example.fixture',
+            },
+          ],
+        )).content,
+      )!;
+      expect(receipt['status'], 'verified');
+      expect(receipt['model_rounds'], 0);
+      expect(screen.actions, hasLength(3));
+      expect(
+        (await AuditRepository(
+          database,
+        ).list()).where((r) => r.toolName == 'tap'),
+        hasLength(3),
+      );
+    },
+  );
+  for (final workflow in [false, true]) {
+    test(
+      'busy UI stops ${workflow ? 'workflow' : 'worker'} without another call',
+      () async {
+        final busy = _BusyScreen(screen.views);
+        screen = busy;
+        adapter = _Adapter([
+          [
+            ...call('tap', {
+              'title': 'Start',
+              'id': 1,
+            }).where((e) => e is! Done),
+            const ToolCallStart('second', 'read_screen'),
+            const ToolCallArgsDelta('second', '{"title":"Read again"}'),
+            const ToolCallEnd('second'),
+            const Done('tool_use'),
+          ],
+        ]);
+        build();
+        final receipt = tryDecodeObject(
+          (await run(
+            workflow: workflow
+                ? [
+                    {
+                      'tool': 'tap',
+                      'label': 'Start',
+                      'expect_app': 'com.example.fixture',
+                    },
+                  ]
+                : null,
+          )).content,
+        )!;
+        expect(receipt['status'], 'blocked');
+        expect(receipt['reason'], 'device_ui_busy');
+        expect(receipt['recovery_attempts'], 0);
+        expect(busy.reads, 1);
+        expect(busy.actions, hasLength(1));
+        expect(adapter.requests, hasLength(workflow ? 0 : 1));
+      },
+    );
+  }
+  test(
+    'busy initial observation never calls the worker or a final read',
+    () async {
+      final busy = _BusyScreen(screen.views)..busyInitially = true;
+      screen = busy;
+      build();
+      final receipt = tryDecodeObject((await run()).content)!;
+      expect(receipt['status'], 'blocked');
+      expect(receipt['reason'], 'device_ui_busy');
+      expect(busy.reads, 1);
+      expect(busy.actions, isEmpty);
+      expect(adapter.requests, isEmpty);
+    },
+  );
+  test(
+    'back workflow never repeats a tap when its page remains unchanged',
+    () async {
+      screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(box([icon(viewId: 'BackButton')])),
+      ]);
+      adapter = _Adapter([
+        [
+          const TextDelta('Navigation blocked by unchanged page.'),
+          const Done('end_turn'),
+        ],
+      ]);
+      build();
+      await run(
+        expected: [],
+        workflow: [
+          {'tool': 'back', 'expect_app': 'com.example.fixture', 'max_back': 4},
+        ],
+      );
+      expect(screen.actions, hasLength(1));
+      final records = await AuditRepository(database).list();
+      expect(
+        records
+            .firstWhere((r) => r.toolName == 'screen_workflow')
+            .resultSummary,
+        contains('workflow_back_unchanged'),
+      );
+    },
+  );
+  test(
+    'nested row and button are one selector; sibling duplicates remain ambiguous',
+    () async {
+      screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(
+          box([
+            row([button('Start', opens: 'done')], opens: 'done'),
+          ]),
+        ),
+      ]);
+      build();
+      final result = await run(
+        workflow: [
+          {
+            'tool': 'tap',
+            'label': 'Start',
+            'expect_app': 'com.example.fixture',
+          },
+        ],
+      );
+      expect(tryDecodeObject(result.content)!['model_rounds'], 0);
+      expect(screen.actions, hasLength(1));
+    },
+  );
+  test(
+    'workflow resolves an app name locally before worker planning',
+    () async {
+      build();
+      final result = await run(
+        expected: [],
+        workflow: [
+          {'tool': 'open_app', 'name': 'Fixture'},
+        ],
+      );
+      expect(tryDecodeObject(result.content)!['workflow_used'], true);
+      final records = await AuditRepository(database).list();
+      final launch = records.where((r) => r.toolName == 'open_app').single;
+      expect(tryDecodeObject(launch.arguments)!['name'], 'Fixture');
+      expect(tryDecodeObject(launch.arguments)!.containsKey('package'), false);
     },
   );
   test(

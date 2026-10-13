@@ -31,6 +31,8 @@ final class PromptBuilder {
       'web_search': false,
       'browser': false,
       'files': false,
+      'full_permissions': false,
+      'skip_high_risk_confirmations': false,
       'screen_control': false,
       'screen_elements': false,
       'screen_vision': false,
