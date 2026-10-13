@@ -31,7 +31,9 @@ class IctrlScreen extends RemoteScreen {
   Map<String, Object?> sessionDiagnostics = const {};
   void updateSessionDiagnostics(Map<String, Object?> values) {
     if (_disposed) return;
-    sessionDiagnostics = Map.unmodifiable(values);
+    sessionDiagnostics = Map.unmodifiable(
+      values['build'] is String ? values : {...sessionDiagnostics, ...values},
+    );
     notifyListeners();
   }
 
@@ -53,6 +55,7 @@ class IctrlScreen extends RemoteScreen {
   @override
   bool get supportsFastActions => true;
   Future<void>? _connecting;
+  Future<void>? _sessionStarting;
   DateTime? _lastProbe;
   bool _loaded = false;
   bool _autoPair = true;
@@ -720,13 +723,24 @@ class IctrlScreen extends RemoteScreen {
     if (!isAvailable || modelActive) return;
     super.beginModelSession();
     _actions = 0;
-    unawaited(sessionChanged?.call(true));
+    _sessionStarting = sessionChanged?.call(true);
+  }
+
+  /// Launching another app must not race the method-channel request that
+  /// registers continued processing while Tako is still in the foreground.
+  Future<void> prepareModelSession(CancelToken cancel) async {
+    beginModelSession();
+    if (_sessionStarting case final Future<void> starting) {
+      await cancel.bind(starting);
+    }
+    cancel.throwIfCancelled();
   }
 
   @override
   void endModelSession() {
     if (!modelActive) return;
     super.endModelSession();
+    _sessionStarting = null;
     unawaited(sessionChanged?.call(false));
   }
 

@@ -17,6 +17,43 @@ import 'package:tako/platform/ios/ictrl_tree.dart';
 
 void main() {
   test(
+    'app launch waits for native session setup and Stop cancels it',
+    () async {
+      for (final stop in [false, true]) {
+        final client = _DeviceClient();
+        final started = Completer<void>();
+        final screen = IctrlScreen(
+          client: client,
+          sessionChanged: (active) async {
+            if (active) await started.future;
+          },
+        );
+        await screen.connect();
+        final tools = IctrlDeviceTools(
+          screen: screen,
+          native: const UnavailableDeviceTools(),
+        );
+        final cancel = CancelToken();
+        final launch = tools.invoke('open_app', {
+          'package': 'com.example.app',
+        }, cancel: cancel);
+        await Future<void>.delayed(Duration.zero);
+        expect(client.calls.any((c) => c.$1 == 'launch_app'), false);
+        if (stop) {
+          cancel.cancel();
+          await expectLater(launch, throwsA(isA<RequestCancelled>()));
+          started.complete();
+          expect(client.calls.any((c) => c.$1 == 'launch_app'), false);
+        } else {
+          started.complete();
+          await launch;
+          expect(client.calls.where((c) => c.$1 == 'launch_app'), hasLength(1));
+        }
+        screen.dispose();
+      }
+    },
+  );
+  test(
     'repeated keypad keys reuse live selectors until a fresh observation',
     () async {
       final client = _DeviceClient();

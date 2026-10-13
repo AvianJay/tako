@@ -23,6 +23,7 @@ final class RemoteSessionController: NSObject {
   private var submissionError: NSError?
   private var activityHide: DispatchWorkItem?
   private var statusAutoHidden = false
+  private var stopReason: String?
 
   /// Continued tasks may register at user initiation. Register the same concrete
   /// identifier we submit, not the Info.plist permission wildcard. Each ID is
@@ -102,6 +103,7 @@ final class RemoteSessionController: NSObject {
       "custom_activity_visible": activity != nil,
       "status_auto_hidden": statusAutoHidden
     ]
+    if let reason = stopReason { values["stop_reason"] = reason }
     if let error = submissionError {
       values["error_domain"] = error.domain
       values["error_code"] = error.code
@@ -114,6 +116,7 @@ final class RemoteSessionController: NSObject {
   private func start() {
     guard !active else { return }
     active = true; expired = false; actions = 0
+    stopReason = nil
     statusAutoHidden = false
     registered = false; submitted = false; handlerStarted = false
     submissionError = nil; processingState = "bounded"
@@ -157,7 +160,9 @@ final class RemoteSessionController: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: hide)
       } catch { /* Activity authorization never blocks a remote task. */ }
     }
-    if UIApplication.shared.applicationState == .background { background() }
+    // Acquire finite background time before launch can move us out of front.
+    // The continued-processing handler releases this bridge when it starts.
+    background()
   }
   @objc private func background() {
     guard active && task == .invalid && continuedTask == nil else { return }
@@ -169,6 +174,7 @@ final class RemoteSessionController: NSObject {
   private func expire() {
     guard active else { return }
     expired = true
+    stopReason = "system_expiration"
     processingState = "expired"
     active = false
     channel.invokeMethod("backgroundExpired", arguments: nil)
@@ -225,6 +231,7 @@ final class RemoteSessionController: NSObject {
     guard url.scheme == "tako", url.host == "remote" else { return false }
     if url.path == "/stop" {
       expired = true
+      stopReason = "user_stop"
       channel.invokeMethod("stop", arguments: nil)
       finish()
     }

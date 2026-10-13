@@ -1960,7 +1960,34 @@ class AppController extends ChangeNotifier {
       // Receipts are persisted even when Stop raced with a committed action.
       await chats.saveMessage(resultMessage);
       await _refresh();
-      if (token.isCancelled) return;
+      if (token.isCancelled) {
+        final expired = results.whereType<ToolResultBlock>().any(
+          (r) =>
+              r.toolName == 'remote_control' &&
+              tryDecodeObject(r.content)?['stop_reason'] == 'system_expiration',
+        );
+        if (expired) {
+          await chats.saveMessage(
+            ChatMessage(
+              id: newId(),
+              conversationId: response.conversationId,
+              parentId: resultMessage.id,
+              role: MessageRole.assistant,
+              content: [
+                TextBlock(
+                  locale.languageCode == 'zh'
+                      ? 'iOS 已結束此任務的背景執行，操作未完成。已保留完成的動作紀錄，沒有重複執行。'
+                      : 'iOS ended background execution before the task finished. Completed action receipts were kept; no action was repeated.',
+                ),
+              ],
+              createdAt: DateTime.now(),
+              timezoneOffsetMinutes: DateTime.now().timeZoneOffset.inMinutes,
+            ),
+          );
+          await _refresh();
+        }
+        return;
+      }
       if (blockedLoop != null) {
         await _finishToolLoop(provider, resultMessage.id, blockedLoop);
         return;

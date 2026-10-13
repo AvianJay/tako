@@ -174,6 +174,7 @@ void main() {
     String? app,
     String? query,
     String? resultKind,
+    int? minResults,
     List<Map<String, Object?>>? workflow,
     CancelToken? cancel,
   }) async => (await executor.execute(
@@ -188,6 +189,7 @@ void main() {
         'expected_app': ?app,
         'result_contains': ?query,
         'result_kind': ?resultKind,
+        'min_results': ?minResults,
         'workflow': ?workflow,
       }),
     ),
@@ -235,6 +237,104 @@ void main() {
       expect(adapter.requests, hasLength(1));
     },
   );
+  for (final fieldName in ['Search', '搜尋', 'Find products']) {
+    test(
+      'local search opens entry and submits $fieldName in one round',
+      () async {
+        screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+          FakeWindow(box([button('Search', opens: 'search')])),
+        ]);
+        screen.views['search'] = FakeView('com.example.fixture', 'Fixture', [
+          FakeWindow(box([field(description: fieldName, submits: 'done')])),
+        ]);
+        adapter = _Adapter([
+          call('screen_workflow', {
+            'title': 'Find a stand',
+            'steps': [
+              {
+                'tool': 'search',
+                'expect_app': 'com.example.fixture',
+                'text': 'foldable stand',
+              },
+            ],
+          }),
+        ]);
+        build();
+        final receipt = jsonDecode((await run()).content) as Map;
+        expect(receipt['status'], 'verified');
+        expect(adapter.requests, hasLength(1));
+        expect(screen.actions.map((a) => a.action), ['tap', 'set_text']);
+        expect(screen.actions.last.text, 'foldable stand');
+        expect(screen.actions.last.submit, true);
+      },
+    );
+  }
+  test('local search refuses ambiguous fields without typing', () async {
+    screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+      FakeWindow(
+        box([field(description: 'Search A'), field(description: 'Search B')]),
+      ),
+    ]);
+    adapter = _Adapter([
+      call('screen_workflow', {
+        'title': 'Search',
+        'steps': [
+          {
+            'tool': 'search',
+            'expect_app': 'com.example.fixture',
+            'text': 'query',
+          },
+        ],
+      }),
+      [
+        const TextDelta('Cannot finish: search fields are ambiguous.'),
+        const Done('end_turn'),
+      ],
+      [
+        const TextDelta('Not completed: search fields remain ambiguous.'),
+        const Done('end_turn'),
+      ],
+    ]);
+    build();
+    final result = await run();
+    expect(result.isError, true);
+    expect(screen.actions, isEmpty);
+    expect(
+      (await AuditRepository(database).list()).any(
+        (r) => r.resultSummary.contains('workflow_search_missing_or_ambiguous'),
+      ),
+      true,
+    );
+  });
+  test('local search honors type deny after authorized entry tap', () async {
+    screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+      FakeWindow(box([button('Search', opens: 'search')])),
+    ]);
+    screen.views['search'] = FakeView('com.example.fixture', 'Fixture', [
+      FakeWindow(box([field(description: 'Search', submits: 'done')])),
+    ]);
+    gate.policy = const PermissionPolicy(
+      fullPermissions: true,
+      overrides: {'type_text': ToolPermission.deny},
+    );
+    adapter = _Adapter([
+      call('screen_workflow', {
+        'title': 'Search',
+        'steps': [
+          {
+            'tool': 'search',
+            'expect_app': 'com.example.fixture',
+            'text': 'query',
+          },
+        ],
+      }),
+    ]);
+    build();
+    final result = await run();
+    expect(result.isError, true);
+    expect(screen.actions.map((a) => a.action), ['tap']);
+    expect(adapter.requests, hasLength(1));
+  });
 
   test(
     'native evidence ends the worker without a final model round; parent sees no raw screens',
@@ -919,6 +1019,43 @@ void main() {
       expect(adapter.requests, isEmpty);
     },
   );
+  test('a comparison cannot finish on only one matching product', () async {
+    screen.views['done'] = FakeView('com.example.fixture', 'Fixture', [
+      FakeWindow(
+        box([
+          list([
+            row([label('foldable stand A'), label(r'NT$95')]),
+          ]),
+        ]),
+      ),
+    ]);
+    adapter = _Adapter([
+      call('tap', {'title': 'Start', 'id': 1}),
+      [
+        const TextDelta('Not completed: only one option visible.'),
+        const Done('end_turn'),
+      ],
+      [
+        const TextDelta('Not completed: still only one option.'),
+        const Done('end_turn'),
+      ],
+    ]);
+    build();
+    final receipt =
+        jsonDecode(
+              (await run(
+                expected: [],
+                query: 'stand',
+                resultKind: 'product',
+                minResults: 2,
+              )).content,
+            )
+            as Map;
+    expect(receipt['verified'], false);
+    expect(receipt['status'], 'incomplete');
+    expect(receipt['result_items'], hasLength(1));
+    expect(adapter.requests, hasLength(3));
+  });
   test(
     'denied child action stops with no later action or false success',
     () async {

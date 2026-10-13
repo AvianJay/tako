@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../platform/capabilities.dart';
 import '../chat/content_block.dart';
 import '../screen/screen_capability.dart';
+import '../screen/screen_reading.dart';
 import '../util/json.dart';
 import 'action_title.dart';
 import 'screen_tools.dart';
@@ -28,6 +29,7 @@ const screenWorkflowStepsSchema = {
           'type_text',
           'read_screen',
           'back',
+          'search',
         ],
       },
       'package': {'type': 'string', 'minLength': 1, 'maxLength': 255},
@@ -71,6 +73,7 @@ class ScreenWorkflowTool extends Tool {
       'For tap/type_text require expect_app. Each action is independently checked, permitted and audited. '
       'open_app accepts package OR name; installed app names and aliases are resolved locally. '
       'back repeats at most max_back (default 4) visible BackButton taps from fresh screens until until_label/until_view_id is visible, or no BackButton remains. Require expect_app. '
+      'search requires expect_app and text: locally opens the unique search entry, finds its fresh editable field, replaces text and submits. Optional label/view_id selects the search entry. Never chooses among ambiguous fields. '
       'Stops on ambiguity, warnings, changed app or failed text checks. Use known links to skip navigation. '
       'expect_text matches a complete label/value exactly, not a substring. '
       'Returns completed steps and the final screen; never replay completed steps.';
@@ -109,6 +112,7 @@ class ScreenWorkflowTool extends Tool {
             'type_text',
             'read_screen',
             'back',
+            'search',
           }.contains(tool) ||
           tool == 'open_app' &&
               (step.containsKey('package') == step.containsKey('name') ||
@@ -121,6 +125,12 @@ class ScreenWorkflowTool extends Tool {
         return _error('invalid_workflow_step');
       }
       if (tool == 'back' && step['expect_app'] is! String) {
+        return _error('invalid_workflow_step');
+      }
+      if (tool == 'search' &&
+          (step['expect_app'] is! String ||
+              step['text'] is! String ||
+              step.containsKey('label') && step.containsKey('view_id'))) {
         return _error('invalid_workflow_step');
       }
     }
@@ -141,6 +151,126 @@ class ScreenWorkflowTool extends Tool {
       }
       final step = asMap(value)!;
       final tool = step['tool'] as String;
+      if (tool == 'search') {
+        for (var action = 0; action < 3; action++) {
+          ctx.cancel.throwIfCancelled();
+          final current = readings.latest(ctx.conversationId);
+          if (current == null ||
+              current.tree.ownAppInFront ||
+              current.tree.packageName != step['expect_app']) {
+            error = 'workflow_app_changed';
+            break;
+          }
+          if (remaining() <= 0) {
+            error = 'step_limit';
+            break;
+          }
+          final candidates = current.elements.where((e) {
+            final n = current.tree.nodes[e.node];
+            return n.enabled && !n.password && _searchElement(e, n);
+          }).toList();
+          var fields = candidates
+              .where((e) => current.tree.nodes[e.node].editable)
+              .toList();
+          if (fields.isEmpty && action > 0) {
+            fields = current.elements.where((e) {
+              final n = current.tree.nodes[e.node];
+              return n.enabled && n.editable && !n.password;
+            }).toList();
+          }
+          final explicit =
+              action == 0 && (step['label'] != null || step['view_id'] != null);
+          var matches = explicit
+              ? current.elements.where((e) {
+                  final n = current.tree.nodes[e.node];
+                  return n.enabled &&
+                      !n.password &&
+                      (step['view_id'] != null
+                          ? n.viewId == step['view_id']
+                          : _normalize(e.label) ==
+                                _normalize(step['label'] as String));
+                }).toList()
+              : fields.isNotEmpty
+              ? fields
+              : candidates;
+          matches = _deepestTargets(matches, current);
+          if (!explicit && fields.isEmpty && matches.isNotEmpty) {
+            final best = matches
+                .map((e) => _searchRank(e, current.tree.nodes[e.node]))
+                .reduce((a, b) => a > b ? a : b);
+            matches = matches
+                .where(
+                  (e) => _searchRank(e, current.tree.nodes[e.node]) == best,
+                )
+                .toList();
+          }
+          if (matches.length != 1 || action == 2 && fields.isEmpty) {
+            error = 'workflow_search_missing_or_ambiguous';
+            break;
+          }
+          final target = matches.single;
+          final typing = current.tree.nodes[target.node].editable;
+          final result = (await executor().execute(
+            ToolCallBlock(
+              id: '${ctx.messageId}-workflow-$index-search-$action',
+              name: typing ? 'type_text' : 'tap',
+              arguments: jsonEncode({
+                'title': title,
+                'id': target.id,
+                if (typing) ...{'text': step['text'], 'submit': true},
+                if (step['screenshot'] == true) 'screenshot': true,
+              }),
+            ),
+            ToolContext(
+              conversationId: ctx.conversationId,
+              messageId: '${ctx.messageId}-workflow-$index-search-$action',
+              cancel: ctx.cancel,
+            ),
+          )).result;
+          onStep(result);
+          effects.addAll(result.sideEffects);
+          attachments = result.attachments;
+          receipts.add({
+            'step': index + 1,
+            'tool': typing ? 'type_text' : 'tap',
+            'receipt': result.content.split('\nscreen after the action:').first,
+            'error': result.isError,
+          });
+          if (result.isError) {
+            error = 'workflow_step_failed';
+            break;
+          }
+          final receipt = tryDecodeObject(
+            result.content.split('\nscreen after the action:').first,
+          );
+          final diagnostics = asMap(receipt?['untrusted_receipt']) ?? receipt;
+          if (diagnostics?['warning'] != null ||
+              diagnostics?['hit_warning'] != null ||
+              diagnostics?['blocked_by'] != null ||
+              diagnostics?['append_warning'] != null ||
+              asMap(diagnostics?['page_check'])?['same_page'] == false) {
+            error = 'workflow_warning_read_before_replanning';
+            break;
+          }
+          final next = readings.latest(ctx.conversationId);
+          if (next == null || next.tree.packageName != step['expect_app']) {
+            error = 'workflow_app_changed';
+            break;
+          }
+          if (typing) {
+            completed++;
+            break;
+          }
+          if (next.tree.token == current.tree.token ||
+              next.toToolText() == current.toToolText()) {
+            error = 'workflow_search_unchanged';
+            break;
+          }
+          if (action == 2) error = 'workflow_search_field_unavailable';
+        }
+        if (error != null) break;
+        continue;
+      }
       if (tool == 'back') {
         var reached = false;
         for (var back = 0; back < (step['max_back'] as int? ?? 4); back++) {
@@ -429,5 +559,45 @@ class ScreenWorkflowTool extends Tool {
 }
 
 String _normalize(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+int _searchRank(ScreenElement e, ScreenNode n) {
+  final identity = '${n.viewId ?? ''} ${e.label}'.toLowerCase();
+  if (RegExp(
+    r'search[_ ]?(?:bar|field|input)|pre[_ ]?search|搜尋欄|搜索框',
+  ).hasMatch(identity)) {
+    return 3;
+  }
+  if (n.actionable) return 2;
+  return 1;
+}
+
+bool _searchElement(ScreenElement e, ScreenNode n) {
+  final identity = '${n.className} ${n.viewId ?? ''} ${e.label} ${n.hint ?? ''}'
+      .toLowerCase();
+  if (RegExp(
+    r'camera|cart|chat|cancel|history|suggest|相機|購物車|取消',
+  ).hasMatch(identity)) {
+    return false;
+  }
+  return RegExp(r'search|搜尋|搜索|搜尋欄|搜索框|查詢').hasMatch(identity) &&
+      (n.editable || n.actionable || n.viewId != null);
+}
+
+List<ScreenElement> _deepestTargets(
+  List<ScreenElement> matches,
+  ScreenReading current,
+) => matches
+    .where(
+      (candidate) => !matches.any((other) {
+        if (other.node == candidate.node) return false;
+        var parent = current.tree.nodes[other.node].parent;
+        while (parent >= 0) {
+          if (parent == candidate.node) return true;
+          parent = current.tree.nodes[parent].parent;
+        }
+        return false;
+      }),
+    )
+    .toList();
 ToolResult _error(String code) =>
     ToolResult(content: jsonEncode({'error': code}), isError: true);

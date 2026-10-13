@@ -7,7 +7,15 @@ class IosRemoteSession {
   static const _channel = MethodChannel('tw.avianjay.tako/remote_session');
   IosRemoteSession({required this.onStop, this.onDiagnostics}) {
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'stop' || call.method == 'backgroundExpired') onStop();
+      if (call.method == 'stop' || call.method == 'backgroundExpired') {
+        _diagnostics({
+          'processing_state': 'expired',
+          'stop_reason': call.method == 'backgroundExpired'
+              ? 'system_expiration'
+              : 'user_stop',
+        });
+        onStop();
+      }
       if (call.method == 'diagnosticsChanged') _diagnostics(call.arguments);
     });
   }

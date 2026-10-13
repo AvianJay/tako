@@ -52,6 +52,10 @@ void main() {
       expect(events.last['handler_started'], true);
       await native('backgroundExpired');
       expect(stops, 1);
+      expect(events.last['stop_reason'], 'system_expiration');
+      await native('stop');
+      expect(stops, 2);
+      expect(events.last['stop_reason'], 'user_stop');
       await session.setActive(false);
       expect(calls, ['start', 'diagnostics', 'end', 'diagnostics']);
       expect(events.last['processing_state'], 'submission_failed');

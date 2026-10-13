@@ -29,7 +29,7 @@ class IctrlDeviceTools implements DeviceToolsCapability {
     }
     if (tool == 'open_url' && screen.isAvailable) {
       cancel.throwIfCancelled();
-      screen.beginModelSession();
+      await screen.prepareModelSession(cancel);
       try {
         await screen.rpc('open_url', {'url': arguments['url']});
         screen.expectObservation();
@@ -66,7 +66,7 @@ class IctrlDeviceTools implements DeviceToolsCapability {
       _apps[name] = bundle;
     }
     cancel.throwIfCancelled();
-    screen.beginModelSession();
+    await screen.prepareModelSession(cancel);
     try {
       await screen.rpc('launch_app', {'bundle_id': bundle, 'settle': false});
       screen.expectObservation(app: bundle);

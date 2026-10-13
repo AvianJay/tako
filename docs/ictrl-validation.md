@@ -522,3 +522,46 @@ prove Apple automatically hides its active system status. Readiness remains
 `Sonnet 5.5 · messages · medium`, delegation enabled, with GPT 6.1 Sol in
 the main chat. The phone was left in the main chat with keyboard dismissed
 and no unsent draft.
+
+## Build 21 shared local search and background setup
+
+The first unguided installed build-20 search request was:
+`幫我在蝦皮找可折疊手機支架，看看便宜的幾個大概多少錢，先不要買。`
+It did not reach product results. The saved receipt reported cancelled,
+10 steps / nine worker rounds, 91.823 seconds worker elapsed and 69.869 seconds
+completed model time; main delegation took 15.412 seconds / one round.
+Interrupted provider time was not included in the old model timer. Native
+diagnostics subsequently showed `processing_state=expired`, with registration,
+submission and handler all true. No cart mutation occurred. QA also reopened
+Tako before completion, causing `screen_changed_read_again` and an own-app
+read failure. That run cannot serve as an autonomous success or speed result.
+
+Build 21 adds a shared `screen_workflow` search step for any app exposing a
+unique search entry/field. It resolves fresh targets for entry, field and
+submission locally, with the same permission gate and audit on each action.
+Ambiguous fields, app changes, warnings and unchanged entry screens stop the
+workflow; it never repeats a submitted query automatically. This saves model
+rounds without a Shopee-specific selector/URL table. Failed stale/unknown
+selectors return a bounded fresh image/observation before the next model
+decision, rather than asking the model to schedule another read. Comparisons
+can require two or three matching title/price cards via `min_results`.
+
+App launching now awaits native session setup while Tako is still in front;
+native setup acquires a bounded background bridge before leaving the app.
+Cancellation diagnostics distinguish system expiration from a user stop.
+Apple still controls continued-task expiration; this change does not promise
+unlimited background execution. Worker timing includes interrupted provider
+requests. Delegation prompting asks for a concise task/constraints without
+expanding the user's request or repeating the worker contract. Main/worker
+model, reasoning level, credentials and explicit denies remain selectable.
+
+Local tests cover search entry-to-field transitions in multiple languages,
+ambiguous fields, explicit type denial, multiple-card comparison, cancellation
+during native session setup, and expiration diagnostics. Installed verification
+and new latency measurements follow after CI and LCSign installation. QA must
+leave the task's foreground app alone until it has actually finished.
+
+Build-21 local verification: 692 tests passed, three opt-in device tests
+skipped; clean Flutter analysis/format and browser runtime 10/10. These
+checks verify the shared implementation; installed task speed is measured
+separately after installation.
