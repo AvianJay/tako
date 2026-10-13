@@ -107,12 +107,12 @@ jobs:
       # llama.cpp arrives as frameworks from llamadart's build hook.
       - name: Check that llama.cpp is bundled
         run: |
-          ls build/ios/iphoneos/Runner.app/Frameworks
-          ls build/ios/iphoneos/Runner.app/Frameworks | grep -qi llama
+          ls build/ios/iphoneos/Tako.app/Frameworks
+          ls build/ios/iphoneos/Tako.app/Frameworks | grep -qi llama
       - name: Package unsigned iOS IPA
         run: |
           mkdir -p "$RUNNER_TEMP/tako-ipa/Payload" dist
-          cp -R build/ios/iphoneos/Runner.app "$RUNNER_TEMP/tako-ipa/Payload/"
+          cp -R build/ios/iphoneos/Tako.app "$RUNNER_TEMP/tako-ipa/Payload/"
           cd "$RUNNER_TEMP/tako-ipa"
           zip -qry "$GITHUB_WORKSPACE/dist/tako-ios-unsigned.ipa" Payload
       - uses: actions/upload-artifact@v4

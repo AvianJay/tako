@@ -192,7 +192,7 @@ The iOS app shares everything above except what iOS does not allow:
 | Shortcuts | `list_shortcuts` and `run_shortcut` run the Shortcuts you name under **Settings → Shortcuts**, through the Shortcuts app's x-callback-url. Every run asks first. |
 | Screen control, notifications | Not available. |
 
-CI builds it with `flutter build ios --release --no-codesign` and packages `Runner.app` under `Payload/` as `tako-ios-unsigned.ipa`. The IPA is available as a workflow artifact and in the nightly release. It must be signed before installation on an iOS device. It has not been run on a device or simulator yet.
+CI builds it with `flutter build ios --release --no-codesign` and packages `Tako.app` under `Payload/` as `tako-ios-unsigned.ipa`. The IPA is available as a workflow artifact and in the nightly release. It must be signed before installation on an iOS device. It has not been run on a device or simulator yet.
 
 ## Project structure
 
