@@ -901,6 +901,70 @@ class ApprovalOverlayData {
   }
 }
 
+class ControlOverlayData {
+  ControlOverlayData({
+    required this.sessionId,
+    required this.label,
+    required this.title,
+    required this.stop,
+    required this.phase,
+  });
+
+  String sessionId;
+
+  String label;
+
+  String title;
+
+  String stop;
+
+  String phase;
+
+  List<Object?> _toList() {
+    return <Object?>[sessionId, label, title, stop, phase];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static ControlOverlayData decode(Object result) {
+    result as List<Object?>;
+    return ControlOverlayData(
+      sessionId: result[0]! as String,
+      label: result[1]! as String,
+      title: result[2]! as String,
+      stop: result[3]! as String,
+      phase: result[4]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! ControlOverlayData || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(sessionId, other.sessionId) &&
+        _deepEquals(label, other.label) &&
+        _deepEquals(title, other.title) &&
+        _deepEquals(stop, other.stop) &&
+        _deepEquals(phase, other.phase);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'ControlOverlayData(sessionId: $sessionId, label: $label, title: $title, stop: $stop, phase: $phase)';
+  }
+}
+
 class NotificationStatusData {
   NotificationStatusData({required this.access, required this.canPost});
 
@@ -1194,17 +1258,20 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is ApprovalOverlayData) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    } else if (value is NotificationStatusData) {
+    } else if (value is ControlOverlayData) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    } else if (value is DeviceNotificationData) {
+    } else if (value is NotificationStatusData) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    } else if (value is ShellStatusData) {
+    } else if (value is DeviceNotificationData) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    } else if (value is ShellResultData) {
+    } else if (value is ShellStatusData) {
       buffer.putUint8(140);
+      writeValue(buffer, value.encode());
+    } else if (value is ShellResultData) {
+      buffer.putUint8(141);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -1231,12 +1298,14 @@ class _PigeonCodec extends StandardMessageCodec {
       case 136:
         return ApprovalOverlayData.decode(readValue(buffer)!);
       case 137:
-        return NotificationStatusData.decode(readValue(buffer)!);
+        return ControlOverlayData.decode(readValue(buffer)!);
       case 138:
-        return DeviceNotificationData.decode(readValue(buffer)!);
+        return NotificationStatusData.decode(readValue(buffer)!);
       case 139:
-        return ShellStatusData.decode(readValue(buffer)!);
+        return DeviceNotificationData.decode(readValue(buffer)!);
       case 140:
+        return ShellStatusData.decode(readValue(buffer)!);
+      case 141:
         return ShellResultData.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1451,6 +1520,46 @@ class ScreenApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<void> showControlOverlay(ControlOverlayData data) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.tako.ScreenApi.showControlOverlay$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[data],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<void> hideControlOverlay(String sessionId, bool endSession) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.tako.ScreenApi.hideControlOverlay$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[sessionId, endSession],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(

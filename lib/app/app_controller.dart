@@ -1580,6 +1580,11 @@ class AppController extends ChangeNotifier {
           );
           results.add(execution.result);
           executed++;
+          if (!token.isCancelled && services.screen.modelActive) {
+            services.screen.updateModelSession(
+              phase: ScreenSessionPhase.thinking,
+            );
+          }
         }
       }
       activeToolCallId = null;
@@ -1871,6 +1876,7 @@ class AppController extends ChangeNotifier {
   void stop() {
     _attachmentCancel?.cancel();
     _cancel?.cancel();
+    services.screen.endModelSession();
   }
 
   bool _hasAnswer(List<ContentBlock> content) => content.any(

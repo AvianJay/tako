@@ -20,7 +20,6 @@ class AndroidScreen extends ScreenCapability {
   bool _supported = false;
   bool _enabled = false;
   bool _screenshots = false;
-  bool _modelActive = false;
 
   @override
   bool get supported => _supported;
@@ -48,6 +47,7 @@ class AndroidScreen extends ScreenCapability {
       _supported = status.supported;
       _enabled = status.enabled;
       _screenshots = status.screenshots;
+      if (!_enabled) endModelSession();
       notifyListeners();
     } on PlatformException {
       // Keep the last known state.
@@ -144,26 +144,38 @@ class AndroidScreen extends ScreenCapability {
   }
 
   @override
-  bool get modelActive => _modelActive;
-
-  @override
-  void beginModelSession() {
-    if (_modelActive) return;
-    _modelActive = true;
-    notifyListeners();
-  }
-
-  @override
   void endModelSession() {
-    if (!_modelActive) return;
-    _modelActive = false;
-    notifyListeners();
+    final id = modelSession?.id;
+    super.endModelSession();
+    if (id != null) hideControlOverlay(sessionId: id, endSession: true);
   }
 
   @override
-  void takeOver() {
-    endModelSession();
-    onTakeOver?.call();
+  Future<void> showControlOverlay(ScreenControlOverlay overlay) async {
+    try {
+      await _api.showControlOverlay(
+        ControlOverlayData(
+          sessionId: overlay.sessionId,
+          label: overlay.label,
+          title: overlay.title,
+          stop: overlay.stop,
+          phase: overlay.phase.name,
+        ),
+      );
+    } on PlatformException {
+      // The service may have been disabled while this update was queued.
+    } on MissingPluginException {
+      // No native screen control in this engine.
+    }
+  }
+
+  @override
+  void hideControlOverlay({String? sessionId, bool endSession = false}) {
+    final id = sessionId ?? modelSession?.id;
+    if (id == null) return;
+    unawaited(
+      _api.hideControlOverlay(id, endSession).catchError((Object _) {}),
+    );
   }
 
   @override

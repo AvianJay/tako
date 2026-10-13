@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
@@ -67,6 +68,11 @@ class TakoAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        reader?.configurationChanged()
+    }
+
     override fun onUnbind(intent: Intent?): Boolean {
         shutdown()
         return super.onUnbind(intent)
@@ -105,6 +111,7 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
     private val worker = Executors.newSingleThreadExecutor()
     private val imageWorker = Executors.newSingleThreadExecutor()
     private val overlay = ApprovalOverlay(service)
+    private val controlOverlay = ControlOverlay(service)
     private val labels = mutableMapOf<String, String>()
 
     // Worker thread only.
@@ -135,8 +142,17 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
 
     fun dispose() {
         overlay.hide()
+        controlOverlay.hide("", true)
         worker.shutdownNow()
         imageWorker.shutdownNow()
+    }
+
+    fun configurationChanged() = controlOverlay.refresh()
+
+    private fun hideControlForOperation(screenshot: Boolean): Boolean {
+        val ready = CountDownLatch(1)
+        controlOverlay.hideForOperation(screenshot) { ready.countDown() }
+        return ready.await(750, TimeUnit.MILLISECONDS)
     }
 
     /**
@@ -424,6 +440,18 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun capture(): Capture? {
+        try {
+            if (!hideControlForOperation(true)) return null
+            // Keep the full-display geometry on every supported Android version.
+            // Neither our frame nor status should become model-visible content.
+            return captureScreen()
+        } finally {
+            controlOverlay.restoreAfterOperation(true)
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun captureScreen(): Capture? {
         val done = CountDownLatch(1)
         val result = AtomicReference<Capture?>(null)
         service.takeScreenshot(Display.DEFAULT_DISPLAY, imageWorker, object : AccessibilityService.TakeScreenshotCallback {
@@ -530,9 +558,12 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
         val bounds = Rect()
         val window = windowsByLayer().firstOrNull {
             it.getBoundsInScreen(bounds)
-            // The window list lags behind a removed approval prompt.
-            bounds.contains(x, y) && !(it.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
-                !overlay.visible && it.root?.packageName?.toString().let { name -> name == null || name == service.packageName })
+            // Only our status/frame and a just-removed approval may be skipped.
+            // Other services' overlays continue to block the point.
+            bounds.contains(x, y) && !controlOverlay.owns(it) &&
+                !(it.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                    !overlay.visible && (it.id == overlay.lastWindowId ||
+                        it.root?.viewIdResourceName == service.resources.getResourceName(R.id.approval_overlay)))
         } ?: throw error("point_outside_screen")
         when {
             window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD -> throw error("keyboard_blocked_use_type_text")
@@ -807,13 +838,20 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
     override fun act(action: ScreenActionData, callback: (Result<ScreenActionResultData>) -> Unit) = work(callback) {
         ensureNoApproval()
         val started = SystemClock.uptimeMillis()
-        val method = when (action.action) {
-            "tap", "long_press" -> press(action)
-            "set_text" -> type(action)
-            "scroll" -> scroll(action)
-            "swipe" -> swipe(action)
-            "key" -> key(action.key)
-            else -> throw error("invalid_arguments")
+        val method = try {
+            // A coordinate beneath our status always reaches the approved app,
+            // never the Stop button. The touch-through frame remains visible.
+            if (!hideControlForOperation(false)) throw error("screen_failed")
+            when (action.action) {
+                "tap", "long_press" -> press(action)
+                "set_text" -> type(action)
+                "scroll" -> scroll(action)
+                "swipe" -> swipe(action)
+                "key" -> key(action.key)
+                else -> throw error("invalid_arguments")
+            }
+        } finally {
+            controlOverlay.restoreAfterOperation(false)
         }
         // Let the app start reacting, then wait for its window to settle.
         awaitChange(started, 1200)
@@ -827,7 +865,17 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
         )
     }
 
-    override fun showApproval(data: ApprovalOverlayData, callback: (String?) -> Unit) = overlay.show(data, callback)
+    override fun showApproval(data: ApprovalOverlayData, callback: (String?) -> Unit) {
+        controlOverlay.suspendForApproval(true)
+        overlay.show(data) { choice ->
+            controlOverlay.suspendForApproval(false)
+            callback(choice)
+        }
+    }
 
     override fun hideApproval() = overlay.hide()
+
+    override fun showControlOverlay(data: ControlOverlayData) = controlOverlay.show(data)
+
+    override fun hideControlOverlay(sessionId: String, endSession: Boolean) = controlOverlay.hide(sessionId, endSession)
 }

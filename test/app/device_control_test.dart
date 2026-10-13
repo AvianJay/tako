@@ -19,6 +19,7 @@ import 'package:tako/core/screen/device_control_settings.dart';
 import 'package:tako/core/shell/shell_capability.dart';
 import 'package:tako/core/shortcuts/shortcuts_capability.dart';
 import 'package:tako/core/tools/device_tools.dart';
+import 'package:tako/core/tools/screen_tools.dart';
 import 'package:tako/core/tools/tool_settings.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/app_services.dart';
@@ -186,7 +187,14 @@ _Turn _call(String name, [Object? args = const <String, Object?>{}]) =>
       final id = 'call_${name}_${request.messages.length}';
       return [
         ToolCallStart(id, name),
-        ToolCallArgsDelta(id, jsonEncode(arguments)),
+        ToolCallArgsDelta(
+          id,
+          jsonEncode({
+            if (screenToolNames.contains(name) || name == 'open_app')
+              'title': name,
+            ...arguments,
+          }),
+        ),
         ToolCallEnd(id),
         const Done('tool_calls'),
       ];

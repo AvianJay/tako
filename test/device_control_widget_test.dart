@@ -12,6 +12,7 @@ import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/shell/shell_capability.dart';
+import 'package:tako/core/tools/screen_tools.dart';
 import 'package:tako/core/tools/tool_settings.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/l10n/gen/app_localizations.dart';
@@ -23,6 +24,7 @@ import 'screen/fake_screen.dart';
 
 class _Notifications extends UnavailableNotifications {
   final log = <String>[];
+  final sessionBodies = <String>[];
   bool posting = false;
   int accessSettings = 0;
   @override
@@ -42,7 +44,11 @@ class _Notifications extends UnavailableNotifications {
     required String body,
     required String stop,
     required String channel,
-  }) async => log.add('session: $title / $stop');
+  }) async {
+    log.add('session: $title / $stop');
+    sessionBodies.add(body);
+  }
+
   @override
   Future<void> clearSession() async => log.add('session cleared');
   @override
@@ -117,8 +123,9 @@ class _Services extends PlatformServices {
 }
 
 class _Adapter implements ProviderAdapter {
-  _Adapter(this.turns);
+  _Adapter(this.turns, {this.waitAtEnd = false});
   final List<List<ProviderEvent>> turns;
+  final bool waitAtEnd;
   int calls = 0;
   @override
   Future<List<ModelInfo>> listModels({CancelToken? cancel}) async => [];
@@ -129,6 +136,10 @@ class _Adapter implements ProviderAdapter {
   }) async* {
     final index = calls++;
     if (index >= turns.length) {
+      if (waitAtEnd) {
+        await cancel.whenCancelled;
+        return;
+      }
       yield const TextDelta('Done.');
       yield const Done('stop');
       return;
@@ -140,13 +151,22 @@ class _Adapter implements ProviderAdapter {
   }
 }
 
-List<ProviderEvent> _call(String id, String name, Map<String, Object?> args) =>
-    [
-      ToolCallStart(id, name),
-      ToolCallArgsDelta(id, jsonEncode(args)),
-      ToolCallEnd(id),
-      const Done('tool_calls'),
-    ];
+List<ProviderEvent> _call(
+  String id,
+  String name,
+  Map<String, Object?> args,
+) => [
+  ToolCallStart(id, name),
+  ToolCallArgsDelta(
+    id,
+    jsonEncode({
+      if (screenToolNames.contains(name) || name == 'open_app') 'title': name,
+      ...args,
+    }),
+  ),
+  ToolCallEnd(id),
+  const Done('tool_calls'),
+];
 
 Future<AppController> _boot(
   WidgetTester tester, {
@@ -278,7 +298,7 @@ void main() {
       expect(tap.highlight, isNotNull);
       expect(
         notifications.log,
-        contains('session: Tako is controlling the screen / Stop'),
+        contains('session: Tako is using your phone / Stop'),
       );
       screen.answerApproval('allowInChat');
       await _waitFor(tester, () => done);
@@ -326,6 +346,54 @@ void main() {
       await tester.tap(find.text('Deny'));
       await _waitFor(tester, () => done);
       expect(shell.commands, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'phone status follows titles and thinking, survives foreground changes, and Stop clears immediately',
+    (tester) async {
+      final screen = _Screen();
+      final notifications = _Notifications();
+      final app = await _boot(
+        tester,
+        screen: screen,
+        notifications: notifications,
+        adapter: _Adapter([
+          _call('read', 'read_screen', {'title': 'Check Wi-Fi status'}),
+        ], waitAtEnd: true),
+      );
+      var done = false;
+      unawaited(app.send('Check Wi-Fi').whenComplete(() => done = true));
+      _hide(tester);
+      await _waitFor(tester, () => screen.approvals.isNotEmpty);
+      screen.answerApproval('allowInChat');
+      await _waitFor(
+        tester,
+        () => screen.controlOverlays.any(
+          (overlay) => overlay.phase == ScreenSessionPhase.thinking,
+        ),
+      );
+      expect(
+        screen.controlOverlays.map((overlay) => overlay.title),
+        contains('Check Wi-Fi status'),
+      );
+      expect(notifications.sessionBodies, contains('Check Wi-Fi status'));
+      expect(
+        screen.controlOverlays.last.title,
+        'Thinking about the next step…',
+      );
+      final sessionId = screen.controlOverlays.last.sessionId;
+      _show(tester);
+      await tester.pump();
+      expect(screen.hiddenControlSessions.last, (sessionId, false));
+      expect(screen.modelActive, isTrue);
+      _hide(tester);
+      await tester.pump();
+      expect(screen.controlOverlays.last.sessionId, sessionId);
+      app.stop();
+      expect(screen.modelActive, isFalse);
+      expect(screen.hiddenControlSessions.last, (sessionId, true));
+      await _waitFor(tester, () => done);
     },
   );
 

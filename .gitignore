@@ -47,6 +47,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.kotlin/
 
 # Optional browser runtime check (tool/browser_runtime_check)
 /tool/browser_runtime_check/node_modules/

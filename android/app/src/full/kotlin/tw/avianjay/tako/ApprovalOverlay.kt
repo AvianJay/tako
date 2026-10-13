@@ -43,6 +43,10 @@ internal class ApprovalOverlay(private val service: AccessibilityService) {
     var visible = false
         private set
 
+    @Volatile
+    var lastWindowId = -1
+        private set
+
     private val windowManager get() = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     fun show(data: ApprovalOverlayData, done: (String?) -> Unit) {
@@ -67,6 +71,7 @@ internal class ApprovalOverlay(private val service: AccessibilityService) {
         callback = null
         visible = false
         if (current != null) {
+            lastWindowId = current.overlayWindowId()
             try {
                 windowManager.removeView(current)
             } catch (_: Exception) {
@@ -137,6 +142,7 @@ internal class ApprovalOverlay(private val service: AccessibilityService) {
             }
         }
         root.setWillNotDraw(false)
+        root.id = R.id.approval_overlay
         root.isClickable = true
         root.isFocusable = false
 

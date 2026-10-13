@@ -1202,6 +1202,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'phone action titles appear in summaries and details with legacy fallback',
+    (tester) async {
+      final controller = await boot(
+        tester,
+        locale: const Locale('en'),
+        size: const Size(390, 844),
+        seeded: true,
+      );
+      await tester.runAsync(() async {
+        final now = DateTime.now();
+        await controller.chats.saveMessage(
+          ChatMessage(
+            id: 'phone-call-message',
+            conversationId: 'visual',
+            parentId: 'answer',
+            role: MessageRole.assistant,
+            createdAt: now,
+            content: const [
+              ToolCallBlock(id: 'legacy', name: 'read_screen', arguments: '{}'),
+              ToolCallBlock(
+                id: 'tap',
+                name: 'tap',
+                arguments: '{"id":4,"title":"Open Wi-Fi settings"}',
+              ),
+            ],
+          ),
+        );
+        await controller.chats.saveMessage(
+          ChatMessage(
+            id: 'phone-result-message',
+            conversationId: 'visual',
+            parentId: 'phone-call-message',
+            role: MessageRole.tool,
+            createdAt: now.add(const Duration(seconds: 1)),
+            content: const [
+              ToolResultBlock(
+                toolCallId: 'legacy',
+                toolName: 'read_screen',
+                content: 'Settings',
+              ),
+              ToolResultBlock(
+                toolCallId: 'tap',
+                toolName: 'tap',
+                content: '{"done":true}',
+              ),
+            ],
+          ),
+        );
+        await controller.openConversation('visual');
+      });
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Open Wi-Fi settings'), findsOneWidget);
+      await tester.tap(find.byType(ToolRunSummary));
+      await tester.pumpAndSettle();
+      expect(find.text('Open Wi-Fi settings'), findsOneWidget);
+      expect(find.text('Read screen'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('consecutive tool rounds share one compact assistant turn', (
     tester,
   ) async {

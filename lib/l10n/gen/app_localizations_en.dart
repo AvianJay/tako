@@ -1054,8 +1054,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String screenSessionTitle(String app) {
-    return '$app is controlling the screen';
+    return '$app is using your phone';
   }
+
+  @override
+  String get screenSessionThinking => 'Thinking about the next step…';
+
+  @override
+  String get screenSessionWaiting => 'Waiting for your approval…';
 
   @override
   String get screenSessionBody => 'Tap Stop to take over.';

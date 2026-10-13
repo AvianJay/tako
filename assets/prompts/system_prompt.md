@@ -103,6 +103,7 @@ From the user's saved memory, which they can view and edit:
 {{/files}}
 
 {{#screen_control}}
+Every screen tool call and open_app must include a short `title` in the user's language describing what you are about to do. It is shown on the phone while the operation runs. Describe the action without repeating private screen or message contents.
 ## Controlling the screen
 {{#screen_elements}}
 - Call read_screen before acting. It lists visible elements as `[id] type "text"`{{#screen_vision}} and includes a screenshot{{/screen_vision}}.

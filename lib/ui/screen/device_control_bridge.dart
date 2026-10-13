@@ -36,6 +36,9 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
   bool _usedScreen = false;
   bool _wasGenerating = false;
   bool _replyShown = false;
+  (String, String, String)? _sessionNotice;
+  (String, String, String, ScreenSessionPhase)? _controlStatus;
+  String? _controlSessionId;
 
   @override
   void initState() {
@@ -51,6 +54,9 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
     final notifications = _app.services.notifications;
     if (_overlaid != null) _app.services.screen.hideApproval();
     if (_sessionShown) unawaited(notifications.clearSession());
+    if (_controlSessionId != null) {
+      _app.services.screen.hideControlOverlay(sessionId: _controlSessionId);
+    }
     if (_alerted != null) unawaited(notifications.cancelAlert('approval'));
     if (_replyShown) unawaited(notifications.cancelAlert('reply'));
     super.dispose();
@@ -77,21 +83,69 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
     final l = AppLocalizations.of(context);
     final screen = _app.services.screen;
     final notifications = _app.services.notifications;
+    final pending = _app.pendingApproval;
+    final session = screen.modelSession;
+    final phase = pending != null
+        ? ScreenSessionPhase.waitingApproval
+        : session?.phase ?? ScreenSessionPhase.acting;
+    final title = switch (phase) {
+      ScreenSessionPhase.thinking => l.screenSessionThinking,
+      ScreenSessionPhase.waitingApproval => l.screenSessionWaiting,
+      ScreenSessionPhase.acting =>
+        session?.title.isNotEmpty == true ? session!.title : l.readScreenTool,
+    };
 
     if (screen.modelActive != _sessionShown) {
       _sessionShown = screen.modelActive;
       if (_sessionShown) {
         _usedScreen = true;
+      }
+    }
+    final notice = screen.modelActive
+        ? (session?.id ?? '', l.screenSessionTitle(kAppName), title)
+        : null;
+    if (notice != _sessionNotice) {
+      _sessionNotice = notice;
+      if (notice == null) {
+        unawaited(notifications.clearSession());
+      } else {
         unawaited(
           notifications.showSession(
-            title: l.screenSessionTitle(kAppName),
-            body: l.screenSessionBody,
+            title: notice.$2,
+            body: notice.$3,
             stop: l.stop,
             channel: l.screenChannel,
           ),
         );
+      }
+    }
+    final control =
+        screen.modelActive && !_app.appInForeground && session != null
+        ? (session.id, l.screenSessionTitle(kAppName), title, phase)
+        : null;
+    if (control != _controlStatus) {
+      _controlStatus = control;
+      if (control == null) {
+        if (_controlSessionId != null) {
+          screen.hideControlOverlay(
+            sessionId: _controlSessionId,
+            endSession: !screen.modelActive,
+          );
+          _controlSessionId = null;
+        }
       } else {
-        unawaited(notifications.clearSession());
+        _controlSessionId = control.$1;
+        unawaited(
+          screen.showControlOverlay(
+            ScreenControlOverlay(
+              sessionId: control.$1,
+              label: control.$2,
+              title: control.$3,
+              stop: l.stop,
+              phase: control.$4,
+            ),
+          ),
+        );
       }
     }
 
@@ -115,7 +169,6 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
       unawaited(notifications.cancelAlert('reply'));
     }
 
-    final pending = _app.pendingApproval;
     if (pending == null || _app.appInForeground) {
       // In front, the in-app approval sheet takes over.
       if (_overlaid != null) {

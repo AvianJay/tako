@@ -110,7 +110,11 @@ void main() {
     String? message,
     bool lastCall = true,
   }) async => (await executor.execute(
-    ToolCallBlock(id: 'call', name: name, arguments: jsonEncode(args)),
+    ToolCallBlock(
+      id: 'call',
+      name: name,
+      arguments: jsonEncode({'title': name, ...args}),
+    ),
     ToolContext(
       conversationId: conversation,
       messageId: message ?? 'response-${responses++}',
@@ -118,6 +122,34 @@ void main() {
       lastCall: lastCall,
     ),
   )).result;
+
+  test(
+    'missing or blank operation titles reject before screen access or approval',
+    () async {
+      for (final args in [
+        {},
+        {'title': ' \n\t '},
+        {'title': 'x' * 81},
+      ]) {
+        final execution = await executor.execute(
+          ToolCallBlock(
+            id: 'invalid-title',
+            name: 'read_screen',
+            arguments: jsonEncode(args),
+          ),
+          ToolContext(
+            conversationId: 'chat',
+            messageId: 'invalid',
+            cancel: CancelToken(),
+          ),
+        );
+        expect(execution.result.isError, isTrue);
+        expect(execution.result.content, contains('invalid_arguments'));
+      }
+      expect(requests, isEmpty);
+      expect(screen.sessions, 0);
+    },
+  );
 
   test('read_screen lists elements as [id] type "text"', () async {
     screen.show('messages');
@@ -148,7 +180,10 @@ void main() {
     // Text in a child, a content description, and only a view id.
     for (final id in [4, 5, 6]) {
       requests.clear();
-      final result = await run('tap', {'id': id});
+      final result = await run('tap', {
+        'id': id,
+        'title': 'Read a harmless page',
+      });
       expect(requests.single.risk, RiskLevel.high, reason: 'id $id');
       expect(requests.single.choices, [
         PermissionChoice.allowOnce,

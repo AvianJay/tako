@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../platform/capabilities.dart';
 import '../providers/cancel_token.dart';
+import '../util/ids.dart';
 
 class ScreenException implements Exception {
   const ScreenException(this.code);
@@ -245,6 +246,35 @@ class ScreenApproval {
   final ScreenBounds? highlight;
 }
 
+enum ScreenSessionPhase { acting, thinking, waitingApproval }
+
+class ScreenSession {
+  const ScreenSession({
+    required this.id,
+    required this.title,
+    required this.phase,
+  });
+  final String id;
+  final String title;
+  final ScreenSessionPhase phase;
+}
+
+/// Localized status drawn by the native accessibility service.
+class ScreenControlOverlay {
+  const ScreenControlOverlay({
+    required this.sessionId,
+    required this.label,
+    required this.title,
+    required this.stop,
+    required this.phase,
+  });
+  final String sessionId;
+  final String label;
+  final String title;
+  final String stop;
+  final ScreenSessionPhase phase;
+}
+
 /// Screen control. Reads happen only inside tools, after the
 /// permission gate; status checks never read the screen.
 abstract class ScreenCapability extends ChangeNotifier implements Capability {
@@ -276,13 +306,48 @@ abstract class ScreenCapability extends ChangeNotifier implements Capability {
   Future<ScreenActionOutcome> act(ScreenAction action);
 
   /// The model is acting on the screen in the current response.
-  bool get modelActive;
+  ScreenSession? _modelSession;
+  ScreenSession? get modelSession => _modelSession;
+  bool get modelActive => _modelSession != null;
 
   /// Stop from the "controlling the screen" notification.
   VoidCallback? onTakeOver;
-  void beginModelSession();
-  void endModelSession();
-  void takeOver();
+  void beginModelSession() {
+    if (!isAvailable || modelActive) return;
+    _modelSession = ScreenSession(
+      id: newId(),
+      title: '',
+      phase: ScreenSessionPhase.acting,
+    );
+    notifyListeners();
+  }
+
+  void updateModelSession({
+    String? title,
+    ScreenSessionPhase phase = ScreenSessionPhase.acting,
+  }) {
+    beginModelSession();
+    final session = _modelSession;
+    if (session == null) return;
+    final text = title ?? session.title;
+    if (text == session.title && phase == session.phase) return;
+    _modelSession = ScreenSession(id: session.id, title: text, phase: phase);
+    notifyListeners();
+  }
+
+  void endModelSession() {
+    if (_modelSession == null) return;
+    _modelSession = null;
+    notifyListeners();
+  }
+
+  void takeOver() {
+    endModelSession();
+    onTakeOver?.call();
+  }
+
+  Future<void> showControlOverlay(ScreenControlOverlay overlay) async {}
+  void hideControlOverlay({String? sessionId, bool endSession = false}) {}
 
   /// Shows [approval] over other apps; completes with the chosen id, or null.
   Future<String?> showApproval(ScreenApproval approval);

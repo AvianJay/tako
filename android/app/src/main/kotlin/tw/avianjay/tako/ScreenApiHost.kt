@@ -19,6 +19,8 @@ interface ScreenBackend {
     fun act(action: ScreenActionData, callback: (Result<ScreenActionResultData>) -> Unit)
     fun showApproval(data: ApprovalOverlayData, callback: (String?) -> Unit)
     fun hideApproval()
+    fun showControlOverlay(data: ControlOverlayData)
+    fun hideControlOverlay(sessionId: String, endSession: Boolean)
 }
 
 /** Bit flags of [ScreenNodeData.flags]; mirrored in lib/core/screen. */
@@ -100,7 +102,16 @@ class ScreenApiHost(private val activity: Activity) : ScreenApi {
         backend()?.hideApproval()
     }
 
+    override fun showControlOverlay(data: ControlOverlayData) {
+        backend()?.showControlOverlay(data)
+    }
+
+    override fun hideControlOverlay(sessionId: String, endSession: Boolean) {
+        backend()?.hideControlOverlay(sessionId, endSession)
+    }
+
     fun dispose() {
         hideApproval()
+        backend()?.hideControlOverlay("", true)
     }
 }

@@ -52,6 +52,8 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
     - The model reads the screen as `[id] type "text"` elements, with an optional screenshot for vision models.
     - It can tap, type, scroll, swipe and press system keys.
     - Each action returns the screen after it, so a task takes fewer tool calls.
+    - A thin green-to-teal gradient frame and a status pill show when Tako is using your phone, with the current operation title and **Stop**. The indicator stays through model thinking and is cleared when the response ends or you take over.
+    - Screen tools and `open_app` require a short `title`, also shown in the chat's tool history. The indicator is excluded from screenshots and cannot receive model gestures.
   - **`run_shell`** through Termux.
   - **`notifications_list`** to read current notifications.
 

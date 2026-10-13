@@ -5,6 +5,7 @@ import '../chat/content_block.dart';
 import '../files/workspace.dart';
 import '../screen/screen_capability.dart';
 import '../screen/screen_reading.dart';
+import 'action_title.dart';
 import 'tool.dart';
 
 const screenToolNames = {
@@ -94,6 +95,7 @@ class ScreenObserver {
   Future<({String text, List<ContentBlock> attachments})?> observe(
     ToolContext ctx, {
     required int maxChars,
+    String? title,
   }) async {
     if (!ctx.lastCall ||
         !screen.isAvailable ||
@@ -104,7 +106,7 @@ class ScreenObserver {
     try {
       // Reading is using the screen, as with read_screen (open_app has not
       // started the session yet).
-      screen.beginModelSession();
+      screen.updateModelSession(title: title);
       final seen = await _readScreen(
         screen,
         workspace,
@@ -128,8 +130,13 @@ class ScreenObserver {
     String status, {
     required int maxChars,
     List<SideEffect> sideEffects = const [],
+    String? title,
   }) async {
-    final seen = await observe(ctx, maxChars: maxChars - status.length - 40);
+    final seen = await observe(
+      ctx,
+      maxChars: maxChars - status.length - 40,
+      title: title,
+    );
     return ToolResult(
       content: seen == null
           ? status
@@ -218,36 +225,42 @@ class ScreenTool extends Tool implements TargetResolvingTool {
     };
     return {
       'type': 'object',
-      'properties': switch (name) {
-        'read_screen' => <String, Object?>{},
-        'tap' || 'long_press' => {'id': id, 'x': coordinate, 'y': coordinate},
-        'swipe' => {
-          'direction': direction,
-          'id': id,
-          'x': coordinate,
-          'y': coordinate,
-        },
-        'scroll' => {'direction': direction, 'id': id},
-        'type_text' => {
-          'text': {'type': 'string', 'maxLength': 5000},
-          'id': id,
-          'x': coordinate,
-          'y': coordinate,
-          'submit': {'type': 'boolean'},
-        },
-        _ => {
-          'key': {
-            'type': 'string',
-            'enum': ['back', 'home', 'recents', 'notifications'],
+      'properties': {
+        'title': actionTitleSchema,
+        ...switch (name) {
+          'read_screen' => <String, Object?>{},
+          'tap' || 'long_press' => {'id': id, 'x': coordinate, 'y': coordinate},
+          'swipe' => {
+            'direction': direction,
+            'id': id,
+            'x': coordinate,
+            'y': coordinate,
+          },
+          'scroll' => {'direction': direction, 'id': id},
+          'type_text' => {
+            'text': {'type': 'string', 'maxLength': 5000},
+            'id': id,
+            'x': coordinate,
+            'y': coordinate,
+            'submit': {'type': 'boolean'},
+          },
+          _ => {
+            'key': {
+              'type': 'string',
+              'enum': ['back', 'home', 'recents', 'notifications'],
+            },
           },
         },
       },
-      'required': switch (name) {
-        'swipe' || 'scroll' => ['direction'],
-        'type_text' => ['text'],
-        'press_key' => ['key'],
-        _ => <String>[],
-      },
+      'required': [
+        'title',
+        ...switch (name) {
+          'swipe' || 'scroll' => ['direction'],
+          'type_text' => ['text'],
+          'press_key' => ['key'],
+          _ => <String>[],
+        },
+      ],
       'additionalProperties': false,
     };
   }
@@ -286,6 +299,9 @@ class ScreenTool extends Tool implements TargetResolvingTool {
     Map<String, Object?> args,
     ToolContext ctx,
   ) async {
+    if (actionTitle(args) == null) {
+      throw const ToolTargetException('invalid_arguments');
+    }
     if (name == 'read_screen' || name == 'press_key') return ctx;
     final id = args['id'];
     final x = args['x'];
@@ -365,9 +381,16 @@ class ScreenTool extends Tool implements TargetResolvingTool {
   @override
   Future<ToolResult> run(Map<String, Object?> args, ToolContext ctx) async {
     ctx.cancel.throwIfCancelled();
+    final title = actionTitle(args);
+    if (title == null) {
+      return const ToolResult(
+        content: '{"error":"invalid_arguments"}',
+        isError: true,
+      );
+    }
     try {
+      screen.updateModelSession(title: title);
       if (name == 'read_screen') return await _read(ctx);
-      screen.beginModelSession();
       if (name == 'press_key') {
         final key = args['key'];
         if (key is! String) throw const ScreenException('invalid_arguments');

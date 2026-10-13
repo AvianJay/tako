@@ -218,6 +218,21 @@ class ApprovalOverlayData {
   int? bottom;
 }
 
+class ControlOverlayData {
+  ControlOverlayData({
+    required this.sessionId,
+    required this.label,
+    required this.title,
+    required this.stop,
+    required this.phase,
+  });
+  String sessionId;
+  String label;
+  String title;
+  String stop;
+  String phase;
+}
+
 @HostApi()
 abstract class ScreenApi {
   ScreenStatusData status();
@@ -240,6 +255,8 @@ abstract class ScreenApi {
   @async
   String? showApproval(ApprovalOverlayData data);
   void hideApproval();
+  void showControlOverlay(ControlOverlayData data);
+  void hideControlOverlay(String sessionId, bool endSession);
 }
 
 class NotificationStatusData {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../platform/capabilities.dart';
 import '../../platform/device_tools_capability.dart';
 import '../chat/content_block.dart';
+import 'action_title.dart';
 import 'screen_tools.dart';
 import 'tool.dart';
 
@@ -69,18 +70,22 @@ class _DeviceTool extends Tool {
       );
     }
     try {
+      final observer = this.observer;
+      if (name == 'open_app' && observer?.screen.isAvailable == true) {
+        observer!.screen.updateModelSession(title: actionTitle(args));
+      }
       final result = await device.invoke(name, args, cancel: ctx.cancel);
       final effects = [
         if (_sideEffectKinds[name] case final String kind)
           SideEffect(kind: kind, summary: name),
       ];
-      final observer = this.observer;
       if (observer != null && result['launched'] == true) {
         return observer.result(
           ctx,
           jsonEncode(result),
           maxChars: maxChars,
           sideEffects: effects,
+          title: actionTitle(args),
         );
       }
       return ToolResult(content: jsonEncode(result), sideEffects: effects);
@@ -191,6 +196,7 @@ bool validDeviceArguments(String name, Map<String, Object?> args) {
     }
   }
   if (name == 'open_app') {
+    if (actionTitle(args) == null) return false;
     // Exactly one of the app's name or its package name.
     final package = args['package'];
     final appName = args['name'];
@@ -302,8 +308,12 @@ final _schemas = <String, Map<String, Object?>>{
     ['seconds'],
   ),
   'open_url': _object({'url': _string(8192, min: 1)}, ['url']),
-  'open_app': _object({
-    'name': _string(100, min: 1),
-    'package': _string(255, min: 3),
-  }, []),
+  'open_app': _object(
+    {
+      'title': actionTitleSchema,
+      'name': _string(100, min: 1),
+      'package': _string(255, min: 3),
+    },
+    ['title'],
+  ),
 };

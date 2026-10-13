@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../app/app_controller.dart';
 import '../../core/chat/content_block.dart';
 import '../../core/chat/message.dart';
+import '../../core/tools/action_title.dart';
 import '../../l10n/gen/app_localizations.dart';
 import 'chat_timeline.dart';
 import 'thinking_section.dart';
@@ -139,7 +140,7 @@ class ToolRunSummary extends StatelessWidget {
     final current =
         run.steps.where(activity.matches).firstOrNull ?? run.steps.last;
     final label =
-        '${l.toolRunSummary(toolLabel(current.call.name, l), run.steps.length)}'
+        '${l.toolRunSummary(phoneActionTitle(current.call) ?? toolLabel(current.call.name, l), run.steps.length)}'
         ' · ${_stateLabel(state, l)}';
     return Semantics(
       button: true,
@@ -394,7 +395,7 @@ class _ToolStepDetail extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    toolLabel(step.call.name, l),
+                    phoneActionTitle(step.call) ?? toolLabel(step.call.name, l),
                     style: theme.textTheme.titleSmall,
                   ),
                   const SizedBox(height: 4),

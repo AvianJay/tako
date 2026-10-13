@@ -801,6 +801,59 @@ data class ApprovalOverlayData (
 }
 
 /** Generated class from Pigeon that represents data sent in messages. */
+data class ControlOverlayData (
+  val sessionId: String,
+  val label: String,
+  val title: String,
+  val stop: String,
+  val phase: String
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): ControlOverlayData {
+      val sessionId = pigeonVar_list[0] as String
+      val label = pigeonVar_list[1] as String
+      val title = pigeonVar_list[2] as String
+      val stop = pigeonVar_list[3] as String
+      val phase = pigeonVar_list[4] as String
+      return ControlOverlayData(sessionId, label, title, stop, phase)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      sessionId,
+      label,
+      title,
+      stop,
+      phase,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as ControlOverlayData
+    return ControlApiPigeonUtils.deepEquals(this.sessionId, other.sessionId) && ControlApiPigeonUtils.deepEquals(this.label, other.label) && ControlApiPigeonUtils.deepEquals(this.title, other.title) && ControlApiPigeonUtils.deepEquals(this.stop, other.stop) && ControlApiPigeonUtils.deepEquals(this.phase, other.phase)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + ControlApiPigeonUtils.deepHash(this.sessionId)
+    result = 31 * result + ControlApiPigeonUtils.deepHash(this.label)
+    result = 31 * result + ControlApiPigeonUtils.deepHash(this.title)
+    result = 31 * result + ControlApiPigeonUtils.deepHash(this.stop)
+    result = 31 * result + ControlApiPigeonUtils.deepHash(this.phase)
+    return result
+  }
+  override fun toString(): String {
+    return "ControlOverlayData(sessionId=$sessionId, label=$label, title=$title, stop=$stop, phase=$phase)"
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
 data class NotificationStatusData (
   val access: Boolean,
   val canPost: Boolean
@@ -1052,20 +1105,25 @@ private open class ControlApiPigeonCodec : StandardMessageCodec() {
       }
       137.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          NotificationStatusData.fromList(it)
+          ControlOverlayData.fromList(it)
         }
       }
       138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          DeviceNotificationData.fromList(it)
+          NotificationStatusData.fromList(it)
         }
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ShellStatusData.fromList(it)
+          DeviceNotificationData.fromList(it)
         }
       }
       140.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          ShellStatusData.fromList(it)
+        }
+      }
+      141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           ShellResultData.fromList(it)
         }
@@ -1107,20 +1165,24 @@ private open class ControlApiPigeonCodec : StandardMessageCodec() {
         stream.write(136)
         writeValue(stream, value.toList())
       }
-      is NotificationStatusData -> {
+      is ControlOverlayData -> {
         stream.write(137)
         writeValue(stream, value.toList())
       }
-      is DeviceNotificationData -> {
+      is NotificationStatusData -> {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is ShellStatusData -> {
+      is DeviceNotificationData -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is ShellResultData -> {
+      is ShellStatusData -> {
         stream.write(140)
+        writeValue(stream, value.toList())
+      }
+      is ShellResultData -> {
+        stream.write(141)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1143,6 +1205,8 @@ interface ScreenApi {
   /** Returns the chosen choice ID, or null when hidden without a choice. */
   fun showApproval(data: ApprovalOverlayData, callback: (Result<String?>) -> Unit)
   fun hideApproval()
+  fun showControlOverlay(data: ControlOverlayData)
+  fun hideControlOverlay(sessionId: String, endSession: Boolean)
 
   companion object {
     /** The codec used by ScreenApi. */
@@ -1327,6 +1391,43 @@ interface ScreenApi {
           channel.setMessageHandler { _, reply ->
             val wrapped: List<Any?> = try {
               api.hideApproval()
+              listOf(null)
+            } catch (exception: Throwable) {
+              ControlApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.tako.ScreenApi.showControlOverlay$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val dataArg = args[0] as ControlOverlayData
+            val wrapped: List<Any?> = try {
+              api.showControlOverlay(dataArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              ControlApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.tako.ScreenApi.hideControlOverlay$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as String
+            val endSessionArg = args[1] as Boolean
+            val wrapped: List<Any?> = try {
+              api.hideControlOverlay(sessionIdArg, endSessionArg)
               listOf(null)
             } catch (exception: Throwable) {
               ControlApiPigeonUtils.wrapError(exception)

@@ -20,6 +20,7 @@ import 'package:tako/core/chat/message.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/device_control_settings.dart';
+import 'package:tako/core/tools/screen_tools.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/services.dart';
 import 'package:tako/ui/browser/browser_screen.dart';
@@ -74,7 +75,13 @@ List<ProviderEvent> _call(String name, Map<String, Object?> args) {
   final id = 'call_${_calls++}';
   return [
     ToolCallStart(id, name),
-    ToolCallArgsDelta(id, jsonEncode(args)),
+    ToolCallArgsDelta(
+      id,
+      jsonEncode({
+        if (screenToolNames.contains(name) || name == 'open_app') 'title': name,
+        ...args,
+      }),
+    ),
     ToolCallEnd(id),
     const Done('tool_calls'),
   ];

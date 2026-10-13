@@ -135,9 +135,15 @@ void main() {
       final device = FakeDevice();
       final registry = ToolRegistry(createDeviceTools(device));
       for (final args in [
-        {'package': 'intent://action'},
-        {'package': 'com.example.app;rm -rf'},
-        {'package': 'com.example.app', 'command': 'hidden'},
+        {'package': 'intent://action', 'title': 'Open app'},
+        {'package': 'com.example.app;rm -rf', 'title': 'Open app'},
+        {
+          'package': 'com.example.app',
+          'command': 'hidden',
+          'title': 'Open app',
+        },
+        {'package': 'com.example.app'},
+        {'package': 'com.example.app', 'title': ' '},
       ]) {
         expect(
           (await registry.get('open_app')!.run(args, context())).isError,
@@ -146,7 +152,10 @@ void main() {
       }
       expect(device.calls, isEmpty);
       expect(
-        validDeviceArguments('open_app', {'package': 'tw.avianjay.tako'}),
+        validDeviceArguments('open_app', {
+          'package': 'tw.avianjay.tako',
+          'title': 'Open Tako',
+        }),
         isTrue,
       );
     },

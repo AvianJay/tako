@@ -998,8 +998,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String screenSessionTitle(String app) {
-    return '$app 正在操作螢幕';
+    return '$app 正在使用你的手機';
   }
+
+  @override
+  String get screenSessionThinking => '正在思考下一步…';
+
+  @override
+  String get screenSessionWaiting => '等待你的核准…';
 
   @override
   String get screenSessionBody => '點「停止」即可接手。';
@@ -2422,8 +2428,14 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String screenSessionTitle(String app) {
-    return '$app 正在操作螢幕';
+    return '$app 正在使用你的手機';
   }
+
+  @override
+  String get screenSessionThinking => '正在思考下一步…';
+
+  @override
+  String get screenSessionWaiting => '等待你的核准…';
 
   @override
   String get screenSessionBody => '點「停止」即可接手。';

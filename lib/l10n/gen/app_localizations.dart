@@ -2004,8 +2004,20 @@ abstract class AppLocalizations {
   /// No description provided for @screenSessionTitle.
   ///
   /// In zh, this message translates to:
-  /// **'{app} 正在操作螢幕'**
+  /// **'{app} 正在使用你的手機'**
   String screenSessionTitle(String app);
+
+  /// No description provided for @screenSessionThinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在思考下一步…'**
+  String get screenSessionThinking;
+
+  /// No description provided for @screenSessionWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待你的核准…'**
+  String get screenSessionWaiting;
 
   /// No description provided for @screenSessionBody.
   ///

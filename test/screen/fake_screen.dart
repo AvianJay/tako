@@ -145,7 +145,8 @@ class FakeScreen extends ScreenCapability {
   Completer<String?>? _approval;
   int sessions = 0;
   int refreshes = 0;
-  bool _modelActive = false;
+  final controlOverlays = <ScreenControlOverlay>[];
+  final hiddenControlSessions = <(String?, bool)>[];
 
   String get current => _current;
   FakeView get view => views[_current]!;
@@ -463,26 +464,20 @@ class FakeScreen extends ScreenCapability {
   }
 
   @override
-  bool get modelActive => _modelActive;
-  @override
   void beginModelSession() {
-    if (_modelActive) return;
-    _modelActive = true;
+    if (modelActive || !isAvailable) return;
     sessions++;
-    notifyListeners();
+    super.beginModelSession();
   }
 
   @override
-  void endModelSession() {
-    if (!_modelActive) return;
-    _modelActive = false;
-    notifyListeners();
+  Future<void> showControlOverlay(ScreenControlOverlay overlay) async {
+    controlOverlays.add(overlay);
   }
 
   @override
-  void takeOver() {
-    endModelSession();
-    onTakeOver?.call();
+  void hideControlOverlay({String? sessionId, bool endSession = false}) {
+    hiddenControlSessions.add((sessionId, endSession));
   }
 
   @override
