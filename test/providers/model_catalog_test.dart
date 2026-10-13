@@ -8,6 +8,13 @@ void main() {
       'gpt-image-1',
       'gpt-image-1-mini',
       'gpt-image-1.5',
+      'gpt-image-2',
+      'gpt-image-2-2026-04-21',
+      'gpt-image-2.5-sunburst',
+      'gpt-image-2.5-flare-2026-09-08',
+      'openai/gpt-image-2.5-sunburst:free',
+      'chatgpt-image-latest',
+      'x-ai/grok-imagine-image-2.0',
       'openai/gpt-image-1',
     ]) {
       final spec = ModelCatalog.detect(id)!;
@@ -17,6 +24,82 @@ void main() {
     }
     expect(ModelCatalog.detect('gpt-image-99'), isNull);
   });
+
+  test('Gemini text and image models use their separate documented limits', () {
+    for (final id in [
+      'gemini-2.5-pro',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-3.1-pro-preview',
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite',
+      'gemini-3.5-flash-lite',
+      'gemini-3.8-flash',
+    ]) {
+      final spec = ModelCatalog.detect('google/$id')!;
+      expect(spec.contextWindow, 1048576, reason: id);
+      expect(spec.maxOutputTokens, 65536, reason: id);
+      expect(spec.vision && spec.tools && spec.reasoning, isTrue, reason: id);
+      expect(spec.imageGeneration, ImageGenerationMode.none);
+    }
+    for (final id in [
+      'gemini-2.5-flash-image',
+      'gemini-3-pro-image',
+      'gemini-3.1-flash-image',
+      'gemini-nano-banana-2.1',
+      'gemini-3.1-flash-lite-image',
+    ]) {
+      final spec = ModelCatalog.detect('google/$id')!;
+      expect(spec.imageGeneration, ImageGenerationMode.chatOutput, reason: id);
+      expect(spec.imageReferenceInput, isTrue);
+      expect(spec.tools, isFalse);
+    }
+    expect(ModelCatalog.detect('gemini-2.5-flash-image')!.contextWindow, 65536);
+    expect(
+      ModelCatalog.detect('gemini-3.1-flash-image')!.contextWindow,
+      131072,
+    );
+    expect(
+      ModelCatalog.detect('gemini-3.1-flash-lite-image')!.maxOutputTokens,
+      4096,
+    );
+    expect(ModelCatalog.detect('gemini-9.9-flash'), isNull);
+  });
+
+  test(
+    'new vendor presets and routing variants retain explicit capabilities',
+    () {
+      for (final id in [
+        'gpt-5.5',
+        'qwen3.5-plus',
+        'qwen3.5-flash',
+        'qwen3.6-plus',
+        'qwen3.8-max',
+        'grok-4.7',
+        'mistral-large-4',
+        'mistral-large-4-0',
+        'mistral-medium-3-5',
+        'mistral-small-2603',
+        'command-a-plus-05-2026',
+        'command-a-reasoning-08-2025',
+      ]) {
+        expect(ModelCatalog.detect(id), isNotNull, reason: id);
+        expect(ModelCatalog.detect('$id:nitro')!.tools, isTrue);
+      }
+      expect(
+        ModelCatalog.detect('qwen/qwen3.6-plus-2026-04-02')!.contextWindow,
+        1000000,
+      );
+      expect(ModelCatalog.detect('qwen3.8-max')!.maxOutputTokens, 131072);
+      expect(ModelCatalog.detect('grok-4.7')!.contextWindow, 500000);
+      expect(ModelCatalog.detect('command-a-03-2025')!.vision, isFalse);
+      expect(ModelCatalog.detect('command-a-vision-07-2025')!.vision, isTrue);
+      expect(ModelCatalog.detect('command-a-vision-07-2025')!.tools, isFalse);
+      expect(ModelCatalog.detect('mistral-large-custom'), isNull);
+      expect(ModelCatalog.detect('qwen3.99-max'), isNull);
+      expect(ModelCatalog.detect('gpt-image-2.5-unknown'), isNull);
+    },
+  );
 
   test(
     'common vendor models, versioned IDs and aliases are recognized explicitly',

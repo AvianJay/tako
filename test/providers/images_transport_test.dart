@@ -142,6 +142,91 @@ void main() {
     expect(called, isFalse);
   });
 
+  for (final referenceCount in [0, 1, 2]) {
+    test(
+      'xAI image requests use JSON with $referenceCount reference images',
+      () async {
+        final client = _Client((request) async {
+          expect(
+            request.url.path,
+            referenceCount == 0 ? '/v1/images/generations' : '/v1/images/edits',
+          );
+          expect(request.headers['content-type'], 'application/json');
+          expect(request.followRedirects, isFalse);
+          final body =
+              jsonDecode((request as http.Request).body)
+                  as Map<String, Object?>;
+          expect(body['model'], 'grok-imagine-image-2.0');
+          expect(body['response_format'], 'b64_json');
+          if (referenceCount > 0) {
+            final references = referenceCount == 1
+                ? [body['image']]
+                : body['images'] as List<Object?>;
+            expect(references, hasLength(referenceCount));
+            expect(references.first, {
+              'type': 'image_url',
+              'url': 'data:image/png;base64,$_png',
+            });
+          }
+          return _json({
+            'data': [
+              {'b64_json': _png},
+            ],
+          });
+        });
+        final base = _request(reference: true);
+        final request = ChatRequest(
+          systemPrompt: base.systemPrompt,
+          messages: [
+            base.messages.single.copyWith(
+              content: [
+                const TextBlock('A bird'),
+                for (var i = 0; i < referenceCount; i++)
+                  base.messages.single.content.last,
+              ],
+            ),
+          ],
+        );
+        final config = _config().copyWith(
+          baseUrl: 'https://api.x.ai/v1',
+          model: 'grok-imagine-image-2.0',
+        );
+        final events = await ImagesAdapter(
+          config,
+          clientFactory: () => client,
+        ).send(request, cancel: CancelToken()).toList();
+        expect(events.whereType<GeneratedImage>().single.base64, _png);
+        expect(events.last, isA<Done>());
+      },
+    );
+  }
+
+  test('xAI rejects more than five references before sending', () async {
+    var sent = false;
+    final client = _Client((_) async {
+      sent = true;
+      return _json({});
+    });
+    final base = _request(reference: true);
+    final request = ChatRequest(
+      systemPrompt: '',
+      messages: [
+        base.messages.single.copyWith(
+          content: [
+            const TextBlock('A bird'),
+            for (var i = 0; i < 6; i++) base.messages.single.content.last,
+          ],
+        ),
+      ],
+    );
+    final events = await ImagesAdapter(
+      _config().copyWith(baseUrl: 'https://api.x.ai/v1'),
+      clientFactory: () => client,
+    ).send(request, cancel: CancelToken()).toList();
+    expect(events.single, isA<ProviderError>());
+    expect(sent, isFalse);
+  });
+
   test('output URL download never receives provider credentials', () async {
     var count = 0;
     final adapter = ImagesAdapter(

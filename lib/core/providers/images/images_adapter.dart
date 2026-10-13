@@ -25,6 +25,7 @@ class ImagesAdapter extends HttpProviderAdapter {
 
   final http.Client Function() _clientFactory;
   static const _generationTimeout = Duration(minutes: 5);
+  bool get _xaiImages => Uri.tryParse(config.baseUrl)?.host == 'api.x.ai';
 
   @override
   String get endpoint => 'images/generations';
@@ -56,7 +57,12 @@ class ImagesAdapter extends HttpProviderAdapter {
       );
     }
     // Do not force response_format: GPT Image rejects that legacy parameter.
-    return {'model': config.model, 'prompt': prompt, 'n': 1};
+    return {
+      'model': config.model,
+      'prompt': prompt,
+      'n': 1,
+      if (_xaiImages) 'response_format': 'b64_json',
+    };
   }
 
   @override
@@ -74,9 +80,10 @@ class ImagesAdapter extends HttpProviderAdapter {
         code: 'unsupported_image_input',
       );
     }
-    if (references.length > 16) {
-      throw const ProviderError(
-        'Use at most 16 reference images',
+    final maxReferences = _xaiImages ? 5 : 16;
+    if (references.length > maxReferences) {
+      throw ProviderError(
+        'Use at most $maxReferences reference images',
         code: 'invalid_request',
       );
     }
@@ -93,6 +100,49 @@ class ImagesAdapter extends HttpProviderAdapter {
           'content-type': 'application/json',
         })
         ..body = jsonEncode(body);
+    }
+    // xAI uses JSON data URIs for edits, rather than OpenAI's multipart upload.
+    if (_xaiImages) {
+      var totalBytes = 0;
+      final images = <JsonMap>[];
+      for (final reference in references) {
+        if (reference.data == null) {
+          throw const ProviderError(
+            'Reference image could not be loaded',
+            code: 'invalid_image',
+          );
+        }
+        final image = generatedImageFromBase64(
+          reference.data!,
+          mimeType: reference.mimeType,
+        );
+        totalBytes += base64Decode(image.base64).length;
+        if (totalBytes > 4 * maxGeneratedImageBytes) {
+          throw const ProviderError(
+            'Reference images exceed the 80 MB request limit',
+            code: 'invalid_image',
+          );
+        }
+        images.add({
+          'type': 'image_url',
+          'url': 'data:${image.mimeType};base64,${image.base64}',
+        });
+      }
+      return http.AbortableRequest(
+          'POST',
+          providerEndpoint(config.baseUrl, 'images/edits'),
+          abortTrigger: cancel.whenCancelled,
+        )
+        ..followRedirects = false
+        ..headers.addAll({
+          ...headers,
+          'accept': 'application/json',
+          'content-type': 'application/json',
+        })
+        ..body = jsonEncode({
+          ...body,
+          if (images.length == 1) 'image': images.single else 'images': images,
+        });
     }
     final outgoing =
         http.AbortableMultipartRequest(

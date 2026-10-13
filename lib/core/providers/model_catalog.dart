@@ -1,6 +1,7 @@
 import 'provider_config.dart';
 
-/// Offline presets verified against publisher documentation on 2026-10-11.
+/// Offline presets verified against publisher documentation on 2026-10-13.
+/// Sources and conservative output defaults: docs/model-catalog.md.
 class ModelSpec {
   const ModelSpec(
     this.contextWindow,
@@ -33,6 +34,8 @@ class ModelSpec {
 abstract final class ModelCatalog {
   static ModelSpec? detect(String model) {
     var id = model.trim().toLowerCase().split('/').last;
+    // OpenRouter's routing variants do not change model capabilities.
+    id = id.replaceFirst(RegExp(r':(?:free|nitro|online)$'), '');
     // Snapshot suffixes and standard vendor prefixes retain the base model's
     // documented defaults. Arbitrary future family members remain unknown.
     id = id.replaceFirst(RegExp(r'-(?:20\d{2}-\d{2}-\d{2}|20\d{6})$'), '');
@@ -41,7 +44,13 @@ abstract final class ModelCatalog {
       // https://developers.openai.com/api/reference/python/resources/images/methods/edit
       // Image endpoints do not use token budgets; these are fallback editor
       // values only, not advertised limits for these image models.
-      'gpt-image-1' || 'gpt-image-1-mini' || 'gpt-image-1.5' => const ModelSpec(
+      'gpt-image-1' ||
+      'gpt-image-1-mini' ||
+      'gpt-image-1.5' ||
+      'gpt-image-2' ||
+      'gpt-image-2.5-sunburst' ||
+      'gpt-image-2.5-flare' ||
+      'chatgpt-image-latest' => const ModelSpec(
         32768,
         4096,
         tools: false,
@@ -66,6 +75,7 @@ abstract final class ModelCatalog {
       ),
       // https://developers.openai.com/api/docs/models/{model}
       'gpt-5.4' ||
+      'gpt-5.5' ||
       'gpt-6-astra' ||
       'gpt-6-sol' ||
       'gpt-6.1-sol' ||
@@ -153,6 +163,133 @@ abstract final class ModelCatalog {
         32768,
         reasoning: true,
       ),
+      // https://ai.google.dev/gemini-api/docs/models/{model}
+      'gemini-2.5-pro' ||
+      'gemini-2.5-flash' ||
+      'gemini-2.5-flash-lite' ||
+      'gemini-3.1-pro-preview' ||
+      'gemini-3-flash-preview' ||
+      'gemini-3.1-flash-lite' ||
+      'gemini-3.5-flash-lite' ||
+      'gemini-3.8-flash' => const ModelSpec(
+        1048576,
+        65536,
+        vision: true,
+        reasoning: true,
+      ),
+      // Gemini image output through a compatible chat gateway. Google's
+      // native generateContent image endpoint is a different protocol.
+      'gemini-2.5-flash-image' ||
+      'gemini-2.5-flash-image-preview' => const ModelSpec(
+        65536,
+        32768,
+        vision: true,
+        tools: false,
+        imageGeneration: ImageGenerationMode.chatOutput,
+        imageReferenceInput: true,
+      ),
+      'gemini-3-pro-image' || 'gemini-3-pro-image-preview' => const ModelSpec(
+        65536,
+        32768,
+        vision: true,
+        reasoning: true,
+        tools: false,
+        imageGeneration: ImageGenerationMode.chatOutput,
+        imageReferenceInput: true,
+      ),
+      'gemini-3.1-flash-image' ||
+      'gemini-3.1-flash-image-preview' ||
+      'gemini-nano-banana-2.1' => const ModelSpec(
+        131072,
+        32768,
+        vision: true,
+        reasoning: true,
+        tools: false,
+        imageGeneration: ImageGenerationMode.chatOutput,
+        imageReferenceInput: true,
+      ),
+      'gemini-3.1-flash-lite-image' => const ModelSpec(
+        65536,
+        4096,
+        vision: true,
+        reasoning: true,
+        tools: false,
+        imageGeneration: ImageGenerationMode.chatOutput,
+        imageReferenceInput: true,
+      ),
+      // https://www.alibabacloud.com/help/en/model-studio/qwen3-6-plus
+      // https://www.alibabacloud.com/help/en/model-studio/qwen3-5-plus
+      // https://www.alibabacloud.com/help/en/model-studio/qwen3-5-flash
+      'qwen3.5-plus' || 'qwen3.5-flash' || 'qwen3.6-plus' => const ModelSpec(
+        1000000,
+        65536,
+        vision: true,
+        reasoning: true,
+      ),
+      // https://help.aliyun.com/en/model-studio/qwen3-8-max
+      'qwen3.8-max' => const ModelSpec(
+        1000000,
+        131072,
+        vision: true,
+        reasoning: true,
+      ),
+      // https://docs.x.ai/developers/models/grok-4.7
+      // No separate output cap is published; use an 8K default.
+      'grok-4.7' || 'grok-4.7-latest' => const ModelSpec(
+        500000,
+        8192,
+        vision: true,
+        reasoning: true,
+      ),
+      // https://docs.x.ai/developers/models/grok-imagine-image-2.0
+      'grok-imagine-image-2.0' => const ModelSpec(
+        32768,
+        4096,
+        tools: false,
+        imageGeneration: ImageGenerationMode.imagesApi,
+        imageReferenceInput: true,
+      ),
+      // https://docs.mistral.ai/models/mistral-large-4-0
+      // These models publish context limits but no separate output cap.
+      'mistral-large-4' || 'mistral-large-4-0' => const ModelSpec(
+        1000000,
+        8192,
+        vision: true,
+        reasoning: true,
+      ),
+      // https://docs.mistral.ai/models/mistral-medium-3-5-26-04
+      // https://docs.mistral.ai/models/mistral-small-4-0-26-03
+      'mistral-medium-3-5' ||
+      'mistral-medium-2604' ||
+      'mistral-small-2603' ||
+      'mistral-small-latest' => const ModelSpec(
+        256000,
+        8192,
+        vision: true,
+        reasoning: true,
+      ),
+      // https://docs.cohere.com/v2/docs/models
+      'command-a-plus-05-2026' => const ModelSpec(
+        128000,
+        64000,
+        vision: true,
+        reasoning: true,
+      ),
+      'command-a-03-2025' => const ModelSpec(256000, 8000),
+      'command-a-reasoning-08-2025' => const ModelSpec(
+        256000,
+        32000,
+        reasoning: true,
+      ),
+      'command-a-vision-07-2025' => const ModelSpec(
+        128000,
+        8000,
+        vision: true,
+        tools: false,
+      ),
+      'command-r7b-12-2024' ||
+      'command-r-08-2024' ||
+      'command-r-plus-08-2024' => const ModelSpec(128000, 4000),
       _ => null,
     };
   }

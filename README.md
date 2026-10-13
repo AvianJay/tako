@@ -166,6 +166,10 @@ and `KEYSTORE_PASSWORD`, before running the build commands.
 
      Load the model list or enter the exact model ID. Enter keys only in the app.
 
+     Automatic detection includes GPT Image 2/2.5, Gemini, Qwen, Grok, Mistral,
+     Cohere and the existing OpenAI, Claude, DeepSeek, GLM and Kimi presets.
+     See [verified model sources and gateway requirements](docs/model-catalog.md).
+
    On-device models are slower than servers. Reading the system prompt and tool definitions takes the longest; later turns reuse it. Hybrid models such as Qwen3.5 cannot reuse it, so every tool round reads it again. The recommended models are plain transformers.
 2. Optional: set up device control under **Settings → Device control**:
    - **Android:** enable accessibility, notification access, and the Termux integration as needed;
