@@ -102,85 +102,85 @@ abstract class AppLocalizations {
   /// No description provided for @toolLoopDetected.
   ///
   /// In zh, this message translates to:
-  /// **'??????????????????????????????????'**
+  /// **'已阻止重复的工具循环。请查看模型说明，需要尝试其他方式时按「继续」。'**
   String get toolLoopDetected;
 
   /// No description provided for @appUpdates.
   ///
   /// In zh, this message translates to:
-  /// **'????'**
+  /// **'应用更新'**
   String get appUpdates;
 
   /// No description provided for @appUpdatesHelp.
   ///
   /// In zh, this message translates to:
-  /// **'? GitHub nightly ????? Android full ?????'**
+  /// **'从 GitHub nightly 检查并安装 Android full 版本更新。'**
   String get appUpdatesHelp;
 
   /// No description provided for @installedVersion.
   ///
   /// In zh, this message translates to:
-  /// **'?????'**
+  /// **'已安装版本'**
   String get installedVersion;
 
   /// No description provided for @checkUpdates.
   ///
   /// In zh, this message translates to:
-  /// **'????'**
+  /// **'检查更新'**
   String get checkUpdates;
 
   /// No description provided for @downloadUpdate.
   ///
   /// In zh, this message translates to:
-  /// **'?????'**
+  /// **'下载并安装'**
   String get downloadUpdate;
 
   /// No description provided for @updateAvailable.
   ///
   /// In zh, this message translates to:
-  /// **'??????'**
+  /// **'有可用更新。'**
   String get updateAvailable;
 
   /// No description provided for @updateCurrent.
   ///
   /// In zh, this message translates to:
-  /// **'?????? nightly ???'**
+  /// **'目前已是最新 nightly 版本。'**
   String get updateCurrent;
 
   /// No description provided for @updateCheckFailed.
   ///
   /// In zh, this message translates to:
-  /// **'?????????????'**
+  /// **'无法检查更新，请稍后再试。'**
   String get updateCheckFailed;
 
   /// No description provided for @updateInstallPermission.
   ///
   /// In zh, this message translates to:
-  /// **'?? Android ????? Tako ??????????????????'**
+  /// **'请在 Android 设置中允许 Tako 安装应用，返回后再次点击下载并安装。'**
   String get updateInstallPermission;
 
   /// No description provided for @updateInstallerOpened.
   ///
   /// In zh, this message translates to:
-  /// **'Android ??????????'**
+  /// **'Android 已开启安装确认画面。'**
   String get updateInstallerOpened;
 
   /// No description provided for @updateInstallFailed.
   ///
   /// In zh, this message translates to:
-  /// **'??????????????????????????????????'**
+  /// **'无法下载或安装更新，请检查网络，并确认已安装的应用使用正式版本签章。'**
   String get updateInstallFailed;
 
   /// No description provided for @generateChatTitle.
   ///
   /// In zh, this message translates to:
-  /// **'??????'**
+  /// **'生成对话标题'**
   String get generateChatTitle;
 
   /// No description provided for @titleGenerationFailed.
   ///
   /// In zh, this message translates to:
-  /// **'????????????????'**
+  /// **'标题生成失败，已保留原本的标题。'**
   String get titleGenerationFailed;
 
   /// No description provided for @toolRunSummary.
@@ -234,13 +234,13 @@ abstract class AppLocalizations {
   /// No description provided for @maxToolSteps.
   ///
   /// In zh, this message translates to:
-  /// **'????????????????'**
+  /// **'达到此工具调用次数后开始检测循环'**
   String get maxToolSteps;
 
   /// No description provided for @maxScreenToolSteps.
   ///
   /// In zh, this message translates to:
-  /// **'??????????????????'**
+  /// **'操控屏幕达到此调用次数后开始检测循环'**
   String get maxScreenToolSteps;
 
   /// No description provided for @toolOutputLimit.

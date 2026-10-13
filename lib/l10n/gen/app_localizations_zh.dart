@@ -9,47 +9,47 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get toolLoopDetected => '??????????????????????????????????';
+  String get toolLoopDetected => '已阻止重复的工具循环。请查看模型说明，需要尝试其他方式时按「继续」。';
 
   @override
-  String get appUpdates => '????';
+  String get appUpdates => '应用更新';
 
   @override
-  String get appUpdatesHelp => '? GitHub nightly ????? Android full ?????';
+  String get appUpdatesHelp => '从 GitHub nightly 检查并安装 Android full 版本更新。';
 
   @override
-  String get installedVersion => '?????';
+  String get installedVersion => '已安装版本';
 
   @override
-  String get checkUpdates => '????';
+  String get checkUpdates => '检查更新';
 
   @override
-  String get downloadUpdate => '?????';
+  String get downloadUpdate => '下载并安装';
 
   @override
-  String get updateAvailable => '??????';
+  String get updateAvailable => '有可用更新。';
 
   @override
-  String get updateCurrent => '?????? nightly ???';
+  String get updateCurrent => '目前已是最新 nightly 版本。';
 
   @override
-  String get updateCheckFailed => '?????????????';
+  String get updateCheckFailed => '无法检查更新，请稍后再试。';
 
   @override
   String get updateInstallPermission =>
-      '?? Android ????? Tako ??????????????????';
+      '请在 Android 设置中允许 Tako 安装应用，返回后再次点击下载并安装。';
 
   @override
-  String get updateInstallerOpened => 'Android ??????????';
+  String get updateInstallerOpened => 'Android 已开启安装确认画面。';
 
   @override
-  String get updateInstallFailed => '??????????????????????????????????';
+  String get updateInstallFailed => '无法下载或安装更新，请检查网络，并确认已安装的应用使用正式版本签章。';
 
   @override
-  String get generateChatTitle => '??????';
+  String get generateChatTitle => '生成对话标题';
 
   @override
-  String get titleGenerationFailed => '????????????????';
+  String get titleGenerationFailed => '标题生成失败，已保留原本的标题。';
 
   @override
   String toolRunSummary(String tool, int count) {
@@ -79,10 +79,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toolsEnabled => '啟用工具';
 
   @override
-  String get maxToolSteps => '????????????????';
+  String get maxToolSteps => '达到此工具调用次数后开始检测循环';
 
   @override
-  String get maxScreenToolSteps => '??????????????????';
+  String get maxScreenToolSteps => '操控屏幕达到此调用次数后开始检测循环';
 
   @override
   String get toolOutputLimit => '工具結果長度上限（字元）';
@@ -1517,47 +1517,47 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   AppLocalizationsZhTw() : super('zh_TW');
 
   @override
-  String get toolLoopDetected => '??????????????????????????????????';
+  String get toolLoopDetected => '已阻止重複的工具循環。請查看模型說明，需要嘗試其他方式時按「繼續」。';
 
   @override
-  String get appUpdates => '??????';
+  String get appUpdates => '應用程式更新';
 
   @override
-  String get appUpdatesHelp => '? GitHub nightly ????? Android full ?????';
+  String get appUpdatesHelp => '從 GitHub nightly 檢查並安裝 Android full 版本更新。';
 
   @override
-  String get installedVersion => '?????';
+  String get installedVersion => '已安裝版本';
 
   @override
-  String get checkUpdates => '????';
+  String get checkUpdates => '檢查更新';
 
   @override
-  String get downloadUpdate => '?????';
+  String get downloadUpdate => '下載並安裝';
 
   @override
-  String get updateAvailable => '??????';
+  String get updateAvailable => '有可用更新。';
 
   @override
-  String get updateCurrent => '?????? nightly ???';
+  String get updateCurrent => '目前已是最新 nightly 版本。';
 
   @override
-  String get updateCheckFailed => '?????????????';
+  String get updateCheckFailed => '無法檢查更新，請稍後再試。';
 
   @override
   String get updateInstallPermission =>
-      '?? Android ????? Tako ????????????????????';
+      '請在 Android 設定中允許 Tako 安裝應用程式，返回後再次點選下載並安裝。';
 
   @override
-  String get updateInstallerOpened => 'Android ??????????';
+  String get updateInstallerOpened => 'Android 已開啟安裝確認畫面。';
 
   @override
-  String get updateInstallFailed => '????????????????????????????????????';
+  String get updateInstallFailed => '無法下載或安裝更新，請檢查網路，並確認已安裝的應用程式使用正式版本簽章。';
 
   @override
-  String get generateChatTitle => '??????';
+  String get generateChatTitle => '生成對話標題';
 
   @override
-  String get titleGenerationFailed => '????????????????';
+  String get titleGenerationFailed => '標題生成失敗，已保留原本的標題。';
 
   @override
   String toolRunSummary(String tool, int count) {
@@ -1587,10 +1587,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get toolsEnabled => '啟用工具';
 
   @override
-  String get maxToolSteps => '????????????????';
+  String get maxToolSteps => '達到此工具呼叫次數後開始偵測循環';
 
   @override
-  String get maxScreenToolSteps => '??????????????????';
+  String get maxScreenToolSteps => '操控螢幕達到此呼叫次數後開始偵測循環';
 
   @override
   String get toolOutputLimit => '工具結果長度上限（字元）';
