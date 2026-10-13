@@ -132,8 +132,8 @@ class _IctrlSettingsState extends State<IctrlSettings> {
         const SizedBox(height: 16),
         Text(
           tr(
-            'Dynamic Island and the Lock Screen show the active task, action count, and a shortcut back to Tako. iOS grants only limited background execution time. When that time expires, Tako stops sending actions; reopen Tako to continue. A Live Activity does not keep the agent running indefinitely.',
-            '動態島與鎖定畫面會顯示進行中的任務、操作次數與返回 Tako 的捷徑。iOS 只提供有限的背景執行時間，時間用完後 Tako 會停止操作；請返回 Tako 繼續。即時動態無法讓代理無限期在背景執行。',
+            'Dynamic Island and the Lock Screen show the task and action count. On iOS 26 or later, user-started tasks request continued background processing. If unavailable, iOS grants only a short background window. System cancellation or expiration stops actions; reopen Tako to continue.',
+            '動態島與鎖定畫面會顯示任務與操作次數。iOS 26 以上會為你開始的任務申請持續背景處理；若不可用，則只有短暫的背景執行時間。系統取消或時間用完後會停止操作；請返回 Tako 繼續。',
           ),
         ),
       ],

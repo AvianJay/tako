@@ -129,7 +129,23 @@ corrected delegated call, nested fields, empty workflows, and private values.
 This change improves recovery feedback across all tools and apps; it is not a
 measured end-to-end latency result or proof that the Discord send completed.
 
-ActivityKit displays progress; `UIApplication.beginBackgroundTask` supplies limited execution time. On expiration the native channel stops the agent, ends the background task, and marks the activity paused. Live Activities cannot provide indefinite background execution. iOS approvals require returning to Tako.
+On iOS 26 and later, a foreground user-started remote session submits a
+`BGContinuedProcessingTaskRequest` with immediate-or-fail strategy. Its handler
+is registered once during application launch. The system progress reflects
+completed device actions; expiration cancels the agent, and task completion ends
+the request. A declined request and older systems retain the bounded
+`UIApplication.beginBackgroundTask` fallback. No task is queued to restart later.
+ActivityKit remains a status surface. Neither API guarantees indefinite
+execution; system cancellation, resource pressure, and closing the app can end
+the work. iOS approvals require returning to Tako. See Apple's
+[continued processing documentation](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados).
+
+The build13 installed trial demonstrated a cancelled29.327-second Discord
+worker. Separately, the production Dart worker on the PC sent the newly
+authorized exact Nicko test message and verified its noneditable history label
+in22.079seconds,4model rounds,6steps. An independent screenshot showed the
+message in the DM and an empty composer. This desktop-hosted measurement does
+not prove the installed-app background fix; that requires the later IPA trial.
 
 The unsigned IPA must contain `PlugIns/TakoRemoteActivity.appex`, with the same build/version as the app. GitHub Actions verifies that extension and `NSSupportsLiveActivities` after compiling. The signer must preserve and sign the extension for Lock Screen / Dynamic Island display. CI compilation does not establish on-device background behavior.
 
