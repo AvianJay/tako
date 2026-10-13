@@ -25,6 +25,9 @@ android {
     }
 
     defaultConfig {
+        val buildCommit = providers.environmentVariable("GITHUB_SHA").orNull
+            ?.takeIf { it.matches(Regex("[0-9a-f]{40}")) } ?: ""
+        buildConfigField("String", "BUILD_COMMIT", "\"$buildCommit\"")
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = providers.gradleProperty("tako.applicationId").get()
         manifestPlaceholders["takoAppName"] = providers.gradleProperty("tako.appName").get()
@@ -58,6 +61,8 @@ android {
             }
         }
     }
+
+    buildFeatures { buildConfig = true }
 
     buildTypes {
         release {

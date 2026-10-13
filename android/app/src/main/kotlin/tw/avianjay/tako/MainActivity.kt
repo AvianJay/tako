@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        UpdaterFlavor.register(this, messenger)
         aicore = AicoreApiHost(messenger)
         deviceTools = AndroidDeviceApi(this)
         DeviceApi.setUp(messenger, deviceTools)

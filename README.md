@@ -95,6 +95,8 @@ The app enforces safety; the model only proposes actions.
   - pages that `fetch_page` and the in-app browser load;
   - model downloads you start yourself: Hugging Face for recommended models, or the URL you enter. Plain HTTP is accepted only inside the local network.
   - your configured iCTRL runner, using authenticated encrypted RPC envelopes.
+  - GitHub nightly release metadata and APK downloads, when you use the Android
+    `full` updater.
 
 ## Requirements
 
@@ -134,6 +136,13 @@ There are two build flavors:
 | --- | --- |
 | `full` (default) | Everything, including screen control. |
 | `play` | No accessibility service, for distribution on Google Play. |
+
+The Android `full` build includes **Settings → App updates**. It checks GitHub
+nightly releases, downloads the APK for the device's architecture, verifies the
+release checksum when provided, and opens Android's installer after checking
+that the package and signing certificate match. CI embeds its commit so nightly
+updates can be detected even when the version number is unchanged. The `play`
+build has no updater or package-install permission.
 
 Every push to `main` updates the [nightly release](https://github.com/AvianJay/tako/releases/tag/nightly) with all six APKs, named `tako-<flavor>-<abi>.apk`, and the unsigned iOS build, `tako-ios-unsigned.ipa`, after both platform builds succeed.
 

@@ -9,6 +9,44 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get appUpdates => 'App updates';
+
+  @override
+  String get appUpdatesHelp =>
+      'Check and install Android full updates from GitHub nightly releases.';
+
+  @override
+  String get installedVersion => 'Installed version';
+
+  @override
+  String get checkUpdates => 'Check for updates';
+
+  @override
+  String get downloadUpdate => 'Download and install';
+
+  @override
+  String get updateAvailable => 'An update is available.';
+
+  @override
+  String get updateCurrent => 'You have the latest nightly build.';
+
+  @override
+  String get updateCheckFailed =>
+      'Could not check for updates. Try again later.';
+
+  @override
+  String get updateInstallPermission =>
+      'Allow installs from Tako in Android settings, then tap download and install again.';
+
+  @override
+  String get updateInstallerOpened =>
+      'Android has opened the installation confirmation.';
+
+  @override
+  String get updateInstallFailed =>
+      'Could not download or install the update. Check the connection and make sure the installed app uses the release signing certificate.';
+
+  @override
   String get generateChatTitle => 'Generate chat title';
 
   @override

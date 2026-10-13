@@ -6,10 +6,12 @@ import '../../app/app_info.dart';
 import '../../core/browser/browser_settings.dart';
 import '../../core/providers/provider_config.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../../platform/android/app_updater.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
 import '../files/files_screen.dart';
 import '../memory/memory_screen.dart';
+import 'app_update_screen.dart';
 import 'device_control_screen.dart';
 import 'on_device_models_screen.dart';
 import 'personalization_screen.dart';
@@ -308,6 +310,18 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              if (AndroidAppUpdater.isAvailable)
+                ListTile(
+                  key: const ValueKey('settings-app-updates'),
+                  title: Text(l.appUpdates),
+                  subtitle: Text(l.appUpdatesHelp),
+                  leading: const Icon(Icons.system_update),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AppUpdateScreen()),
+                  ),
+                ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(kAppName),

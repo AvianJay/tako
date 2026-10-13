@@ -99,6 +99,72 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @appUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'????'**
+  String get appUpdates;
+
+  /// No description provided for @appUpdatesHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'? GitHub nightly ????? Android full ?????'**
+  String get appUpdatesHelp;
+
+  /// No description provided for @installedVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'?????'**
+  String get installedVersion;
+
+  /// No description provided for @checkUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'????'**
+  String get checkUpdates;
+
+  /// No description provided for @downloadUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'?????'**
+  String get downloadUpdate;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'??????'**
+  String get updateAvailable;
+
+  /// No description provided for @updateCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'?????? nightly ???'**
+  String get updateCurrent;
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'?????????????'**
+  String get updateCheckFailed;
+
+  /// No description provided for @updateInstallPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'?? Android ????? Tako ??????????????????'**
+  String get updateInstallPermission;
+
+  /// No description provided for @updateInstallerOpened.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android ??????????'**
+  String get updateInstallerOpened;
+
+  /// No description provided for @updateInstallFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'??????????????????????????????????'**
+  String get updateInstallFailed;
+
   /// No description provided for @generateChatTitle.
   ///
   /// In zh, this message translates to:
