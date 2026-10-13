@@ -124,6 +124,7 @@ class ScreenTree {
     this.windows = const [],
     this.nodes = const [],
     this.truncated = false,
+    this.requiresVisualReview = false,
     this.image,
     this.imageWidth = 0,
     this.imageHeight = 0,
@@ -139,6 +140,10 @@ class ScreenTree {
   final List<ScreenWindow> windows;
   final List<ScreenNode> nodes;
   final bool truncated;
+
+  /// Native text is incomplete and this observation uses an image instead.
+  /// Local text-only browsing must return to the worker before leaving it.
+  final bool requiresVisualReview;
 
   /// JPEG screenshot, when one was requested and available.
   final Uint8List? image;
@@ -307,6 +312,9 @@ abstract class ScreenCapability extends ChangeNotifier implements Capability {
   };
   bool get supportsDrag => false;
   bool get supportsFastActions => false;
+
+  /// Some native pagers scroll only the main viewport, ignoring a node id.
+  bool get supportsTargetedScroll => true;
   bool get supportsTimedGestures => false;
 
   /// An explicitly approved timed batch may skip element/OCR resolution, but

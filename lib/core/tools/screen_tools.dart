@@ -222,7 +222,7 @@ class ScreenTool extends Tool implements TargetResolvingTool {
     'swipe' =>
       'Swipe a finger in a direction from an element, a point, or the screen center.',
     'scroll' =>
-      'Scroll an element by id, or the main list. "down" shows what is below.',
+      '${screen.supportsTargetedScroll ? 'Scroll an element by id, or the main list.' : 'Scroll the main viewport.'} "down" shows what is below.',
     'type_text' =>
       'Replace the text of a field by id or point, or of the focused field. '
           'submit=true then presses Enter.',
@@ -255,7 +255,10 @@ class ScreenTool extends Tool implements TargetResolvingTool {
             'x': coordinate,
             'y': coordinate,
           },
-          'scroll' => {'direction': direction, 'id': id},
+          'scroll' => {
+            'direction': direction,
+            if (screen.supportsTargetedScroll) 'id': id,
+          },
           'type_text' => {
             'text': {'type': 'string', 'maxLength': 5000},
             'id': id,

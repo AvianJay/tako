@@ -38,6 +38,17 @@ void main() {
           content: jsonEncode({
             'completed': true,
             'receipts': ['done'],
+            'scan_results': [
+              {
+                'stop_reason': 'max_scrolls',
+                'untrusted_pages': [
+                  {
+                    'page': 1,
+                    'new_text': ['Server Alpha', 'Server Beta'],
+                  },
+                ],
+              },
+            ],
             'final_screen': inventory,
           }),
         ),
@@ -76,6 +87,8 @@ void main() {
             )
             as Map<String, Object?>;
     expect(workflow['receipts'], ['done']);
+    expect(jsonEncode(workflow['scan_results']), contains('Server Alpha'));
+    expect(jsonEncode(workflow['scan_results']), contains('Server Beta'));
     for (final i in [3, 4]) {
       expect(
         (result.messages[i].content.single as ToolResultBlock).content,

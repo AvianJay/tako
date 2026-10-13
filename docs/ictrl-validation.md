@@ -714,3 +714,45 @@ confirmed `is_locked.locked=true` and `device_info.system.screen_locked=true`,
 with SpringBoard foreground. No UI actions followed the successful lock. The
 new shortcut is retained; existing shortcuts and device settings were not
 modified.
+
+### Local multi-page browsing (pending build 21)
+
+The shared `screen_workflow` now includes `scan` for any app with readable
+list content. A worker decision can read the current page and up to six
+further pages, or stop at one known exact label, substring or native view ID.
+It resolves each scroll against the fresh screen, routes it through the
+ordinary permission gate and audit, and returns the final screen plus bounded
+read-only notes from earlier pages. Android uses native list targets. The
+current iCTRL schema's `page` method accepts direction and distance, without
+a target reference, so its tool advertises main-viewport paging and rejects
+targeted-list scan requests instead of pretending to honor them.
+
+The scan stops on app changes, dialogs, warning receipts, ambiguous targets
+or containers, repeated content, `moved:false`, `at_end:true`, cancellation,
+the worker's remaining action budget, or a 20-second continuation deadline.
+The deadline never races an in-flight UI call: that call's receipt is retained
+before deciding whether another scroll can start. A sparse page represented
+by an image returns to the worker for visual review before another scroll.
+An absent requested target prevents later planned taps in the same workflow.
+No completed action is replayed.
+
+Earlier notes omit target IDs and coordinates, exclude password subtrees,
+keep each visible row/card together, and deduplicate whole cards rather than
+prices. Two products sharing a price keep both title/price associations.
+Notes have a 3,200-character content budget and survive removal of older
+full screen inventories from the worker context. Exact completion still
+requires an independent fresh native read of the final screen; earlier-page
+text never satisfies that proof. A listing price alone cannot establish the
+requested variant's price, the cheapest eligible option, or complete list
+coverage. The worker receives this contract in prompt revision
+`remote-worker-v7`.
+
+Regression fixtures find a target two pages later in one worker model round,
+and can continue to its fresh semantic tap within that same round. These are
+execution-path checks, not installed-phone latency measurements. Current
+local validation passes **737 tests, with three opt-in device tests skipped**,
+Flutter analysis with no issues, formatting and `git diff --check`, plus
+browser runtime 10/10. GitHub Actions access, a build-21 IPA, LCSign
+installation and ordinary unguided post-install timing tests remain pending.
+The phone stays locked while no new build is available; the completed cart
+addition and daily coin claim are not repeated.

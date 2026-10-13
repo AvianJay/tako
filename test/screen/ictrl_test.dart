@@ -4,10 +4,12 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/providers/cancel_token.dart';
 import 'package:tako/core/screen/remote_screen.dart';
 import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/screen/screen_reading.dart';
+import 'package:tako/core/tools/screen_tools.dart';
 import 'package:tako/platform/device_tools_capability.dart';
 import 'package:tako/platform/ios/ictrl_client.dart';
 import 'package:tako/platform/ios/ictrl_crypto.dart';
@@ -15,7 +17,30 @@ import 'package:tako/platform/ios/ictrl_device_tools.dart';
 import 'package:tako/platform/ios/ictrl_screen.dart';
 import 'package:tako/platform/ios/ictrl_tree.dart';
 
+class _NoWorkspace implements WorkspaceCapability {
+  @override
+  bool get isAvailable => false;
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('Schema inspection must not use workspace files');
+}
+
 void main() {
+  test('iCTRL advertises main-viewport paging without ignored node ids', () {
+    final screen = IctrlScreen(client: _DeviceClient());
+    expect(screen.supportsTargetedScroll, false);
+    final properties =
+        ScreenTool(
+              screen,
+              'scroll',
+              workspace: _NoWorkspace(),
+              readings: ScreenReadings(),
+            ).schema['properties']
+            as Map;
+    expect(properties.containsKey('direction'), true);
+    expect(properties.containsKey('id'), false);
+    screen.dispose();
+  });
   test(
     'app launch waits for native session setup and Stop cancels it',
     () async {
@@ -511,6 +536,7 @@ void main() {
         cancel: CancelToken(),
       );
       expect(hidden.image, isNull);
+      expect(hidden.requiresVisualReview, false);
       expect(client.calls.where((c) => c.$1 == 'screenshot'), isEmpty);
       expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
       final shown = await screen.snapshotForModel(
@@ -519,6 +545,7 @@ void main() {
         cancel: CancelToken(),
       );
       expect(shown.image, [1, 2, 3]);
+      expect(shown.requiresVisualReview, true);
       expect(shown.imageWidth, 440);
       expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
       expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
@@ -533,6 +560,7 @@ void main() {
         cancel: CancelToken(),
       );
       expect(native.image, isNull);
+      expect(native.requiresVisualReview, false);
       expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
       client.source = {
         'bundle_id': 'tw.avianjay.tako',

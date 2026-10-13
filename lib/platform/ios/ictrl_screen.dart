@@ -54,6 +54,8 @@ class IctrlScreen extends RemoteScreen {
   bool get supportsDrag => true;
   @override
   bool get supportsFastActions => true;
+  @override
+  bool get supportsTargetedScroll => false;
   Future<void>? _connecting;
   Future<void>? _sessionStarting;
   DateTime? _lastProbe;
@@ -376,6 +378,7 @@ class IctrlScreen extends RemoteScreen {
       windows: tree.windows,
       nodes: tree.nodes,
       truncated: tree.truncated,
+      requiresVisualReview: withImage && _sourceNeedsImage,
       image: bytes,
       imageWidth: iw,
       imageHeight: ih,

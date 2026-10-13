@@ -8,7 +8,10 @@ import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/remote_control_agent.dart';
 import 'package:tako/core/screen/screen_capability.dart';
+import 'package:tako/core/screen/screen_reading.dart';
 import 'package:tako/core/tools/device_tools.dart';
+import 'package:tako/core/tools/screen_tools.dart';
+import 'package:tako/core/tools/screen_workflow_tool.dart';
 import 'package:tako/core/tools/tool.dart';
 import 'package:tako/core/tools/tool_executor.dart';
 import 'package:tako/core/tools/tool_registry.dart';
@@ -116,6 +119,51 @@ class _SparseScreen extends FakeScreen {
     return snapshot(
       screenshot: screenshot || automaticScreenshot,
       cancel: cancel,
+    );
+  }
+}
+
+class _PagedScreen extends FakeScreen {
+  _PagedScreen(super.views) : super(start: 'start', screenshots: true) {
+    fastActions = true;
+  }
+  final routes = <String, String>{};
+  Map<String, Object?> details = {};
+  void Function()? afterScroll;
+  bool busy = false;
+  bool targetedScroll = true;
+  int reads = 0;
+  @override
+  bool get supportsTargetedScroll => targetedScroll;
+
+  @override
+  Future<ScreenTree> snapshot({
+    required bool screenshot,
+    required CancelToken cancel,
+  }) {
+    reads++;
+    return super.snapshot(screenshot: screenshot, cancel: cancel);
+  }
+
+  @override
+  Future<ScreenActionOutcome> act(ScreenAction action) async {
+    if (action.action != 'scroll') return super.act(action);
+    actions.add(action);
+    if (busy) {
+      throw const ScreenException(
+        'ictrl_rpc_failed_read_again',
+        detail: 'page exceeded 15s and may still be running on the device.',
+      );
+    }
+    final next = routes[current];
+    if (next != null) show(next);
+    afterScroll?.call();
+    return ScreenActionOutcome(
+      method: 'page',
+      packageName: view.packageName,
+      appLabel: view.appLabel,
+      changed: next != null,
+      details: details,
     );
   }
 }
@@ -353,6 +401,609 @@ void main() {
     expect(result.isError, true);
     expect(screen.actions.map((a) => a.action), ['tap']);
     expect(adapter.requests, hasLength(1));
+  });
+
+  group('local list scan', () {
+    late _PagedScreen paged;
+    setUp(() {
+      FakeView page(List<FakeNode> items) =>
+          FakeView('com.example.fixture', 'Fixture', [
+            FakeWindow(
+              FakeNode(
+                'androidx.recyclerview.widget.RecyclerView',
+                flags: ScreenFlags.enabled | ScreenFlags.scrollable,
+                bounds: const ScreenBounds(0, 0, 1080, 2400),
+                children: [label('List header'), ...items],
+              ),
+            ),
+          ]);
+      paged = _PagedScreen({
+        'start': page([label('Server Alpha')]),
+        'page2': page([
+          label('Server Beta'),
+          row([label('64GB card'), label(r'NT$402')]),
+        ]),
+        'page3': page([button('Done', opens: 'finish')]),
+        'finish': page([label('Finished')]),
+      });
+      paged.routes.addAll({'start': 'page2', 'page2': 'page3'});
+      screen = paged;
+    });
+
+    Map<String, Object?> scan([Map<String, Object?> args = const {}]) => {
+      'tool': 'scan',
+      'expect_app': 'com.example.fixture',
+      'direction': 'down',
+      ...args,
+    };
+    ToolResultBlock scanResult(ChatRequest request) => request.messages
+        .expand((m) => m.content)
+        .whereType<ToolResultBlock>()
+        .firstWhere((r) => r.toolName == 'screen_workflow');
+    void configure(Map<String, Object?> step) {
+      adapter = _Adapter([
+        call('screen_workflow', {
+          'title': 'Read the list',
+          'steps': [step],
+        }),
+        [const TextDelta('Read several list pages.'), const Done('end_turn')],
+      ]);
+      build();
+    }
+
+    test('finds a later label in one worker round with native proof', () async {
+      configure(scan({'until_label': 'Done', 'max_scrolls': 6}));
+      final receipt = tryDecodeObject((await run()).content)!;
+      expect(receipt['status'], 'verified');
+      expect(receipt['model_rounds'], 1);
+      expect(adapter.requests, hasLength(1));
+      expect(paged.actions.map((a) => a.action), ['scroll', 'scroll']);
+      expect(paged.actions.map((a) => a.direction), ['down', 'down']);
+      expect(paged.actions.map((a) => a.token).toSet(), hasLength(2));
+      final audits = await AuditRepository(database).list();
+      expect(audits.where((a) => a.toolName == 'scroll'), hasLength(2));
+    });
+
+    test('keeps text notes and only final targets across apps', () async {
+      configure(scan({'max_scrolls': 2}));
+      final receipt = tryDecodeObject((await run(expected: [])).content)!;
+      expect(receipt['verified'], false);
+      expect(receipt['semantic_review_needed'], true);
+      expect(adapter.requests, hasLength(2));
+      final result = tryDecodeObject(scanResult(adapter.requests[1]).content)!;
+      final scanned = (result['scan_results'] as List).single as Map;
+      expect(result['completed'], true);
+      expect(scanned['pages_read'], 3);
+      expect(scanned['stop_reason'], 'max_scrolls');
+      final notes = jsonEncode(scanned['untrusted_pages']);
+      expect(notes, contains('Server Alpha'));
+      expect(notes, contains('Server Beta'));
+      expect(notes, contains('64GB card'));
+      expect(notes, contains(r'NT$402'));
+      expect(RegExp('List header').allMatches(notes), hasLength(1));
+      expect(notes, isNot(contains('view_id')));
+      expect(notes, isNot(contains('[1]')));
+      expect(result['final_screen'], contains('Done'));
+      expect(result['final_screen'], isNot(contains('Server Alpha')));
+      expect(result['scan_note'], contains('exact variant'));
+    });
+
+    test(
+      'keeps two row prices equal without losing their associations',
+      () async {
+        paged.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+          FakeWindow(
+            list([
+              row([label('Card Alpha'), label(r'NT$402')]),
+            ]),
+          ),
+        ]);
+        paged.views['page2'] = FakeView('com.example.fixture', 'Fixture', [
+          FakeWindow(
+            list([
+              row([label('Card Beta'), label(r'NT$402')]),
+            ]),
+          ),
+        ]);
+        configure(scan({'max_scrolls': 1}));
+        await run(expected: []);
+        final result = tryDecodeObject(
+          scanResult(adapter.requests[1]).content,
+        )!;
+        final pages =
+            ((result['scan_results'] as List).single as Map)['untrusted_pages']
+                as List;
+        final first = ((pages[0] as Map)['new_text'] as List).single as String;
+        final second = ((pages[1] as Map)['new_text'] as List).single as String;
+        expect(first, contains('Card Alpha'));
+        expect(first, contains(r'NT$402'));
+        expect(second, contains('Card Beta'));
+        expect(second, contains(r'NT$402'));
+      },
+    );
+
+    for (final fast in [false, true]) {
+      test('uses fresh native list targets with fastActions=$fast', () async {
+        paged.fastActions = fast;
+        configure(scan({'until_label': 'Done'}));
+        final receipt = tryDecodeObject((await run()).content)!;
+        expect(receipt['verified'], true);
+        expect(adapter.requests, hasLength(1));
+        expect(paged.actions, hasLength(2));
+        expect(paged.actions.every((a) => a.node >= 0), true);
+      });
+    }
+
+    test('iCTRL viewport paging omits ignored container ids', () async {
+      paged.targetedScroll = false;
+      configure(scan({'until_label': 'Done'}));
+      final receipt = tryDecodeObject((await run()).content)!;
+      expect(receipt['verified'], true);
+      expect(adapter.requests, hasLength(1));
+      final records = await AuditRepository(database).list();
+      expect(
+        records
+            .where((a) => a.toolName == 'scroll')
+            .every((a) => !tryDecodeObject(a.arguments)!.containsKey('id')),
+        true,
+      );
+    });
+
+    test('iCTRL rejects targeted paging before any scroll', () async {
+      paged.targetedScroll = false;
+      configure(scan({'view_id': 'only-this-list'}));
+      await run(expected: []);
+      expect(
+        scanResult(adapter.requests[1]).content,
+        contains('workflow_scan_targeted_scroll_unavailable'),
+      );
+      expect(paged.actions, isEmpty);
+    });
+
+    test('a missing scan target prevents the following planned tap', () async {
+      adapter = _Adapter([
+        call('screen_workflow', {
+          'title': 'Find a missing target',
+          'steps': [
+            scan({'until_label': 'Absent', 'max_scrolls': 2}),
+            {
+              'tool': 'tap',
+              'expect_app': 'com.example.fixture',
+              'label': 'Done',
+            },
+          ],
+        }),
+        [
+          const TextDelta('Read several pages; target is absent.'),
+          const Done('end_turn'),
+        ],
+      ]);
+      build();
+      await run(expected: []);
+      final result = tryDecodeObject(scanResult(adapter.requests[1]).content)!;
+      expect(result['error'], 'workflow_scan_target_not_found');
+      expect(result['completed_steps'], 0);
+      expect(paged.actions.map((a) => a.action), ['scroll', 'scroll']);
+    });
+
+    test('can tap a matched target only from its fresh final screen', () async {
+      adapter = _Adapter([
+        call('screen_workflow', {
+          'title': 'Find and open',
+          'steps': [
+            scan({'until_label': 'Done'}),
+            {
+              'tool': 'tap',
+              'expect_app': 'com.example.fixture',
+              'label': 'Done',
+            },
+          ],
+        }),
+      ]);
+      build();
+      final receipt = tryDecodeObject(
+        (await run(expected: ['Finished'])).content,
+      )!;
+      expect(receipt['verified'], true);
+      expect(adapter.requests, hasLength(1));
+      expect(paged.actions.map((a) => a.action), ['scroll', 'scroll', 'tap']);
+    });
+
+    for (final selector in [
+      {'until_label': 'Done'},
+      {'until_contains': 'Don'},
+      {'until_view_id': 'finish_button'},
+    ]) {
+      test('known target $selector stops before any extra scroll', () async {
+        paged.views['page2'] = FakeView('com.example.fixture', 'Fixture', [
+          FakeWindow(
+            list([icon(description: 'Done', viewId: 'finish_button')]),
+          ),
+        ]);
+        configure(scan(selector));
+        final receipt = tryDecodeObject((await run()).content)!;
+        expect(receipt['verified'], true);
+        expect(paged.actions, hasLength(1));
+      });
+    }
+
+    test('does not scroll when a target is already visible', () async {
+      configure(scan({'until_label': 'Server Alpha'}));
+      final receipt = tryDecodeObject(
+        (await run(expected: ['Server Alpha'])).content,
+      )!;
+      expect(receipt['verified'], true);
+      expect(adapter.requests, hasLength(1));
+      expect(paged.actions, isEmpty);
+    });
+
+    for (final maximum in [null, 6]) {
+      test(
+        'enforces ${maximum ?? 'default'} scroll bound on a long list',
+        () async {
+          for (var page = 1; page <= 7; page++) {
+            final key = 'long$page';
+            paged.views[key] = FakeView('com.example.fixture', 'Fixture', [
+              FakeWindow(list([label('List row $page')])),
+            ]);
+            paged.routes[page == 1 ? 'start' : 'long${page - 1}'] = key;
+          }
+          configure(scan({'max_scrolls': ?maximum}));
+          await run(expected: []);
+          final result = tryDecodeObject(
+            scanResult(adapter.requests[1]).content,
+          )!;
+          final scanned = (result['scan_results'] as List).single as Map;
+          expect(scanned['stop_reason'], 'max_scrolls');
+          expect(paged.actions, hasLength(maximum ?? 3));
+          expect(scanned['pages_read'], (maximum ?? 3) + 1);
+        },
+      );
+    }
+
+    test('never verifies the final screen with historical notes', () async {
+      adapter = _Adapter([
+        call('screen_workflow', {
+          'title': 'Read the list',
+          'steps': [
+            scan({'max_scrolls': 2}),
+          ],
+        }),
+        [
+          const TextDelta('Device unavailable: stop here.'),
+          const Done('end_turn'),
+        ],
+      ]);
+      build();
+      final receipt = tryDecodeObject(
+        (await run(expected: ['Server Alpha'])).content,
+      )!;
+      expect(receipt['verified'], false);
+      expect(receipt['missing_text'], ['Server Alpha']);
+      expect(paged.actions, hasLength(2));
+    });
+
+    for (final kind in ['unchanged', 'loop', 'end', 'not_moved']) {
+      test('stops without repeating on $kind', () async {
+        if (kind == 'loop') {
+          paged.routes['page2'] = 'start';
+        } else if (kind == 'end') {
+          paged.details = {'at_end': true};
+        } else if (kind == 'not_moved') {
+          paged.details = {'moved': false};
+        } else {
+          paged.routes.clear();
+        }
+        configure(scan({'max_scrolls': 6}));
+        await run(expected: []);
+        final result = tryDecodeObject(
+          scanResult(adapter.requests[1]).content,
+        )!;
+        final scanned = (result['scan_results'] as List).single as Map;
+        expect(
+          scanned['stop_reason'],
+          {'end', 'not_moved'}.contains(kind) ? 'end' : 'no_progress',
+        );
+        expect(paged.actions, hasLength(kind == 'loop' ? 2 : 1));
+      });
+    }
+
+    test('honors explicit scroll denial inside a workflow', () async {
+      gate.policy = const PermissionPolicy(
+        fullPermissions: true,
+        overrides: {'scroll': ToolPermission.deny},
+      );
+      configure(scan());
+      final receipt = tryDecodeObject((await run(expected: [])).content)!;
+      expect(receipt['reason'], 'worker_action_denied');
+      expect(adapter.requests, hasLength(1));
+      expect(paged.actions, isEmpty);
+    });
+
+    test('refreshes disabled tools before each internal scroll', () async {
+      paged.afterScroll = () => disabled.add('scroll');
+      configure(scan());
+      await run(expected: []);
+      expect(paged.actions, hasLength(1));
+      final result = scanResult(adapter.requests[1]);
+      expect(result.isError, true);
+      expect(result.content, contains('tool_unavailable'));
+    });
+
+    test(
+      'stops when the app changes instead of scanning the new app',
+      () async {
+        paged.views['page2'] = FakeView('com.example.other', 'Other', [
+          FakeWindow(list([label('Another app private content')])),
+        ]);
+        configure(scan());
+        await run(expected: []);
+        final result = tryDecodeObject(
+          scanResult(adapter.requests[1]).content,
+        )!;
+        expect(result['error'], 'workflow_app_changed');
+        expect(
+          jsonEncode(result['scan_results']),
+          isNot(contains('Another app private content')),
+        );
+        expect(paged.actions, hasLength(1));
+      },
+    );
+
+    test('stops on a dialog before a second scroll', () async {
+      paged.views['page2'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(FakeNode('Alert', children: [button('Allow')])),
+      ]);
+      configure(scan());
+      await run(expected: []);
+      final result = tryDecodeObject(scanResult(adapter.requests[1]).content)!;
+      expect(result['error'], 'workflow_scan_dialog_read_before_replanning');
+      expect(paged.actions, hasLength(1));
+    });
+
+    test('rejects ambiguous targets without scrolling or tapping', () async {
+      paged.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(list([button('Done'), button('Done')])),
+      ]);
+      configure(scan({'until_label': 'Done'}));
+      await run(expected: []);
+      expect(
+        scanResult(adapter.requests[1]).content,
+        contains('workflow_scan_target_ambiguous'),
+      );
+      expect(paged.actions, isEmpty);
+    });
+
+    test('rejects separate list containers rather than guessing', () async {
+      paged.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(
+          box([
+            list([label('Left')]),
+            list([label('Right')]),
+          ]),
+        ),
+      ]);
+      configure(scan());
+      await run(expected: []);
+      expect(
+        scanResult(adapter.requests[1]).content,
+        contains('workflow_scan_container_missing_or_ambiguous'),
+      );
+      expect(paged.actions, isEmpty);
+    });
+
+    for (final warning in [
+      {'warning': 'UI changed'},
+      {
+        'untrusted_receipt': {'hit_warning': 'Intercepted'},
+      },
+      {
+        'page_check': {'same_page': false},
+      },
+    ]) {
+      test('returns warning $warning before continuing', () async {
+        paged.details = warning;
+        configure(scan());
+        await run(expected: []);
+        final result = scanResult(adapter.requests[1]);
+        expect(
+          result.content,
+          contains('workflow_warning_read_before_replanning'),
+        );
+        expect(paged.actions, hasLength(1));
+      });
+    }
+
+    test('reserves final proof and respects the worker step limit', () async {
+      limit = 3;
+      configure(scan({'max_scrolls': 6}));
+      final receipt = tryDecodeObject((await run(expected: [])).content)!;
+      expect(receipt['verified'], false);
+      expect(receipt['reason'], 'worker_step_limit');
+      expect(paged.actions, hasLength(1));
+      expect(adapter.requests, hasLength(1));
+    });
+
+    test('cancellation after a committed scroll prevents later work', () async {
+      final cancel = CancelToken();
+      paged.afterScroll = cancel.cancel;
+      configure(scan());
+      final receipt = tryDecodeObject(
+        (await run(expected: [], cancel: cancel)).content,
+      )!;
+      expect(receipt['verified'], false);
+      expect(paged.actions, hasLength(1));
+      expect(adapter.requests, hasLength(1));
+      expect(paged.reads, 1);
+      final records = await AuditRepository(database).list();
+      final workflow = records.firstWhere(
+        (a) => a.toolName == 'screen_workflow',
+      );
+      expect(workflow.resultSummary, contains('cancelled'));
+      expect(workflow.resultSummary, contains('"attempted":1'));
+    });
+
+    test('a UI timeout never queues another scroll or final read', () async {
+      paged.busy = true;
+      configure(scan());
+      final receipt = tryDecodeObject((await run(expected: [])).content)!;
+      expect(receipt['reason'], 'device_ui_busy');
+      expect(paged.actions, hasLength(1));
+      expect(paged.reads, 1);
+      expect(adapter.requests, hasLength(1));
+    });
+
+    test('bounds notes and excludes password fields', () async {
+      paged.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(
+          list([
+            field(
+              description: 'Password',
+              text: 'never expose',
+              password: true,
+            ),
+            FakeNode(
+              'SecureContainer',
+              flags: ScreenFlags.password | ScreenFlags.enabled,
+              children: [label('nested secret')],
+            ),
+            for (var i = 0; i < 80; i++)
+              label(
+                'Row $i with enough visible information to fill the note budget',
+              ),
+          ]),
+        ),
+      ]);
+      configure(scan());
+      await run(expected: []);
+      final result = tryDecodeObject(scanResult(adapter.requests[1]).content)!;
+      final scanned = (result['scan_results'] as List).single as Map;
+      expect(scanned['notes_truncated'], true);
+      expect(scanned['stop_reason'], 'content_limit');
+      expect(
+        jsonEncode(scanned['untrusted_pages']),
+        isNot(contains('never expose')),
+      );
+      expect(
+        jsonEncode(scanned['untrusted_pages']),
+        isNot(contains('nested secret')),
+      );
+      expect(jsonEncode(scanned['untrusted_pages']).length, lessThan(3600));
+      expect(paged.actions, isEmpty);
+    });
+
+    test(
+      'validates all scan arguments before earlier workflow actions',
+      () async {
+        configure(scan({'max_scrolls': 7}));
+        adapter = _Adapter([
+          call('screen_workflow', {
+            'title': 'Invalid plan',
+            'steps': [
+              {'tool': 'open_app', 'package': 'com.example.fixture'},
+              scan({'max_scrolls': 7}),
+            ],
+          }),
+          [
+            const TextDelta('Cannot finish: invalid plan.'),
+            const Done('end_turn'),
+          ],
+          [
+            const TextDelta('Not completed: invalid plan.'),
+            const Done('end_turn'),
+          ],
+        ]);
+        build();
+        await run(expected: []);
+        expect(
+          scanResult(adapter.requests[1]).content,
+          contains('invalid_arguments'),
+        );
+        expect(paged.actions, isEmpty);
+        expect(paged.current, 'start');
+      },
+    );
+
+    test('does not continue without a newly authorized observation', () async {
+      final readings = ScreenReadings();
+      final cancel = CancelToken();
+      final ctx = ToolContext(
+        conversationId: 'chat',
+        messageId: 'workflow',
+        cancel: cancel,
+      );
+      readings.remember(
+        ctx,
+        ScreenReading.from(
+          await paged.snapshot(screenshot: false, cancel: cancel),
+        ),
+      );
+      final audit = AuditRepository(database);
+      final primitive = ToolExecutor(
+        registry: ToolRegistry(
+          createScreenTools(paged, workspace: _Workspace(), readings: readings),
+        ),
+        permissions: gate,
+        audit: audit,
+      );
+      final workflow = ScreenWorkflowTool(
+        screen: paged,
+        readings: readings,
+        executor: () => primitive,
+        remaining: () => 10,
+        onStep: (_) {},
+      );
+      final result = await workflow.run({
+        'title': 'Read list',
+        'steps': [scan()],
+      }, ctx);
+      expect(result.isError, true);
+      expect(
+        tryDecodeObject(result.content)!['error'],
+        'workflow_observation_unavailable',
+      );
+      expect(paged.actions, hasLength(1));
+    });
+
+    test('returns a visual-only page to the worker before scrolling', () async {
+      final readings = ScreenReadings();
+      final ctx = ToolContext(
+        conversationId: 'chat',
+        messageId: 'workflow',
+        cancel: CancelToken(),
+      );
+      readings.remember(
+        ctx,
+        ScreenReading.from(
+          const ScreenTree(
+            token: 1,
+            packageName: 'com.example.fixture',
+            appLabel: 'Fixture',
+            width: 1080,
+            height: 2400,
+            requiresVisualReview: true,
+            nodes: [ScreenNode(text: 'Header above a custom visual list')],
+          ),
+        ),
+      );
+      final workflow = ScreenWorkflowTool(
+        screen: paged,
+        readings: readings,
+        executor: () =>
+            throw StateError('Visual review must precede scrolling'),
+        remaining: () => 10,
+        onStep: (_) {},
+      );
+      final result = await workflow.run({
+        'title': 'Read list',
+        'steps': [scan()],
+      }, ctx);
+      expect(
+        tryDecodeObject(result.content)!['error'],
+        'workflow_scan_visual_review_required',
+      );
+      expect(paged.actions, isEmpty);
+    });
   });
 
   test(

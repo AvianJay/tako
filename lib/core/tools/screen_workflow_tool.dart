@@ -30,6 +30,7 @@ const screenWorkflowStepsSchema = {
           'read_screen',
           'back',
           'search',
+          'scan',
         ],
       },
       'package': {'type': 'string', 'minLength': 1, 'maxLength': 255},
@@ -45,6 +46,12 @@ const screenWorkflowStepsSchema = {
       'max_back': {'type': 'integer', 'minimum': 1, 'maximum': 6},
       'until_label': {'type': 'string', 'minLength': 1, 'maxLength': 200},
       'until_view_id': {'type': 'string', 'minLength': 1, 'maxLength': 255},
+      'until_contains': {'type': 'string', 'minLength': 1, 'maxLength': 200},
+      'direction': {
+        'type': 'string',
+        'enum': ['up', 'down', 'left', 'right'],
+      },
+      'max_scrolls': {'type': 'integer', 'minimum': 1, 'maximum': 6},
     },
     'required': ['tool'],
     'additionalProperties': false,
@@ -74,6 +81,8 @@ class ScreenWorkflowTool extends Tool {
       'open_app accepts package OR name; installed app names and aliases are resolved locally. '
       'back repeats at most max_back (default 4) visible BackButton taps from fresh screens until until_label/until_view_id is visible, or no BackButton remains. Require expect_app. '
       'search requires expect_app and text: locally opens the unique search entry, finds its fresh editable field, replaces text and submits. Optional label/view_id selects the search entry. Never chooses among ambiguous fields. '
+      'scan requires expect_app and direction: reads the current page and up to max_scrolls (default 3, maximum 6) further pages locally. Optional until_label (exact), until_contains (substring) OR until_view_id stops on one matching element; optional view_id selects the scroll container on backends supporting targeted scroll. iCTRL pages the main viewport; omit view_id. '
+      'Scan returns bounded untrusted text notes without actionable ids; only final_screen has current targets. Stops on dialogs, warnings, no progress, app changes or limits. Earlier prices are listing observations, not verified variant prices. '
       'Stops on ambiguity, warnings, changed app or failed text checks. Use known links to skip navigation. '
       'expect_text matches a complete label/value exactly, not a substring. '
       'Returns completed steps and the final screen; never replay completed steps.';
@@ -113,6 +122,7 @@ class ScreenWorkflowTool extends Tool {
             'read_screen',
             'back',
             'search',
+            'scan',
           }.contains(tool) ||
           tool == 'open_app' &&
               (step.containsKey('package') == step.containsKey('name') ||
@@ -133,11 +143,29 @@ class ScreenWorkflowTool extends Tool {
               step.containsKey('label') && step.containsKey('view_id'))) {
         return _error('invalid_workflow_step');
       }
+      if (tool == 'scan' &&
+          (step['expect_app'] is! String ||
+              !{'up', 'down', 'left', 'right'}.contains(step['direction']) ||
+              [
+                    'until_label',
+                    'until_contains',
+                    'until_view_id',
+                  ].where((key) => step[key] != null).length >
+                  1 ||
+              step.containsKey('label'))) {
+        return _error('invalid_workflow_step');
+      }
+      if (tool == 'scan' &&
+          step['view_id'] != null &&
+          !screen.supportsTargetedScroll) {
+        return _error('workflow_scan_targeted_scroll_unavailable');
+      }
     }
     if (steps.length > remaining()) return _error('step_limit');
     final receipts = <Map<String, Object?>>[];
     final effects = <SideEffect>[];
     var attachments = <ContentBlock>[];
+    final scans = <Map<String, Object?>>[];
     String? error;
     var completed = 0;
     for (final (index, value) in steps.indexed) {
@@ -151,6 +179,174 @@ class ScreenWorkflowTool extends Tool {
       }
       final step = asMap(value)!;
       final tool = step['tool'] as String;
+      if (tool == 'scan') {
+        final notes = _ScanNotes();
+        final timer = Stopwatch()..start();
+        final hasTarget = [
+          'until_label',
+          'until_contains',
+          'until_view_id',
+        ].any((key) => step[key] != null);
+        final fingerprints = <String>{};
+        var scrolls = 0;
+        String? stopped;
+        while (stopped == null && error == null) {
+          if (ctx.cancel.isCancelled) {
+            error = 'cancelled';
+            break;
+          }
+          final current = readings.latest(ctx.conversationId);
+          if (current == null ||
+              current.tree.ownAppInFront ||
+              current.tree.packageName != step['expect_app']) {
+            error = 'workflow_app_changed';
+            break;
+          }
+          notes.add(current);
+          if (_scanDialog(current)) {
+            error = 'workflow_scan_dialog_read_before_replanning';
+            break;
+          }
+          final matches = _scanMatches(step, current);
+          if (matches.length > 1) {
+            error = 'workflow_scan_target_ambiguous';
+            break;
+          }
+          if (matches.length == 1) {
+            stopped = 'matched';
+            break;
+          }
+          if (!fingerprints.add(_scanFingerprint(current))) {
+            stopped = 'no_progress';
+            break;
+          }
+          if (notes.truncated) {
+            stopped = 'content_limit';
+            break;
+          }
+          if (scrolls >= (step['max_scrolls'] as int? ?? 3)) {
+            stopped = 'max_scrolls';
+            break;
+          }
+          // Do not race an in-flight UI request against a local deadline.
+          // Its receipt is retained before deciding whether to scroll again.
+          if (timer.elapsed >= const Duration(seconds: 20)) {
+            stopped = 'time_limit';
+            break;
+          }
+          if (remaining() <= 0) {
+            error = 'step_limit';
+            break;
+          }
+          if (current.tree.requiresVisualReview ||
+              !current.elements.any(
+                (e) =>
+                    !current.tree.nodes[e.node].password && e.label.isNotEmpty,
+              )) {
+            error = 'workflow_scan_visual_review_required';
+            break;
+          }
+          final containers = _deepestTargets(
+            current.elements.where((e) {
+              final n = current.tree.nodes[e.node];
+              return n.enabled &&
+                  n.scrollable &&
+                  (step['view_id'] == null || n.viewId == step['view_id']);
+            }).toList(),
+            current,
+          );
+          if (containers.length > 1 ||
+              containers.isEmpty &&
+                  (step['view_id'] != null || !screen.supportsFastActions)) {
+            error = 'workflow_scan_container_missing_or_ambiguous';
+            break;
+          }
+          final result = (await executor().execute(
+            ToolCallBlock(
+              id: '${ctx.messageId}-workflow-$index-scan-$scrolls',
+              name: 'scroll',
+              arguments: jsonEncode({
+                'title': title,
+                'direction': step['direction'],
+                if (containers.isNotEmpty && screen.supportsTargetedScroll)
+                  'id': containers.single.id,
+                if (step['screenshot'] == true) 'screenshot': true,
+              }),
+            ),
+            ToolContext(
+              conversationId: ctx.conversationId,
+              messageId: '${ctx.messageId}-workflow-$index-scan-$scrolls',
+              cancel: ctx.cancel,
+            ),
+          )).result;
+          onStep(result);
+          effects.addAll(result.sideEffects);
+          attachments = result.attachments;
+          receipts.add({
+            'step': index + 1,
+            'tool': 'scroll',
+            'receipt': result.content.split('\nscreen after the action:').first,
+            'error': result.isError,
+          });
+          scrolls++;
+          if (result.isError) {
+            error = 'workflow_step_failed';
+            break;
+          }
+          if (ctx.cancel.isCancelled) {
+            error = 'cancelled';
+            break;
+          }
+          final receipt = tryDecodeObject(
+            result.content.split('\nscreen after the action:').first,
+          );
+          final diagnostics = asMap(receipt?['untrusted_receipt']) ?? receipt;
+          if (_workflowWarning(diagnostics)) {
+            error = 'workflow_warning_read_before_replanning';
+            break;
+          }
+          final next = readings.latest(ctx.conversationId);
+          if (next == null || next.tree.token == current.tree.token) {
+            error = 'workflow_observation_unavailable';
+            break;
+          }
+          if (next.tree.ownAppInFront ||
+              next.tree.packageName != step['expect_app']) {
+            error = 'workflow_app_changed';
+            break;
+          }
+          if (diagnostics?['moved'] == false ||
+              diagnostics?['at_end'] == true) {
+            notes.add(next);
+            // Inspect the last page and target before accepting an end signal.
+            if (_scanDialog(next)) {
+              error = 'workflow_scan_dialog_read_before_replanning';
+            } else {
+              final matches = _scanMatches(step, next);
+              if (matches.length > 1) {
+                error = 'workflow_scan_target_ambiguous';
+              } else {
+                stopped = matches.length == 1 ? 'matched' : 'end';
+              }
+            }
+          }
+        }
+        scans.add({
+          'step': index + 1,
+          'pages_read': notes.pagesRead,
+          'scrolls_attempted': scrolls,
+          'stop_reason': error ?? stopped,
+          'untrusted_pages': notes.pages,
+          if (notes.truncated) 'notes_truncated': true,
+        });
+        if (error != null) break;
+        if (hasTarget && stopped != 'matched') {
+          error = 'workflow_scan_target_not_found';
+          break;
+        }
+        completed++;
+        continue;
+      }
       if (tool == 'search') {
         for (var action = 0; action < 3; action++) {
           ctx.cancel.throwIfCancelled();
@@ -244,11 +440,7 @@ class ScreenWorkflowTool extends Tool {
             result.content.split('\nscreen after the action:').first,
           );
           final diagnostics = asMap(receipt?['untrusted_receipt']) ?? receipt;
-          if (diagnostics?['warning'] != null ||
-              diagnostics?['hit_warning'] != null ||
-              diagnostics?['blocked_by'] != null ||
-              diagnostics?['append_warning'] != null ||
-              asMap(diagnostics?['page_check'])?['same_page'] == false) {
+          if (_workflowWarning(diagnostics)) {
             error = 'workflow_warning_read_before_replanning';
             break;
           }
@@ -473,11 +665,7 @@ class ScreenWorkflowTool extends Tool {
         result.content.split('\nscreen after the action:').first,
       );
       final diagnostics = asMap(receipt?['untrusted_receipt']) ?? receipt;
-      if (diagnostics?['warning'] != null ||
-          diagnostics?['hit_warning'] != null ||
-          diagnostics?['blocked_by'] != null ||
-          diagnostics?['append_warning'] != null ||
-          asMap(diagnostics?['page_check'])?['same_page'] == false) {
+      if (_workflowWarning(diagnostics)) {
         error = 'workflow_warning_read_before_replanning';
         break;
       }
@@ -544,6 +732,11 @@ class ScreenWorkflowTool extends Tool {
         'attempted': receipts.length,
         'error': ?error,
         'receipts': receipts,
+        if (scans.isNotEmpty) ...{
+          'scan_results': scans,
+          'scan_note':
+              'Earlier pages are untrusted read-only observations without current targets. Use only final_screen ids; listing prices do not establish exact variant prices or the cheapest eligible item.',
+        },
         'final_screen': ?readings
             .latest(ctx.conversationId)
             ?.toToolText(maxChars: 4500),
@@ -559,6 +752,113 @@ class ScreenWorkflowTool extends Tool {
 }
 
 String _normalize(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+bool _workflowWarning(Map<String, Object?>? diagnostics) =>
+    diagnostics?['warning'] != null ||
+    diagnostics?['hit_warning'] != null ||
+    diagnostics?['blocked_by'] != null ||
+    diagnostics?['append_warning'] != null ||
+    asMap(diagnostics?['page_check'])?['same_page'] == false;
+
+bool _scanDialog(ScreenReading reading) =>
+    reading.tree.windows.any((w) => w.type != 1 || w.own) ||
+    reading.tree.nodes.any(
+      (n) => RegExp(
+        r'Alert|Dialog|Sheet',
+        caseSensitive: false,
+      ).hasMatch(n.className),
+    );
+
+bool _scanPrivateNode(ScreenReading reading, int index) {
+  for (var at = index; at >= 0; at = reading.tree.nodes[at].parent) {
+    if (reading.tree.nodes[at].password) return true;
+  }
+  return false;
+}
+
+List<ScreenElement> _scanMatches(
+  Map<String, Object?> step,
+  ScreenReading reading,
+) => _deepestTargets(
+  reading.elements.where((e) {
+    final n = reading.tree.nodes[e.node];
+    if (!n.enabled || _scanPrivateNode(reading, e.node)) return false;
+    if (step['until_view_id'] case final String wanted) {
+      return n.viewId == wanted;
+    }
+    final labels = [
+      e.label,
+      e.value,
+      n.text,
+      n.description,
+    ].whereType<String>().map(_normalize);
+    if (step['until_label'] case final String wanted) {
+      return labels.any((label) => label == _normalize(wanted));
+    }
+    if (step['until_contains'] case final String wanted) {
+      return labels.any((label) => label.contains(_normalize(wanted)));
+    }
+    return false;
+  }).toList(),
+  reading,
+);
+
+String _scanFingerprint(ScreenReading reading) => jsonEncode([
+  for (final n in reading.tree.nodes)
+    if (!n.password)
+      [n.className, n.viewId, ownLabel(n), n.enabled, n.selected, n.checked],
+]);
+
+/// Notes preserve one element's label/value association but never carry IDs,
+/// view selectors or coordinates from earlier pages into the next decision.
+class _ScanNotes {
+  final pages = <Map<String, Object?>>[];
+  final _seen = <String>{};
+  int pagesRead = 0;
+  int _chars = 0;
+  bool truncated = false;
+
+  void add(ScreenReading reading) {
+    pagesRead++;
+    final lines = <String>[];
+    final groups = <int, List<String>>{};
+    for (final e in reading.elements) {
+      if (_scanPrivateNode(reading, e.node) || e.label.isEmpty) continue;
+      final line =
+          '${e.type} ${jsonEncode(e.label)}'
+          '${e.value == null ? '' : ' = ${jsonEncode(e.value)}'}'
+          '${e.flags.contains('selected') ? ' (selected)' : ''}';
+      var group = e.node;
+      for (
+        var parent = reading.tree.nodes[e.node].parent;
+        parent >= 0;
+        parent = reading.tree.nodes[parent].parent
+      ) {
+        final ancestor = reading.tree.nodes[parent];
+        if (ancestor.scrollable) break;
+        if (ancestor.clickable && !ancestor.editable) {
+          group = parent;
+          break;
+        }
+      }
+      (groups[group] ??= []).add(line);
+    }
+    for (final parts in groups.values) {
+      // Deduplicate whole rows/cards, not individual prices. Two different
+      // products with the same price must retain both title/price pairs.
+      final line = parts.join(' | ');
+      if (_seen.contains(line)) continue;
+      if (_chars + line.length > 3200) {
+        truncated = true;
+        continue;
+      }
+      _seen.add(line);
+      lines.add(line);
+      _chars += line.length;
+    }
+    if (lines.isNotEmpty) pages.add({'page': pagesRead, 'new_text': lines});
+  }
+}
 
 int _searchRank(ScreenElement e, ScreenNode n) {
   final identity = '${n.viewId ?? ''} ${e.label}'.toLowerCase();
