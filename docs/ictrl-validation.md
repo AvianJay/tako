@@ -578,7 +578,7 @@ stale/ambiguous navigation selectors now return a fresh screen/image before
 the next worker decision, within the same three-recovery bound; failed
 gestures are never replayed. Tests cover disabled image access, dense screens,
 own-app exclusion, action observations and failed-selector recovery.
-The final local suite passes 696 tests with three opt-in device tests skipped;
+The final local suite passes 697 tests with three opt-in device tests skipped;
 Flutter analysis is clean, all 224 Dart files are formatted unchanged, browser
 runtime checks pass 10/10, and Actions YAML parses with the expected triggers
 and release dependencies. Native Swift still requires the unavailable iOS
@@ -614,6 +614,8 @@ credentials were retained.
 | Foldable phone stands and several cheap prices | Cancelled before product results; no cart mutation. Native diagnostics showed background expiration. QA also reopened Tako too early. | 15.412 s main + 91.823 s worker; nine worker rounds / ten steps. Old model timer excluded an interrupted call. |
 | Discord servers and one server's channels, read only | Worker reported server `AI`, text channel `一般` and voice channel `一般`; screenshot independently confirms that channel list. Other server names were not identified. Receipt remains `reported_complete`, `verified=false`, `semantic_review_needed=true`; server enumeration is incomplete. | 11.586 s main + 50.143 s worker = at least 61.729 s; five worker rounds / six steps, 31.160 s worker model time. |
 | 台中高工考成表 link | Main found the official page titled `考程表`, containing 109/110-year dates; current exam schedule was not verified. | Approximately one minute by chat timestamps; no remote-worker timing receipt, because it used page/browser tools. |
+| Cheap USB-C cable, inspect then add one | Independent cart screenshot confirms `6A閃充 USB-Typec`, 100 cm, quantity 1, NT$48. Cart count rose from six to seven; older items remain. Worker explicitly reports USB-A to USB-C, not dual USB-C, and distinguishes advertised charging claims from verified specs. No checkout. | 14.557 s main + 89.462 s worker = at least 104.019 s; 12 worker rounds / 13 steps, 59.289 s worker model time. |
+| Free daily 蝦幣 | Independent screenshot confirms congratulations for 0.15 蝦幣 and balance increase from 0.16 to 0.31. No further rewards are claimed as verified; wheel/draw and message tasks were skipped. Native receipt remains `reported_complete`, `verified=false`, `semantic_review_needed=true`. | 16.362 s main + 179.357 s worker = at least 195.719 s; 18 worker rounds / 19 steps, 126.222 s worker model time. |
 
 Discord QA left the phone untouched after submission. Its observation limit
 elapsed without a visible completion signal because the finished worker left
@@ -622,6 +624,18 @@ QA initially claimed timing/model fields were absent, but its retained
 screenshot of the receipt bottom plainly shows Sonnet 5.5, Medium and the
 metrics above. Independent screenshot review overrides that QA inference.
 No Discord message was sent.
+
+The cable and coin task receipts/final replies were saved before QA reopened
+Tako. External QA neither chose nor corrected target-app actions. Cart
+inspection exhausted its round cap while repeatedly scrolling the receipt;
+independent review of retained screenshots extracted the timing fields.
+Coin QA said the top status was unread, but its saved top screenshot plainly
+shows `reported_complete`, `verified=false`, `semantic_review_needed=true`.
+The independently confirmed coin increment does not establish that every
+available free reward was collected. Those lengthy QA inspections are
+separate from production task timings. Native proof checks now use a separate
+text-only registry so automatic sparse screenshots cannot add final
+verification image work; the same permission/deny gates and audit still apply.
 
 Independent public-site verification fetched the official search form and
 the discovered [考程表 page](https://tcivs.tc.edu.tw/p/404-1081-39504.php).

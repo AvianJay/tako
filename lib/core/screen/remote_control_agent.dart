@@ -144,6 +144,20 @@ class RemoteControlAgent {
       permissions: permissions,
       audit: audit,
     );
+    final proofTools = ToolRegistry(
+      createScreenTools(
+        screen,
+        workspace: workerWorkspace,
+        readings: readings,
+        maxChars: 4500,
+      ),
+      disabledTools: disabledTools(),
+    );
+    final proofExecutor = ToolExecutor(
+      registry: proofTools,
+      permissions: permissions,
+      audit: audit,
+    );
     final registry = ToolRegistry([
       ...primitives.allTools,
       ScreenSequenceTool(
@@ -194,22 +208,28 @@ class RemoteControlAgent {
         ),
       ]),
     ];
-    Future<ToolResultBlock> read(String purpose, {bool image = false}) async {
-      final result = (await primitiveExecutor.execute(
-        ToolCallBlock(
-          id: newId(),
-          name: 'read_screen',
-          arguments: jsonEncode({
-            'title': purpose,
-            if (image) 'screenshot': true,
-          }),
-        ),
-        ToolContext(
-          conversationId: ctx.conversationId,
-          messageId: newId(),
-          cancel: ctx.cancel,
-        ),
-      )).result;
+    Future<ToolResultBlock> read(
+      String purpose, {
+      bool image = false,
+      bool nativeProof = false,
+    }) async {
+      proofTools.disabledTools = disabledTools();
+      final result =
+          (await (nativeProof ? proofExecutor : primitiveExecutor).execute(
+            ToolCallBlock(
+              id: newId(),
+              name: 'read_screen',
+              arguments: jsonEncode({
+                'title': purpose,
+                if (image) 'screenshot': true,
+              }),
+            ),
+            ToolContext(
+              conversationId: ctx.conversationId,
+              messageId: newId(),
+              cancel: ctx.cancel,
+            ),
+          )).result;
       record(result);
       stopForBusyUi(result);
       return result;
@@ -273,7 +293,10 @@ class RemoteControlAgent {
             // A partial launch plan is not a completed task. Its screen is
             // already fresh and settled; do not poll missing final criteria
             // three times before the worker has performed the task.
-            final proof = await read('Verify remote workflow');
+            final proof = await read(
+              'Verify remote workflow',
+              nativeProof: true,
+            );
             if (!proof.isError) {
               final tree = readings.latest(ctx.conversationId)?.tree;
               if (report.verify(tree)['verified'] == true) {
@@ -535,7 +558,7 @@ class RemoteControlAgent {
                     readings.latest(ctx.conversationId)?.tree,
                   )['verified'] ==
                   true) {
-            final proof = await read('Verify remote task');
+            final proof = await read('Verify remote task', nativeProof: true);
             if (!proof.isError) {
               verifiedTree = readings.latest(ctx.conversationId)?.tree;
               if (report.verify(verifiedTree)['verified'] == true) {
@@ -558,7 +581,7 @@ class RemoteControlAgent {
             !ctx.cancel.isCancelled &&
             reason != 'worker_action_denied' &&
             reason != 'device_ui_busy') {
-          final proof = await read('Verify remote task');
+          final proof = await read('Verify remote task', nativeProof: true);
           if (!proof.isError) {
             verifiedTree = readings.latest(ctx.conversationId)?.tree;
           } else {

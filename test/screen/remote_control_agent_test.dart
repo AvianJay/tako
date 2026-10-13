@@ -101,6 +101,25 @@ class _BusyScreen extends FakeScreen {
   }
 }
 
+class _SparseScreen extends FakeScreen {
+  _SparseScreen(super.views) : super(start: 'start', screenshots: true) {
+    fastActions = true;
+  }
+  final imageAccess = <bool>[];
+  @override
+  Future<ScreenTree> snapshotForModel({
+    required bool screenshot,
+    required bool automaticScreenshot,
+    required CancelToken cancel,
+  }) {
+    imageAccess.add(automaticScreenshot);
+    return snapshot(
+      screenshot: screenshot || automaticScreenshot,
+      cancel: cancel,
+    );
+  }
+}
+
 void main() {
   late AppDatabase database;
   late FakeScreen screen;
@@ -580,6 +599,19 @@ void main() {
       expect((jsonDecode(result.content) as Map)['steps'], 2);
     },
   );
+  test('final native verification does not request automatic images', () async {
+    final sparse = _SparseScreen(screen.views);
+    screen = sparse;
+    adapter = _Adapter([
+      call('tap', {'title': 'Start', 'id': 1}),
+    ]);
+    build();
+    final receipt = tryDecodeObject((await run()).content)!;
+    expect(receipt['verified'], true);
+    expect(sparse.imageAccess, [true, true, false]);
+    expect(adapter.requests, hasLength(1));
+    expect(screen.actions, hasLength(1));
+  });
   test(
     'a partial launch plan never polls for criteria before worker actions',
     () async {
