@@ -131,7 +131,10 @@ measured end-to-end latency result or proof that the Discord send completed.
 
 On iOS 26 and later, a foreground user-started remote session submits a
 `BGContinuedProcessingTaskRequest` with immediate-or-fail strategy. Its handler
-is registered once during application launch. The system progress reflects
+is registered once during application launch.
+Each submitted identifier uses a unique suffix under the permitted
+`tw.avianjay.tako.remote.*` wildcard; stale task callbacks cannot attach to a
+new remote session. The system progress reflects
 completed device actions; expiration cancels the agent, and task completion ends
 the request. A declined request and older systems retain the bounded
 `UIApplication.beginBackgroundTask` fallback. No task is queued to restart later.
@@ -140,10 +143,10 @@ execution; system cancellation, resource pressure, and closing the app can end
 the work. iOS approvals require returning to Tako. See Apple's
 [continued processing documentation](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados).
 
-The build13 installed trial demonstrated a cancelled29.327-second Discord
+The build 13 installed trial demonstrated a cancelled 29.327-second Discord
 worker. Separately, the production Dart worker on the PC sent the newly
 authorized exact Nicko test message and verified its noneditable history label
-in22.079seconds,4model rounds,6steps. An independent screenshot showed the
+in 22.079 seconds, 4 model rounds, 6 steps. An independent screenshot showed the
 message in the DM and an empty composer. This desktop-hosted measurement does
 not prove the installed-app background fix; that requires the later IPA trial.
 

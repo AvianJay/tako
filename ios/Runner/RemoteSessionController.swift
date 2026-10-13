@@ -6,11 +6,12 @@ import UIKit
 /// A Live Activity reports progress. UIApplication supplies finite background
 /// execution; expiration stops the agent instead of silently losing its actions.
 final class RemoteSessionController: NSObject {
-  private static let continuedIdentifier = "tw.avianjay.tako.remote"
+  private static let continuedIdentifier = "tw.avianjay.tako.remote.*"
   private static weak var current: RemoteSessionController?
   private static var registered = false
   // Store the base class so the controller remains usable before iOS 26.
   private var continuedTask: BGTask?
+  private var continuedRequestIdentifier: String?
   private let channel: FlutterMethodChannel
   private var activity: Activity<RemoteActivityAttributes>?
   private var task: UIBackgroundTaskIdentifier = .invalid
@@ -27,6 +28,7 @@ final class RemoteSessionController: NSObject {
       forTaskWithIdentifier: continuedIdentifier, using: .main
     ) { task in
       guard let controller = current, controller.active,
+            task.identifier == controller.continuedRequestIdentifier,
             let continued = task as? BGContinuedProcessingTask else {
         task.setTaskCompleted(success: false)
         return
@@ -87,14 +89,19 @@ final class RemoteSessionController: NSObject {
     active = true; expired = false; actions = 0
     if #available(iOS 26.0, *), Self.registered,
        UIApplication.shared.applicationState == .active {
+      let identifier = "tw.avianjay.tako.remote." + UUID().uuidString
       let request = BGContinuedProcessingTaskRequest(
-        identifier: Self.continuedIdentifier,
+        identifier: identifier,
         title: localized("Remote phone task", "手機遠端任務"),
         subtitle: localized("Starting…", "正在開始…"))
       // Never queue a phone task to restart after its initiating turn ends.
       request.strategy = .fail
+      continuedRequestIdentifier = identifier
       do { try BGTaskScheduler.shared.submit(request) }
-      catch { /* Retain the bounded UIApplication fallback below. */ }
+      catch {
+        continuedRequestIdentifier = nil
+        /* Retain the bounded UIApplication fallback below. */
+      }
     }
     if ActivityAuthorizationInfo().areActivitiesEnabled {
       let state = RemoteActivityAttributes.ContentState(message: localized("Controlling the screen", "正在操作螢幕"), actions: 0, running: true)
@@ -141,8 +148,9 @@ final class RemoteSessionController: NSObject {
       }
       continued.setTaskCompleted(success: !expired)
     }
-    if #available(iOS 26.0, *) {
-      BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.continuedIdentifier)
+    if #available(iOS 26.0, *), let identifier = continuedRequestIdentifier {
+      continuedRequestIdentifier = nil
+      BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
     }
     endBackgroundTask()
     guard let current = activity else { return }
