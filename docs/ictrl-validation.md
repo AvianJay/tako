@@ -117,6 +117,18 @@ Live settings and chat screens exposed literal newlines inside accessibility lab
 
 ## Background execution and packaging
 
+An installed-app Discord trial failed before execution because the main model
+sent `expected_text` as a string instead of an array. Tool-schema rejection now
+returns the exact trusted schema path and expected type, without echoing supplied
+values or unknown property names. This lets any tool caller correct the rejected
+field without guessing or replaying an action. The receipt explicitly states that
+no action was executed. The `expected_text` description gives a one-item array
+example. Required array minima are also enforced. Regression tests cover a
+corrected delegated call, nested fields, empty workflows, and private values.
+
+This change improves recovery feedback across all tools and apps; it is not a
+measured end-to-end latency result or proof that the Discord send completed.
+
 ActivityKit displays progress; `UIApplication.beginBackgroundTask` supplies limited execution time. On expiration the native channel stops the agent, ends the background task, and marks the activity paused. Live Activities cannot provide indefinite background execution. iOS approvals require returning to Tako.
 
 The unsigned IPA must contain `PlugIns/TakoRemoteActivity.appex`, with the same build/version as the app. GitHub Actions verifies that extension and `NSSupportsLiveActivities` after compiling. The signer must preserve and sign the extension for Lock Screen / Dynamic Island display. CI compilation does not establish on-device background behavior.

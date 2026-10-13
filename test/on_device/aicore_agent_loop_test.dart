@@ -245,6 +245,10 @@ void main() {
           .whereType<ToolResultBlock>();
       expect(jsonDecode(results.single.content), {
         'error': 'invalid_arguments',
+        'path': r'$.text',
+        'expected': 'string',
+        'hint':
+            'Correct this field using the tool schema. No action was executed.',
       });
       expect((await app.audit.list()).single.isError, isTrue);
     },

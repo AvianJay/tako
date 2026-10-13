@@ -25,6 +25,7 @@ class TestTool extends Tool {
     this.risk = RiskLevel.safe,
     this.output = 'result',
     this.onRun,
+    this.inputSchema,
     TestCapability? capability,
     this.attachments = const [],
   }) : requires = capability ?? TestCapability();
@@ -37,19 +38,22 @@ class TestTool extends Tool {
   final String output;
   final Future<ToolResult> Function()? onRun;
   final List<ContentBlock> attachments;
+  final Map<String, Object?>? inputSchema;
   int runs = 0;
 
   @override
   String get description => 'Test tool.';
   @override
-  Map<String, Object?> get schema => const {
-    'type': 'object',
-    'properties': {
-      'text': {'type': 'string', 'minLength': 1},
-    },
-    'required': ['text'],
-    'additionalProperties': false,
-  };
+  Map<String, Object?> get schema =>
+      inputSchema ??
+      const {
+        'type': 'object',
+        'properties': {
+          'text': {'type': 'string', 'minLength': 1},
+        },
+        'required': ['text'],
+        'additionalProperties': false,
+      };
   @override
   RiskLevel riskFor(Map<String, Object?> args, ToolContext ctx) => risk;
   @override
@@ -155,6 +159,135 @@ void main() {
       expect((await audit.list()).every((r) => r.finishedAt != null), isTrue);
     },
   );
+
+  test('schema feedback corrects array mistakes before any action', () async {
+    final tool = TestTool(
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'expected_text': {
+            'type': 'array',
+            'minItems': 1,
+            'items': {'type': 'string'},
+          },
+        },
+        'required': ['expected_text'],
+        'additionalProperties': false,
+      },
+    );
+    final executor = ToolExecutor(
+      registry: ToolRegistry([tool]),
+      permissions: PermissionGate(),
+      audit: audit,
+    );
+    final rejected = await executor.execute(
+      call(args: '{"expected_text":"private message"}'),
+      context(),
+    );
+    final error = jsonDecode(rejected.result.content) as Map<String, dynamic>;
+    expect(error['error'], 'invalid_arguments');
+    expect(error['path'], r'$.expected_text');
+    expect(error['expected'], 'array');
+    expect(error['hint'], contains('No action was executed'));
+    expect(rejected.result.content, isNot(contains('private message')));
+    expect(tool.runs, 0);
+    final corrected = await executor.execute(
+      call(args: '{"expected_text":["private message"]}'),
+      context(),
+    );
+    expect(corrected.result.isError, isFalse);
+    expect(tool.runs, 1);
+    expect((await audit.list()).every((r) => r.finishedAt != null), isTrue);
+  });
+
+  test('nested schema errors identify the exact item without values', () async {
+    final tool = TestTool(
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'steps': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'submit': {'type': 'boolean'},
+              },
+              'required': ['submit'],
+              'additionalProperties': false,
+            },
+          },
+        },
+        'required': ['steps'],
+        'additionalProperties': false,
+      },
+    );
+    final executor = ToolExecutor(
+      registry: ToolRegistry([tool]),
+      permissions: PermissionGate(),
+      audit: audit,
+    );
+    final result = await executor.execute(
+      call(args: '{"steps":[{"submit":true},{"submit":"secret fixture"}]}'),
+      context(),
+    );
+    final error = jsonDecode(result.result.content) as Map<String, dynamic>;
+    expect(error['path'], r'$.steps[1].submit');
+    expect(error['expected'], 'boolean');
+    expect(result.result.content, isNot(contains('secret fixture')));
+    expect(tool.runs, 0);
+  });
+
+  test(
+    'schema feedback reports missing fields and hides unknown keys',
+    () async {
+      final tool = TestTool();
+      final executor = ToolExecutor(
+        registry: ToolRegistry([tool]),
+        permissions: PermissionGate(),
+        audit: audit,
+      );
+      final missing = await executor.execute(call(args: '{}'), context());
+      final missingError =
+          jsonDecode(missing.result.content) as Map<String, Object?>;
+      expect(missingError['path'], r'$.text');
+      expect(missingError['expected'], 'required field');
+      final unknown = await executor.execute(
+        call(args: '{"text":"a","sk-private-fixture":"secret fixture"}'),
+        context(),
+      );
+      final unknownError =
+          jsonDecode(unknown.result.content) as Map<String, Object?>;
+      expect(unknownError['path'], r'$');
+      expect(unknown.result.content, isNot(contains('sk-private-fixture')));
+      expect(unknown.result.content, isNot(contains('secret fixture')));
+      expect(tool.runs, 0);
+    },
+  );
+
+  test('empty arrays cannot bypass a required workflow minimum', () async {
+    final tool = TestTool(
+      inputSchema: const {
+        'type': 'object',
+        'properties': {
+          'steps': {'type': 'array', 'minItems': 1, 'maxItems': 12},
+        },
+        'required': ['steps'],
+      },
+    );
+    final executor = ToolExecutor(
+      registry: ToolRegistry([tool]),
+      permissions: PermissionGate(),
+      audit: audit,
+    );
+    final result = await executor.execute(
+      call(args: '{"steps":[]}'),
+      context(),
+    );
+    final error = jsonDecode(result.result.content) as Map<String, Object?>;
+    expect(error['path'], r'$.steps');
+    expect(error['expected'], 'array length 1..12');
+    expect(tool.runs, 0);
+  });
 
   test('denied call returns specified JSON and records denial', () async {
     final tool = TestTool(risk: RiskLevel.sensitive);

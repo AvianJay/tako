@@ -31,12 +31,17 @@ class ToolExecutor {
   Future<ToolExecution> execute(ToolCallBlock call, ToolContext context) async {
     final tool = registry.get(call.name);
     final args = tryDecodeObject(call.arguments);
+    final argumentIssue = tool != null && args != null
+        ? _validate(args, tool.schema)
+        : null;
     var risk = RiskLevel.safe;
     var invalid = tool == null
         ? 'tool_unavailable'
         : args == null
         ? 'invalid_arguments'
-        : _validate(args, tool.schema);
+        : argumentIssue != null
+        ? 'invalid_arguments'
+        : null;
     var cancelledEarly = false;
     if (tool is TargetResolvingTool && args != null && invalid == null) {
       // Resolve the live element before classification, so permission uses
@@ -80,7 +85,18 @@ class ToolExecutor {
       if (cancelledEarly) throw const RequestCancelled();
       context.cancel.throwIfCancelled();
       if (invalid != null || tool == null || args == null) {
-        result = _error(invalid ?? 'invalid_arguments');
+        result = argumentIssue != null && invalid == 'invalid_arguments'
+            ? ToolResult(
+                content: jsonEncode({
+                  'error': 'invalid_arguments',
+                  'path': argumentIssue.path,
+                  'expected': argumentIssue.expected,
+                  'hint':
+                      'Correct this field using the tool schema. No action was executed.',
+                }),
+                isError: true,
+              )
+            : _error(invalid ?? 'invalid_arguments');
       } else {
         final approval = await permissions.authorize(
           toolName: tool.name,
@@ -150,8 +166,15 @@ class ToolExecutor {
 
   /// Small, deterministic validator for the compact tool schemas. Unknown
   /// schemas fail closed; every registered tool uses this supported subset.
-  static String? _validate(Object? value, JsonMap schema, [int depth = 0]) {
-    if (depth > 12) return 'invalid_arguments';
+  static _ArgumentIssue? _validate(
+    Object? value,
+    JsonMap schema, [
+    int depth = 0,
+    String path = r'$',
+  ]) {
+    _ArgumentIssue issue(String expected) =>
+        _ArgumentIssue(path: path, expected: expected);
+    if (depth > 12) return issue('nesting depth at most 12');
     final type = schema['type'];
     final validType = switch (type) {
       'object' => value is Map<String, Object?>,
@@ -164,57 +187,77 @@ class ToolExecutor {
       null => true,
       _ => false,
     };
-    if (!validType) return 'invalid_arguments';
+    if (!validType) return issue(type is String ? type : 'supported schema');
     final values = asList(schema['enum']);
-    if (values != null && !values.contains(value)) return 'invalid_arguments';
+    if (values != null && !values.contains(value)) {
+      return issue('one of ${jsonEncode(values)}');
+    }
     if (value is String) {
       final min = asInt(schema['minLength']);
       final max = asInt(schema['maxLength']);
       if ((min != null && value.length < min) ||
           (max != null && value.length > max)) {
-        return 'invalid_arguments';
+        return issue('string length ${min ?? 0}..${max ?? 'unbounded'}');
       }
     }
     if (value is num) {
       final min = schema['minimum'];
       final max = schema['maximum'];
       if ((min is num && value < min) || (max is num && value > max)) {
-        return 'invalid_arguments';
+        return issue('number ${min ?? 'unbounded'}..${max ?? 'unbounded'}');
       }
     }
     if (value is Map<String, Object?>) {
       final properties = asMap(schema['properties']) ?? {};
       final required = asList(schema['required']) ?? [];
       for (final key in required) {
-        if (key is! String || !value.containsKey(key)) {
-          return 'invalid_arguments';
+        if (key is! String) return issue('supported required-property schema');
+        if (!value.containsKey(key)) {
+          return _ArgumentIssue(path: '$path.$key', expected: 'required field');
         }
       }
       for (final entry in value.entries) {
         final property = asMap(properties[entry.key]);
         if (property == null) {
           if (schema['additionalProperties'] == false) {
-            return 'invalid_arguments';
+            // Do not echo model-supplied property names or values: they can
+            // contain credentials. Paths below use only trusted schema keys.
+            return issue('only properties declared in the tool schema');
           }
         } else {
-          final error = _validate(entry.value, property, depth + 1);
+          final error = _validate(
+            entry.value,
+            property,
+            depth + 1,
+            '$path.${entry.key}',
+          );
           if (error != null) return error;
         }
       }
     }
     if (value is List<Object?>) {
+      final minItems = asInt(schema['minItems']);
       final maxItems = asInt(schema['maxItems']);
-      if (maxItems != null && value.length > maxItems) {
-        return 'invalid_arguments';
+      if ((minItems != null && value.length < minItems) ||
+          (maxItems != null && value.length > maxItems)) {
+        return issue(
+          'array length ${minItems ?? 0}..${maxItems ?? 'unbounded'}',
+        );
       }
       final itemSchema = asMap(schema['items']);
       if (itemSchema != null) {
-        for (final item in value) {
-          final error = _validate(item, itemSchema, depth + 1);
+        for (final (index, item) in value.indexed) {
+          final error = _validate(item, itemSchema, depth + 1, '$path[$index]');
           if (error != null) return error;
         }
       }
     }
     return null;
   }
+}
+
+class _ArgumentIssue {
+  const _ArgumentIssue({required this.path, required this.expected});
+  final String path;
+  final String expected;
 }

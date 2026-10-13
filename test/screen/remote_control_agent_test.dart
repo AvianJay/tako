@@ -171,6 +171,40 @@ void main() {
   });
 
   test(
+    'bad final-text shape is corrected before contacting the worker',
+    () async {
+      build();
+      final invalid = (await executor.execute(
+        ToolCallBlock(
+          id: 'bad-delegate',
+          name: 'remote_control',
+          arguments: jsonEncode({
+            'title': 'Start task',
+            'task': 'Start and finish',
+            'success_criteria': 'Done must be visible',
+            'expected_text': 'Done',
+          }),
+        ),
+        ToolContext(
+          conversationId: 'chat',
+          messageId: 'main-response',
+          cancel: CancelToken(),
+        ),
+      )).result;
+      final error = jsonDecode(invalid.content) as Map;
+      expect(error['error'], 'invalid_arguments');
+      expect(error['path'], r'$.expected_text');
+      expect(error['expected'], 'array');
+      expect(adapter.requests, isEmpty);
+      expect(screen.actions, isEmpty);
+      final corrected = await run();
+      final receipt = jsonDecode(corrected.content) as Map<String, Object?>;
+      expect(receipt['status'], 'verified');
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+
+  test(
     'native evidence ends the worker without a final model round; parent sees no raw screens',
     () async {
       build();

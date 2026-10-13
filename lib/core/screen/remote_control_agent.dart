@@ -761,6 +761,8 @@ class _RemoteTaskTool extends Tool {
       'success_criteria': {'type': 'string', 'minLength': 1, 'maxLength': 800},
       'expected_text': {
         'type': 'array',
+        'description':
+            'Exact final visible labels as an array of strings, even for one label: ["15"]. Excludes input fields. Omit if no exact final label is known.',
         'maxItems': 6,
         'items': {'type': 'string', 'minLength': 1, 'maxLength': 160},
       },
