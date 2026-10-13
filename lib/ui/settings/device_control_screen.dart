@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_controller.dart';
 import '../../app/app_info.dart';
 import '../../core/providers/cancel_token.dart';
+import '../../core/screen/remote_screen.dart';
 import '../../core/shell/shell_capability.dart';
 import '../../l10n/gen/app_localizations.dart';
+import 'ictrl_settings.dart';
 
 /// Enables `allow-external-apps` so other apps may use RUN_COMMAND.
 const termuxSetupCommand =
@@ -132,6 +134,48 @@ class _DeviceControlScreenState extends ConsumerState<DeviceControlScreen> {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final screen = app.services.screen;
+    if (screen is RemoteScreen) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l.deviceControl)),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                IctrlSettings(screen: screen),
+                SwitchListTile(
+                  title: Text(l.screenshotsSetting),
+                  subtitle: Text(l.screenshotsHelp),
+                  value: app.controlSettings.screenshots,
+                  onChanged: app.busy
+                      ? null
+                      : (value) => _run(
+                          () => app.saveControlSettings(
+                            app.controlSettings.copyWith(screenshots: value),
+                          ),
+                        ),
+                ),
+                SwitchListTile(
+                  title: Text(l.deleteScreenshots),
+                  subtitle: Text(l.deleteScreenshotsHelp),
+                  value: app.controlSettings.deleteScreenshotsWithChat,
+                  onChanged: app.busy
+                      ? null
+                      : (value) => _run(
+                          () => app.saveControlSettings(
+                            app.controlSettings.copyWith(
+                              deleteScreenshotsWithChat: value,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final shell = app.services.shell;
     final notifications = app.services.notifications;
     Widget status(bool on) => Row(

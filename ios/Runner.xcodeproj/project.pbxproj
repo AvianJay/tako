@@ -20,6 +20,11 @@
 		F1A701050000000000000000 /* IosDeviceApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A701040000000000000000 /* IosDeviceApi.swift */; };
 		F1A701070000000000000000 /* TakoNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A701060000000000000000 /* TakoNative.swift */; };
 		F1A701090000000000000000 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F1A701080000000000000000 /* PrivacyInfo.xcprivacy */; };
+		0864A6886E3D7F0229D3292C /* RemoteActivityAttributes.swift in app */ = {isa = PBXBuildFile; fileRef = 97848026A1E0A87AB42A0181; };
+		7A829EA611DA9A1E1B904757 /* RemoteSessionController.swift in app */ = {isa = PBXBuildFile; fileRef = BD6F23BD7D1F407310B34A0E; };
+		08C8B573AE77F350BA7903DC /* RemoteActivityAttributes.swift in widget */ = {isa = PBXBuildFile; fileRef = 97848026A1E0A87AB42A0181; };
+		51D71E0907BDD9420D789758 /* TakoRemoteActivity.swift in widget */ = {isa = PBXBuildFile; fileRef = E1448BE3C26B908C433FA5F7; };
+		8C12923085E9A317ABD26C39 /* TakoRemoteActivity.appex in embed */ = {isa = PBXBuildFile; fileRef = A4C14DC76EFD89911D37B26C; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };};
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,6 +35,7 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
+		C2994D5C59716100477FDC1C = {isa = PBXContainerItemProxy; containerPortal = 97C146E61CF9000F007C117D; proxyType = 1; remoteGlobalIDString = CFC0A1283B41B3D5442A1BD1; remoteInfo = TakoRemoteActivity; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -43,6 +49,7 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FC0AAB4C867F8D97A87ECDF9 /* Embed App Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (8C12923085E9A317ABD26C39, ); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -67,6 +74,12 @@
 		F1A701040000000000000000 /* IosDeviceApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosDeviceApi.swift; sourceTree = "<group>"; };
 		F1A701060000000000000000 /* TakoNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakoNative.swift; sourceTree = "<group>"; };
 		F1A701080000000000000000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		97848026A1E0A87AB42A0181 /* RemoteActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteActivityAttributes.swift; sourceTree = "<group>"; };
+		BD6F23BD7D1F407310B34A0E /* RemoteSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSessionController.swift; sourceTree = "<group>"; };
+		E1448BE3C26B908C433FA5F7 /* TakoRemoteActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakoRemoteActivity.swift; sourceTree = "<group>"; };
+		12E756D76FF09E33D81FCF90 /* RemoteActivityInfo */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9334F84B322814AAC9B4B638 /* RemoteConfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		A4C14DC76EFD89911D37B26C /* TakoRemoteActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = TakoRemoteActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -77,6 +90,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		134C526570062B739CB51432 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -102,6 +116,8 @@
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
+				97848026A1E0A87AB42A0181 /* RemoteActivityAttributes.swift */,
+				D1FF25FA4A4DE80AC2D9C399 /* TakoRemoteActivity */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -112,6 +128,7 @@
 		97C146EF1CF9000F007C117D /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				A4C14DC76EFD89911D37B26C /* TakoRemoteActivity.appex */,
 				97C146EE1CF9000F007C117D /* Tako.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
@@ -121,6 +138,7 @@
 		97C146F01CF9000F007C117D /* Runner */ = {
 			isa = PBXGroup;
 			children = (
+				BD6F23BD7D1F407310B34A0E /* RemoteSessionController.swift */,
 				97C146FA1CF9000F007C117D /* Main.storyboard */,
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
@@ -139,6 +157,7 @@
 			path = Runner;
 			sourceTree = "<group>";
 		};
+		D1FF25FA4A4DE80AC2D9C399 /* TakoRemoteActivity */ = {isa = PBXGroup; children = (E1448BE3C26B908C433FA5F7, 12E756D76FF09E33D81FCF90, 9334F84B322814AAC9B4B638, ); path = TakoRemoteActivity; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -163,6 +182,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				FC0AAB4C867F8D97A87ECDF9 /* Embed App Extensions */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -173,12 +193,14 @@
 			buildRules = (
 			);
 			dependencies = (
+				53ED1C7CD4BAACA6DA4A9CE1 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Tako;
 			productReference = 97C146EE1CF9000F007C117D /* Tako.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CFC0A1283B41B3D5442A1BD1 /* TakoRemoteActivity */ = {isa = PBXNativeTarget; buildConfigurationList = A489B019701B5A2DD6E450E5; buildPhases = (42D883A8E6872DA4787C3183, 134C526570062B739CB51432, 047D4D63E7BD5D9997CEC580, ); buildRules = (); dependencies = (); name = TakoRemoteActivity; productName = TakoRemoteActivity; productReference = A4C14DC76EFD89911D37B26C; productType = "com.apple.product-type.app-extension"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -212,6 +234,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				CFC0A1283B41B3D5442A1BD1 /* TakoRemoteActivity */,
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
@@ -238,6 +261,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		047D4D63E7BD5D9997CEC580 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -287,6 +311,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A829EA611DA9A1E1B904757 /* RemoteSessionController.swift in Sources */,
+				0864A6886E3D7F0229D3292C /* RemoteActivityAttributes.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				F1A701070000000000000000 /* TakoNative.swift in Sources */,
 				F1A701050000000000000000 /* IosDeviceApi.swift in Sources */,
@@ -297,6 +323,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		42D883A8E6872DA4787C3183 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (08C8B573AE77F350BA7903DC, 51D71E0907BDD9420D789758, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -305,6 +332,7 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
+		53ED1C7CD4BAACA6DA4A9CE1 = {isa = PBXTargetDependency; target = CFC0A1283B41B3D5442A1BD1; targetProxy = C2994D5C59716100477FDC1C; };
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -875,6 +903,102 @@
 			};
 			name = "Release-full";
 		};
+		C13E6854C46B08F75107EF16 /* Debug */ = {isa = XCBuildConfiguration; baseConfigurationReference = 9334F84B322814AAC9B4B638; buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+                INFOPLIST_FILE = TakoRemoteActivity/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+                MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+                PRODUCT_BUNDLE_IDENTIFIER = tw.avianjay.tako.RemoteActivity;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SKIP_INSTALL = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+            }; name = Debug; };
+		346DD4E9C081C621A070A28C /* Release */ = {isa = XCBuildConfiguration; baseConfigurationReference = 9334F84B322814AAC9B4B638; buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+                INFOPLIST_FILE = TakoRemoteActivity/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+                MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+                PRODUCT_BUNDLE_IDENTIFIER = tw.avianjay.tako.RemoteActivity;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SKIP_INSTALL = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+            }; name = Release; };
+		C7346CC81D90E30CB1BE7212 /* Profile */ = {isa = XCBuildConfiguration; baseConfigurationReference = 9334F84B322814AAC9B4B638; buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+                INFOPLIST_FILE = TakoRemoteActivity/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+                MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+                PRODUCT_BUNDLE_IDENTIFIER = tw.avianjay.tako.RemoteActivity;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SKIP_INSTALL = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+            }; name = Profile; };
+		33A2C587A62C3C5FD61DEF10 /* Debug-full */ = {isa = XCBuildConfiguration; baseConfigurationReference = 9334F84B322814AAC9B4B638; buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+                INFOPLIST_FILE = TakoRemoteActivity/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+                MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+                PRODUCT_BUNDLE_IDENTIFIER = tw.avianjay.tako.RemoteActivity;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SKIP_INSTALL = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+            }; name = "Debug-full"; };
+		EC7E7ADD3E5D64327A40D525 /* Release-full */ = {isa = XCBuildConfiguration; baseConfigurationReference = 9334F84B322814AAC9B4B638; buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+                INFOPLIST_FILE = TakoRemoteActivity/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+                MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+                PRODUCT_BUNDLE_IDENTIFIER = tw.avianjay.tako.RemoteActivity;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SKIP_INSTALL = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+            }; name = "Release-full"; };
+		0240DF344A4369D30F9E8310 /* Profile-full */ = {isa = XCBuildConfiguration; baseConfigurationReference = 9334F84B322814AAC9B4B638; buildSettings = {
+                APPLICATION_EXTENSION_API_ONLY = YES;
+                CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+                INFOPLIST_FILE = TakoRemoteActivity/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+                MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+                PRODUCT_BUNDLE_IDENTIFIER = tw.avianjay.tako.RemoteActivity;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SKIP_INSTALL = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+            }; name = "Profile-full"; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -917,6 +1041,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		A489B019701B5A2DD6E450E5 = {isa = XCConfigurationList; buildConfigurations = (C13E6854C46B08F75107EF16, 33A2C587A62C3C5FD61DEF10, 346DD4E9C081C621A070A28C, EC7E7ADD3E5D64327A40D525, C7346CC81D90E30CB1BE7212, 0240DF344A4369D30F9E8310, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = 97C146E61CF9000F007C117D /* Project object */;

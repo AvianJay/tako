@@ -1,0 +1,85 @@
+# iCTRL validation and agent latency
+
+The implementation uses iCTRL's v1 authenticated envelopes and loopback pairing, or X25519 pairing for a LAN/Tailscale endpoint. The runner remains a separately installed application. Pairing keys live in platform secure storage, never in a conversation or the repository.
+
+## Read and action costs
+
+- Reuse the HTTP client and approved key. Refreshes do not repeatedly fetch the schema or prompt for pairing.
+- Read the visible accessibility hierarchy with 180 elements and 100 children per container. The scientific Calculator keypad silently lost its last controls at 50 children; the new bound exposes them without an unbounded fetch. Strip server diagnostics before sending the listing to the model.
+- Recover truncated or sparse reads with OCR, so deep layout containers do not hide bottom navigation. Prefer AX labels over OCR duplicates.
+- Resolve labeled controls with a fresh live ref. Reject changed labels/types, offscreen matches, ambiguous results, and stale listing IDs. Unnamed containers are checked against their descendants.
+- Send mutations with `settle:false`; do not retry mutations automatically. Preserve warnings and page-change information in the tool receipt. A missing settling measurement is unknown, not evidence that the screen stayed unchanged.
+- Return one text observation after the final action of a response. Batch stable controls with `observe:false` on intermediate calls. Navigation still needs a fresh observation.
+- Request screenshots explicitly when the provider has vision and the listing cannot answer the task. JPEG quality defaults to 0.55. Phones up to 512 points wide use scale 1 so screenshot pixels and device points coincide; tablets use 0.75. Large authenticated responses decrypt off the UI isolate.
+- Navigation actions accept `screenshot:true`, returning image and text in the same tool result instead of a second model/read round. Only two recent remote screen images are uploaded during an active turn; saved conversation images and text receipts remain intact.
+- OCR target matching normalizes whitespace/full-width punctuation and checks source type plus nearby geometry. Repeated text elsewhere on the page cannot redirect a tap. These changes are shared by every app, not Shopee routes.
+- Prefer typed live refs over same-label wrappers. Omit OCR fragments inside small named AX controls, while preserving OCR for custom controls elsewhere.
+- Claude's native Messages stream preserves empty-object tool arguments, including empty JSON deltas. Adaptive thinking sends the selected reasoning effort. These fixes apply to all tools and conversations.
+
+The referenced osu! report verified that one iCTRL 1.96 landscape screenshot was upright but stretched. This backend resizes that case rather than rotating, and applies the report's synthesized gesture mapping. Both endpoints of a drag use the same transform. Opposite landscape rotation has not been calibrated on this test phone.
+
+## Live evidence
+
+Tested on an iPhone with 440 × 956 point geometry, iCTRL 1.96.1, through Tailscale using the exact `deepseek-v4.1-flash` model. Calculator assertions read the real displayed result; successful RPC responses alone are insufficient.
+
+| Task | Result | Tool calls | Model rounds | Elapsed, excluding final proof capture |
+| --- | --- | ---: | ---: | ---: |
+| 7 + 8 | Displayed 15 | 6 | 5 | 26.85 s |
+| 123 + 456 | Displayed 579 | 10 | 4 | 22.29 s |
+| Shopee daily check-in | Success popup +0.10; balance 0.05 → 0.15 | 10 | 11 | 98.39 s |
+| Shopee treasure chest | History entry 蝦幣寶箱 +0.01; balance 0.15 → 0.16 | 18 | 19 | 164.00 s |
+
+In the longer calculation, individual verified taps without observation took 0.65–0.84 s, and the final tap plus observation took 1.49 s. The first read took 0.44 s. Most elapsed time came from the model's response rounds. These are measured samples, not universal latency guarantees.
+
+The initial Shopee daily-coin exploration reached its 24-round limit without completing the claim. It exposed raw-tree truncation and ambiguous unlabeled rows; those findings motivated the OCR/descendant changes above. Complex-task outcomes are recorded separately and must be verified from the final screen. Do not label an exhausted exploration as a successful claim.
+
+The treasure run subsequently completed and was independently checked in coin history. Its 164 s consisted of 109.32 s of model responses and 54.30 s of tools. Nine explicit reads, repeated OCR label failures and screenshot-to-text coordinate switches motivated on-action screenshots, OCR normalization and limiting repeated image uploads. These later improvements require separate measurements; the table does not claim a measured speedup for them. Free daily claims cannot be replayed on the same day as if the reward were still available.
+
+## Claude Haiku Extra and cross-app installation
+
+At the user's request, subsequent tests used provider-listed `claude-haiku-5-5` with Extra effort (`xhigh`). The provider rejects literal `extra`. Its chat-completions compatibility route repeatedly exhausted 4096/8192 output tokens during vision navigation. The native Messages route passed the vision probe in 4.17 s and performed the installation task. This is evidence about this provider, not a universal model comparison.
+
+Safari downloaded the exact 20,991,820-byte `ios-unsigned-ipa` artifact from successful YaBus Actions run [38287508676](https://github.com/YetAnotherBusDeveloper/yetanotherbusapp/actions/runs/38287508676), commit `abe26057763a70f5932575f98bf27a46d2d12058`. The artifact was privately served over Tailscale. After assisted navigation into Downloads, Haiku imported the IPA into LCSign, used the existing signer, accepted installation, and launched `tw.avianjay.taiwanbus.flutter`. The first successful launch was tool call 22 of that native run. An independent launch and home-screen screenshot verified YaBus works. The run was stopped after launch to prevent redundant installation work; it is not reported as a wholly autonomous timed end-to-end benchmark.
+
+The same native Haiku configuration passed both Calculator assertions in scientific mode. Before the last keypad/target/batching changes, 7 + 8 took 30.02 s (7 tools / 6 rounds), and 123 + 456 took 47.26 s (11 tools / 9 rounds). Afterward, they took 41.50 s (12 tools / 11 rounds) and 31.71 s (12 tools / 7 rounds). Median successful tap cost in those samples fell from 748 to 626 ms. The first improved run had an RPC failure and extra model recovery; there is no consistent task-wide speedup across both examples. The longer calculation improved by about 33% in this single sample. Model round latency remained about 3.2 s, the main cost to reduce through batching.
+
+After integrating the Android floating overlay and operation titles, normal verification passed 523 tests, with the opt-in live test skipped, plus all 10 browser runtime checks. Analysis and formatting passed. A remote-session regression check verifies that titles update without restarting the native activity and disconnect ends it once. An unrelated pre-existing memory test had nondeterministic ordering for simultaneous saves; explicit fixture timestamps now test its intended oldest-first budget deterministically.
+
+## Reproduction
+
+Use Flutter 3.41.6 / Dart 3.11.4. Run the normal suite first:
+
+```powershell
+flutter analyze
+flutter test
+```
+
+Live tests deliberately read ignored local files: `.build/ictrl-pairing.json` in the upstream Python client's host-keyed format, and `cpa.env` containing `api_endpoint` and `api_key`. Keep these files private. Supply your own paired host:
+
+```powershell
+$env:TAKO_ICTRL_LIVE='1'
+$env:TAKO_ICTRL_ENDPOINT='http://<your-tailnet-ip>:8200'
+flutter test test/screen/ictrl_live_test.dart --reporter expanded
+```
+
+To reproduce Claude Extra using the native API:
+
+```powershell
+$env:TAKO_ICTRL_MODEL='claude-haiku-5-5'
+$env:TAKO_ICTRL_API='messages'
+$env:TAKO_ICTRL_EFFORT='xhigh'
+$env:TAKO_ICTRL_RESULT_PREFIX='haiku-'
+flutter test test/screen/ictrl_live_test.dart --reporter expanded
+```
+
+For a user-authorized IPA installation, also set `TAKO_ICTRL_INSTALL=1`, `TAKO_ICTRL_IPA_URL`, `TAKO_ICTRL_IPA_NAME` and `TAKO_ICTRL_APP_BUNDLE`. `TAKO_ICTRL_INSTALL_RESUME=1` resumes from a downloaded file. The live installation gate restricts app launches and URLs and rejects deletion, payment and message actions. Preserve existing signer settings and stop for passwords or missing credentials.
+
+For an explicitly authorized free daily-coin task on an account you control, set `TAKO_ICTRL_SHOPEE=1`. This is a live account action, not a repeatable unit test. Private timing, tool results and proof images go under `.build/ictrl-smoke/` and are excluded from Git.
+
+## iOS lifecycle and packaging
+
+ActivityKit displays progress; `UIApplication.beginBackgroundTask` supplies limited execution time. On expiration the native channel stops the agent, ends the background task, and marks the activity paused. Live Activities cannot provide indefinite background execution. iOS approvals require returning to Tako.
+
+The unsigned IPA must contain `PlugIns/TakoRemoteActivity.appex`, with the same build/version as the app. GitHub Actions verifies that extension and `NSSupportsLiveActivities` after compiling. The signer must preserve and sign the extension for Lock Screen / Dynamic Island display. CI compilation does not establish on-device background behavior.
+
+Protocol reference: [OpenMinis/iCTRL](https://github.com/OpenMinis/iCTRL), Apache-2.0. See [third-party notices](../THIRD_PARTY_NOTICES.md).

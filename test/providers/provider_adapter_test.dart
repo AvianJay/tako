@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:tako/core/chat/content_block.dart';
 import 'package:tako/core/chat/message.dart';
+import 'package:tako/core/chat/response_accumulator.dart';
 import 'package:tako/core/providers/chat_completions/chat_completions_adapter.dart';
 import 'package:tako/core/providers/messages/messages_adapter.dart';
 import 'package:tako/core/providers/providers.dart';
@@ -64,6 +65,56 @@ class FakeClient extends http.BaseClient {
 }
 
 void main() {
+  test(
+    'native Messages no-argument tool remains a valid empty JSON object',
+    () async {
+      final adapter = MessagesAdapter(config(ApiType.messages));
+      final acc = ResponseAccumulator(
+        sourceApi: 'messages',
+        promptHash: 'test',
+      );
+      final events = await adapter
+          .decode(
+            Stream.fromIterable([
+              SseEvent(
+                data: jsonEncode({
+                  'type': 'content_block_start',
+                  'index': 0,
+                  'content_block': {
+                    'type': 'tool_use',
+                    'id': 'read',
+                    'name': 'read_screen',
+                    'input': {},
+                  },
+                }),
+              ),
+              SseEvent(
+                data: jsonEncode({
+                  'type': 'content_block_delta',
+                  'index': 0,
+                  'delta': {'type': 'input_json_delta', 'partial_json': ''},
+                }),
+              ),
+              SseEvent(
+                data: jsonEncode({'type': 'content_block_stop', 'index': 0}),
+              ),
+              SseEvent(
+                data: jsonEncode({
+                  'type': 'message_delta',
+                  'delta': {'stop_reason': 'tool_use'},
+                }),
+              ),
+              SseEvent(data: jsonEncode({'type': 'message_stop'})),
+            ]),
+          )
+          .toList();
+      for (final event in events) {
+        acc.add(event);
+      }
+      expect(acc.content.whereType<ToolCallBlock>().single.arguments, '{}');
+      expect(events.whereType<ProviderError>(), isEmpty);
+    },
+  );
   const fixtures = {
     ApiType.chatCompletions: chatCompletionsStream,
     ApiType.responses: responsesStream,
@@ -431,6 +482,14 @@ void main() {
   });
 
   test('thinking is optional and validates an explicit Anthropic budget', () {
+    final adaptive = MessagesAdapter(
+      config(ApiType.messages).copyWith(
+        reasoningMode: ReasoningMode.adaptive,
+        reasoningEffort: 'xhigh',
+      ),
+    );
+    expect(adaptive.buildBody(request)['thinking'], {'type': 'adaptive'});
+    expect(adaptive.buildBody(request)['output_config'], {'effort': 'xhigh'});
     final basic = MessagesAdapter(config(ApiType.messages));
     expect(basic.buildBody(request).containsKey('thinking'), isFalse);
     final enabled = MessagesAdapter(

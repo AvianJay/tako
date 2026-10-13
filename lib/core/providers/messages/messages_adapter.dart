@@ -57,6 +57,8 @@ class MessagesAdapter extends HttpProviderAdapter {
         },
       if (config.reasoningMode == ReasoningMode.adaptive)
         'thinking': {'type': 'adaptive'},
+      if (config.reasoningMode == ReasoningMode.adaptive)
+        'output_config': {'effort': config.reasoningEffort},
       if (request.tools.isNotEmpty || _webSearch(request))
         'tools': [
           if (_webSearch(request))
@@ -315,9 +317,19 @@ class MessagesAdapter extends HttpProviderAdapter {
             searchReceipts,
           );
           if (searchReceipt != null) yield searchReceipt;
-          if (wireInputs.remove(index) case final input?) {
+          final partialInput = wireInputs.remove(index);
+          if (partialInput case final input?) {
             final parsed = tryDecodeObject(input);
             if (parsed != null) wireBlocks[index]?['input'] = parsed;
+          }
+          if ((partialInput == null || partialInput.isEmpty) &&
+              calls[index] != null) {
+            // Anthropic emits input:{} with no JSON delta for a no-argument
+            // tool. Preserve the valid empty object instead of empty text.
+            final input = asMap(wireBlocks[index]?['input']);
+            if (input != null && input.isEmpty) {
+              yield ToolCallArgsDelta(calls[index]!, '{}');
+            }
           }
           if (calls.remove(index) case final id?) yield ToolCallEnd(id);
           if (signatures.remove(index) case final signature?) {

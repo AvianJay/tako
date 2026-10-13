@@ -170,6 +170,22 @@ void main() {
     expect(requests.single.risk, RiskLevel.sensitive);
     expect(screen.sessions, 1);
   });
+  test(
+    'fast navigation includes one requested image without a second read',
+    () async {
+      build(withScreenshots: true, observe: true);
+      screen.fastActions = true;
+      gate.policy = const PermissionPolicy(fullPermissions: true);
+      screen.show('messages');
+      final read = await run('read_screen', {});
+      expect(read.attachments, isEmpty);
+      final tapped = await run('tap', {'id': 4, 'screenshot': true});
+      expect(tapped.isError, false);
+      expect(tapped.attachments, hasLength(1));
+      expect(tapped.content, contains('screenshot: attached'));
+      expect(screen.actions, hasLength(1));
+    },
+  );
 
   test('a Send-like tap always asks, even with full permissions', () async {
     gate.policy = const PermissionPolicy(fullPermissions: true);

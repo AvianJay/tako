@@ -5,8 +5,9 @@ import '../providers/cancel_token.dart';
 import '../util/ids.dart';
 
 class ScreenException implements Exception {
-  const ScreenException(this.code);
+  const ScreenException(this.code, {this.detail});
   final String code;
+  final String? detail;
   @override
   String toString() => code;
 }
@@ -193,6 +194,9 @@ class ScreenAction {
     this.submit = false,
     this.direction,
     this.key,
+    this.toX,
+    this.toY,
+    this.duration,
   });
   final String action;
   final int token;
@@ -205,6 +209,9 @@ class ScreenAction {
   final bool submit;
   final String? direction;
   final String? key;
+  final double? toX;
+  final double? toY;
+  final double? duration;
 }
 
 class ScreenActionOutcome {
@@ -213,11 +220,13 @@ class ScreenActionOutcome {
     this.packageName = '',
     this.appLabel = '',
     this.changed = false,
+    this.details = const {},
   });
   final String method;
   final String packageName;
   final String appLabel;
   final bool changed;
+  final Map<String, Object?> details;
 }
 
 /// A localized approval prompt drawn over other apps.
@@ -285,6 +294,14 @@ abstract class ScreenCapability extends ChangeNotifier implements Capability {
   bool get enabled;
   bool get screenshotsSupported;
   Set<ScreenObservationMode> get observationModes;
+  Set<String> get supportedKeys => const {
+    'back',
+    'home',
+    'recents',
+    'notifications',
+  };
+  bool get supportsDrag => false;
+  bool get supportsFastActions => false;
 
   @override
   bool get isAvailable => supported && enabled;

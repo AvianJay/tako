@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_controller.dart';
 import '../../app/app_info.dart';
 import '../../core/permissions/permission_gate.dart';
+import '../../core/screen/remote_screen.dart';
 import '../../core/screen/screen_capability.dart';
 import '../../core/screen/screen_reading.dart';
 import '../../l10n/gen/app_localizations.dart';
@@ -182,6 +183,9 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
       return;
     }
     if (identical(pending, _overlaid) || identical(pending, _alerted)) return;
+    // iOS has no approval overlay. Keep the request pending for the in-app
+    // approval sheet; never turn lack of an overlay into an automatic denial.
+    if (screen is RemoteScreen && !screen.canOverlayApproval) return;
     if (screen.isAvailable) {
       _overlaid = pending;
       unawaited(_showOverApps(pending, l));

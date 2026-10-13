@@ -39,6 +39,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       _budget;
   late ApiType _type;
   late ReasoningMode _reasoning;
+  String _effort = 'medium';
   late bool _local, _tools, _vision, _canReason;
   bool _builtInSearch = false;
   bool _allowCustomSearchEndpoint = false;
@@ -77,6 +78,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     _budget = TextEditingController(text: '${p?.thinkingBudgetTokens ?? 1024}');
     _type = p?.apiType ?? ApiType.chatCompletions;
     _reasoning = p?.reasoningMode ?? ReasoningMode.off;
+    _effort = p?.reasoningEffort ?? 'medium';
     _local = p?.isLocal ?? true;
     _localOverride = p != null;
     _tools = p?.capabilities.tools ?? false;
@@ -153,7 +155,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     reasoningMode: _reasoning,
     thinkingBudgetTokens: int.tryParse(_budget.text) ?? 1024,
     autoDetect: _autoDetect,
-    reasoningEffort: _models[_editingModel].reasoningEffort,
+    reasoningEffort: _effort,
   );
 
   bool _storeModel() {
@@ -192,6 +194,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     _output.text = '${model.maxOutputTokens}';
     _budget.text = '${model.thinkingBudgetTokens}';
     _reasoning = model.reasoningMode;
+    _effort = model.reasoningEffort;
     _tools = model.capabilities.tools;
     _vision = model.capabilities.vision;
     _canReason = model.capabilities.reasoning;
@@ -1018,6 +1021,34 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                     validate: positive,
                     keyboardType: TextInputType.number,
                   ),
+                if (_reasoning != ReasoningMode.off) ...[
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('effort-$_editingModel'),
+                    isExpanded: true,
+                    initialValue: _effort,
+                    decoration: InputDecoration(labelText: l.reasoningEffort),
+                    items: [
+                      for (final effort in {
+                        'low',
+                        'medium',
+                        'high',
+                        'xhigh',
+                        'max',
+                        _effort,
+                      })
+                        DropdownMenuItem(
+                          value: effort,
+                          child: Text(
+                            effort == 'xhigh' ? 'Extra (xhigh)' : effort,
+                          ),
+                        ),
+                    ],
+                    onChanged: _working
+                        ? null
+                        : (value) => setState(() => _effort = value!),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 FilledButton(
                   onPressed: _working ? null : _save,
                   child: Text(l.save),

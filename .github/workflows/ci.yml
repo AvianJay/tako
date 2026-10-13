@@ -109,6 +109,12 @@ jobs:
         run: |
           ls build/ios/iphoneos/Tako.app/Frameworks
           ls build/ios/iphoneos/Tako.app/Frameworks | grep -qi llama
+      - name: Check that the Live Activity extension is bundled
+        run: |
+          extension=build/ios/iphoneos/Tako.app/PlugIns/TakoRemoteActivity.appex
+          test -x "$extension/TakoRemoteActivity"
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$extension/Info.plist" | grep -qx com.apple.widgetkit-extension
+          /usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' build/ios/iphoneos/Tako.app/Info.plist | grep -qx true
       - name: Package unsigned iOS IPA
         run: |
           mkdir -p "$RUNNER_TEMP/tako-ipa/Payload" dist

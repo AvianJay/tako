@@ -198,8 +198,28 @@ void main() {
     expect(lines.last, '- 喜歡簡短的回答');
 
     await memory.clear();
-    await memory.save(text: '字' * 400, kind: MemoryKind.profile);
-    await memory.save(text: 'never reached', kind: MemoryKind.profile);
+    // Assert the oldest-first budget with distinct fixture timestamps. Two
+    // fast saves can share a timestamp and legitimately tie-break by random ID.
+    await memory.importJson(
+      jsonEncode({
+        'format': 'tako.memories',
+        'version': 1,
+        'memories': [
+          {
+            'text': '字' * 400,
+            'kind': 'profile',
+            'pinned': true,
+            'createdAt': '2026-01-01T00:00:00Z',
+          },
+          {
+            'text': 'never reached',
+            'kind': 'profile',
+            'pinned': true,
+            'createdAt': '2026-01-01T00:00:01Z',
+          },
+        ],
+      }),
+    );
     final bounded = await memory.profileSnapshot();
     // Each CJK character counts as a word against the 150-word budget.
     expect(bounded, '- ${'字' * 150}…');

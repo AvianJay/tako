@@ -37,6 +37,7 @@ dependencies:
   # release, configured under `hooks` below.
   llamadart: 0.11.1
   crypto: ^3.0.7
+  cryptography: ^2.9.0
 
 dev_dependencies:
   flutter_test:

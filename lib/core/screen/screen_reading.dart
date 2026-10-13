@@ -270,7 +270,7 @@ class ScreenReading {
     if (hasImage) {
       out.writeln(
         'screenshot: attached, ${tree.imageWidth}x${tree.imageHeight}; '
-        'x and y use its pixels',
+        'x and y use its pixels (do not scale to device points)',
       );
     }
     out.writeln(
@@ -279,6 +279,7 @@ class ScreenReading {
     if (elements.isEmpty) {
       out.writeln('none; the screen may still be loading or show only images');
     }
+    if (tree.image == null) out.writeln('points: x,y use screen coordinates');
     const more = '[more elements: scroll and read again]';
     final budget = (maxChars - more.length - 2).clamp(200, 1 << 30);
     var window = -1;
@@ -355,7 +356,10 @@ const sensitiveScreenPackages = {
   'com.android.packageinstaller',
   'com.google.android.packageinstaller',
 };
-const settingsScreenPackages = {'com.android.settings'};
+const settingsScreenPackages = {
+  'com.android.settings',
+  'com.apple.Preferences',
+};
 
 /// Trusted facts about what an action will reach, derived from a fresh
 /// platform read rather than from the model's arguments.

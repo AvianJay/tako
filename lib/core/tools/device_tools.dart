@@ -17,7 +17,7 @@ List<Tool> createDeviceTools(
     _DeviceTool(
       name,
       capability,
-      observer: name == 'open_app' ? observer : null,
+      observer: name == 'open_app' || name == 'open_url' ? observer : null,
       maxChars: maxChars,
     ),
 ];
@@ -71,7 +71,7 @@ class _DeviceTool extends Tool {
     }
     try {
       final observer = this.observer;
-      if (name == 'open_app' && observer?.screen.isAvailable == true) {
+      if (observer?.screen.isAvailable == true) {
         observer!.screen.updateModelSession(title: actionTitle(args));
       }
       final result = await device.invoke(name, args, cancel: ctx.cancel);
@@ -79,7 +79,8 @@ class _DeviceTool extends Tool {
         if (_sideEffectKinds[name] case final String kind)
           SideEffect(kind: kind, summary: name),
       ];
-      if (observer != null && result['launched'] == true) {
+      if (observer != null &&
+          (result['launched'] == true || result['remote_opened'] == true)) {
         return observer.result(
           ctx,
           jsonEncode(result),
@@ -250,7 +251,7 @@ const _descriptions = {
   'open_url':
       'Open an HTTP or HTTPS URL externally. Sends the URL to the selected app.',
   'open_app':
-      'Launch an installed app by the name shown on the phone, or by exact Android package name.',
+      'Launch an installed app by its name, or exact Android package / iOS bundle id.',
 };
 const _sideEffectKinds = {
   'clipboard_write': 'clipboard_written',
@@ -307,7 +308,10 @@ final _schemas = <String, Map<String, Object?>>{
     {'seconds': _integer(1, 86400), 'label': _string(200)},
     ['seconds'],
   ),
-  'open_url': _object({'url': _string(8192, min: 1)}, ['url']),
+  'open_url': _object(
+    {'url': _string(8192, min: 1), 'title': actionTitleSchema},
+    ['url'],
+  ),
   'open_app': _object(
     {
       'title': actionTitleSchema,

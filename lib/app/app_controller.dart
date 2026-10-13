@@ -23,6 +23,7 @@ import '../core/providers/hosted_search_probe.dart';
 import '../core/providers/providers.dart';
 import '../core/screen/device_control_settings.dart';
 import '../core/screen/screen_capability.dart';
+import '../core/screen/screen_history.dart';
 import '../core/search/search_service.dart';
 import '../core/tools/browser_tools.dart';
 import '../core/tools/device_tools.dart';
@@ -724,6 +725,8 @@ class AppController extends ChangeNotifier {
             ScreenObservationMode.elements,
           ),
       'screen_vision': tools.contains('read_screen') && _screenVision(provider),
+      'screen_fast':
+          tools.contains('read_screen') && services.screen.supportsFastActions,
       'shortcuts': tools.contains('run_shortcut'),
       'shell': tools.contains('run_shell'),
       'shell_env': services.shell.environment,
@@ -751,6 +754,7 @@ class AppController extends ChangeNotifier {
           if (tools.contains(tool.name)) tool.name,
       ],
       'screenVision': tools.contains('read_screen') && _screenVision(provider),
+      'screenFast': services.screen.supportsFastActions,
       // Turning memory off mid-chat removes the profile from the prompt.
       'memory': _usesMemory(incognito: incognito),
       // An app update that changes the template re-renders a chat once.
@@ -1686,9 +1690,13 @@ class AppController extends ChangeNotifier {
             : message.copyWith(content: content),
       );
     }
+    final screenHistory = services.screen.supportsFastActions
+        ? limitRemoteScreenImages(path)
+        : (messages: path, changed: false);
+    historyChanged |= screenHistory.changed;
     final budget = ContextBudget.trim(
       systemPrompt: current.systemPrompt,
-      messages: path,
+      messages: screenHistory.messages,
       contextWindow: provider.capabilities.contextWindow ?? 32768,
       reserveOutputTokens:
           provider.maxOutputTokens +

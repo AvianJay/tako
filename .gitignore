@@ -1,6 +1,7 @@
 # Miscellaneous
 .env
 .env.*
+cpa.env
 *.keystore
 *.jks
 *.class

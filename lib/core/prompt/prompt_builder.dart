@@ -34,6 +34,7 @@ final class PromptBuilder {
       'screen_control': false,
       'screen_elements': false,
       'screen_vision': false,
+      'screen_fast': false,
       'shortcuts': false,
       'shell': false,
       ...variables,

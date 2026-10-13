@@ -56,6 +56,11 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
     - Screen tools and `open_app` require a short `title`, also shown in the chat's tool history. The indicator is excluded from screenshots and cannot receive model gestures.
   - **`run_shell`** through Termux.
   - **`notifications_list`** to read current notifications.
+- **iOS screen control** through [iCTRL](https://github.com/OpenMinis/iCTRL):
+  - Start the iCTRL runner on the phone. Tako detects `127.0.0.1:8200`, requests pairing once, and stores the approved key in secure storage.
+  - **Settings → Device control** also accepts LAN and Tailscale endpoints. Enable iCTRL Remote Access for another device.
+  - Compact accessibility reads, live element references, OCR recovery, optional screenshots, and actions without settling keep agent calls short. Stable sequences can skip intermediate observations.
+  - A Live Activity shows progress on the Lock Screen and Dynamic Island, with a link to stop. iOS grants finite background time; expiration stops the agent. Reopen Tako to continue.
 
 ## Safety
 
@@ -72,12 +77,13 @@ The app enforces safety; the model only proposes actions.
   For screen control, the label is read from the live screen, not taken from the model. A tap on a "Send"-like button, a confirmation in a delete dialog, or a Settings switch is therefore always high risk.
 - **Passwords and one-time codes** are never typed.
 - **Tako's own screens** are never read or acted on.
-- **While Tako is in the background,** approvals are drawn over the app being controlled. A notification offers **Stop** throughout.
+- **While Tako is in the background,** Android draws approvals over the controlled app and offers **Stop** in a notification. iOS keeps approvals pending until you return to Tako; its Live Activity links back to the app and to Stop.
 - **Untrusted content.** Web pages, screen contents, notifications, command output and Shortcut output are passed to the model as untrusted data.
 - **Network.** Tako connects only to:
   - your model and search providers;
   - pages that `fetch_page` and the in-app browser load;
   - model downloads you start yourself: Hugging Face for recommended models, or the URL you enter. Plain HTTP is accepted only inside the local network.
+  - your configured iCTRL runner, using authenticated encrypted RPC envelopes.
 
 ## Requirements
 
@@ -142,9 +148,8 @@ and `KEYSTORE_PASSWORD`, before running the build commands.
 
    On-device models are slower than servers. Reading the system prompt and tool definitions takes the longest; later turns reuse it. Hybrid models such as Qwen3.5 cannot reuse it, so every tool round reads it again. The recommended models are plain transformers.
 2. Optional: set up device control under **Settings → Device control**:
-   - turn on screen control (Tako explains it first, then opens Android's accessibility settings);
-   - allow notifications and grant notification access;
-   - copy the Termux setup command.
+   - **Android:** enable accessibility, notification access, and the Termux integration as needed;
+   - **iOS:** start iCTRL, open this screen, and approve Tako's pairing request. The default address is `http://127.0.0.1:8200`.
 3. Optional: under **Settings → Tools and permissions**, adjust tool limits, per-tool permissions and high-risk keywords.
 
 ## Development
@@ -159,6 +164,8 @@ flutter run -d <android-device-id>
 The app name is in `lib/app/app_info.dart`. The Android launcher label and application ID (`tw.avianjay.tako`) are in `android/gradle.properties`.
 
 ### On-device tests
+
+The opt-in `test/screen/ictrl_live_test.dart` exercises the real Dart iCTRL transport, tool executor, permission gate, audit database and streaming provider. It defaults to `deepseek-v4.1-flash`; `TAKO_ICTRL_MODEL` and `TAKO_ICTRL_EFFORT` select another model and reasoning effort. It requires a paired test device and local API credentials; CI skips it. See [the iCTRL validation notes](docs/ictrl-validation.md) for setup and measured results.
 
 `integration_test/device_control_test.dart` drives the real app with a scripted model, with no provider and no network. `flutter test` on a device uninstalls the app first, which turns screen control off again. So build the test entry point, install it over the app, enable the services, and launch it:
 
@@ -189,10 +196,11 @@ The iOS app shares everything above except what iOS does not allow:
 | Feature | On iOS |
 | --- | --- |
 | Chat, providers, on-device models, memory, files, browser | Same as Android. On-device models use Metal. |
-| Device tools | Status, location, clipboard, calendar and opening links. No alarms, timers or opening apps by name. |
+| Device tools | Status, location, clipboard, calendar and opening links. Paired iCTRL also opens apps by name or bundle ID. No alarms or timers. |
 | `run_shell` | A built-in mini shell over the workspace: `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `find`, `echo`, `pwd`, `date`, `mkdir`, `touch`, `cp`, `mv`, `rm`, with pipes. |
 | Shortcuts | `list_shortcuts` and `run_shortcut` run the Shortcuts you name under **Settings → Shortcuts**, through the Shortcuts app's x-callback-url. Every run asks first. |
-| Screen control, notifications | Not available. |
+| Screen control | iCTRL runner on the phone, automatically detected at `127.0.0.1:8200`, with one pairing approval. LAN/Tailscale endpoints can be configured in Device control settings. |
+| Notifications | Notification access is unavailable. Live Activity progress appears on the Lock Screen and Dynamic Island, with a Stop link; background execution is limited by iOS. |
 
 CI builds it with `flutter build ios --release --no-codesign` and packages `Tako.app` under `Payload/` as `tako-ios-unsigned.ipa`. The IPA is available as a workflow artifact and in the nightly release. It must be signed before installation on an iOS device. It has not been run on a device or simulator yet.
 

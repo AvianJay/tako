@@ -7,9 +7,11 @@ final class TakoNative: NSObject, IosApi, FlutterSceneLifeCycleDelegate {
   private static var shared: TakoNative?
   private let deviceApi = IosDeviceApi()
   private let events: IosEvents
+  private let remoteSession: RemoteSessionController
 
   private init(messenger: FlutterBinaryMessenger) {
     events = IosEvents(binaryMessenger: messenger)
+    remoteSession = RemoteSessionController(messenger: messenger)
     super.init()
   }
 
@@ -45,6 +47,7 @@ final class TakoNative: NSObject, IosApi, FlutterSceneLifeCycleDelegate {
     var handled = false
     for context in URLContexts {
       let url = context.url
+      if remoteSession.handle(url) { handled = true; continue }
       guard url.scheme == "tako", url.host == "shortcut" else { continue }
       let parts = url.pathComponents.filter { $0 != "/" }
       guard parts.count == 2 else { continue }

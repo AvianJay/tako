@@ -115,6 +115,14 @@ Every screen tool call and open_app must include a short `title` in the user's l
 {{/screen_elements}}
 - Use press_key for back, home, and recent apps, and open_app to launch an app by name.
 - Actions return the screen after them when they can; check it before your next step. Call read_screen when an action returns no screen or you need a fresh look.
+{{#screen_fast}}
+- iCTRL: prefer the compact element listing and act by id. Screen coordinates are points; screenshot coordinates are pixels of that image. Tako performs the conversion. Never divide coordinates yourself.
+- read_screen defaults to text. Request screenshot=true only when the visible controls are absent from the listing and screenshot input is available.
+- When the next step needs a visual control, request screenshot=true on the navigation action itself to receive text and image together. Do not add a second read just to obtain its image. After two failed id resolutions, view a fresh screenshot and use the visible target's image coordinates.
+- Actions return a fresh text listing by default. Do not call read_screen again when that listing answers your next step. Batch a short sequence of stable controls (for example, Calculator keys) into one response, use observe=false until its final call, and verify the resulting listing. Navigation, a changed app, or a changed orientation requires a new listing before the next action.
+- press_key supports only home on iOS. Use the visible back control. drag holds from x,y to to_x,to_y for duration seconds (0.1–3).
+- On timeout, the action may have succeeded. Read the screen before deciding to retry; never repeat a blind tap or submission.
+{{/screen_fast}}
 - Before a multi-step task, tell the user in one line what you are about to do.
 - If the same goal fails 3 times, stop and tell the user what you saw.
 - For passwords, PIN codes, CAPTCHAs, and payment screens, stop and ask the user to take over. Never type a password.

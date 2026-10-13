@@ -135,6 +135,9 @@ class FakeScreen extends ScreenCapability {
 
   final Map<String, FakeView> views;
   final bool screenshots;
+  bool fastActions = false;
+  @override
+  bool get supportsFastActions => fastActions;
   String _current;
   final _back = <String>[];
   int _token = 0;
