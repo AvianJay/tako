@@ -82,7 +82,11 @@ class PlatformServices implements AppServices {
           progressChanged: _remoteSession.progress,
         )
       : UnavailableScreen();
-  late final _remoteSession = IosRemoteSession(onStop: () => screen.takeOver());
+  late final _remoteSession = IosRemoteSession(
+    onStop: () => screen.takeOver(),
+    onDiagnostics: (values) =>
+        (screen as IctrlScreen).updateSessionDiagnostics(values),
+  );
   @override
   late final ShellCapability shell = Platform.isAndroid
       ? AndroidShell()

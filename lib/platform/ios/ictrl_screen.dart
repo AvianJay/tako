@@ -28,6 +28,14 @@ class IctrlScreen extends RemoteScreen {
   @override
   String? errorCode;
   @override
+  Map<String, Object?> sessionDiagnostics = const {};
+  void updateSessionDiagnostics(Map<String, Object?> values) {
+    if (_disposed) return;
+    sessionDiagnostics = Map.unmodifiable(values);
+    notifyListeners();
+  }
+
+  @override
   bool get supported => true;
   @override
   bool get enabled => status == RemoteScreenStatus.ready;

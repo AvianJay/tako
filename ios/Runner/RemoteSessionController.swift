@@ -6,9 +6,6 @@ import UIKit
 /// A Live Activity reports progress. UIApplication supplies finite background
 /// execution; expiration stops the agent instead of silently losing its actions.
 final class RemoteSessionController: NSObject {
-  private static let continuedIdentifier = "tw.avianjay.tako.remote.*"
-  private static weak var current: RemoteSessionController?
-  private static var registered = false
   // Store the base class so the controller remains usable before iOS 26.
   private var continuedTask: BGTask?
   private var continuedRequestIdentifier: String?
@@ -19,37 +16,46 @@ final class RemoteSessionController: NSObject {
   private var expired = false
   private var actions = 0
   private var lastUpdate = Date.distantPast
+  private var processingState = "idle"
+  private var registered = false
+  private var submitted = false
+  private var handlerStarted = false
+  private var submissionError: NSError?
 
-  /// Register once before applicationDidFinishLaunching returns. Tasks are
-  /// submitted later only for an active, user-started foreground chat turn.
-  static func registerContinuedProcessing() {
-    guard #available(iOS 26.0, *), !registered else { return }
-    registered = BGTaskScheduler.shared.register(
-      forTaskWithIdentifier: continuedIdentifier, using: .main
-    ) { task in
-      guard let controller = current, controller.active,
+  /// Continued tasks may register at user initiation. Register the same concrete
+  /// identifier we submit, not the Info.plist permission wildcard. Each ID is
+  /// registered once; the scheduler's retained handler captures only weak self.
+  @available(iOS 26.0, *)
+  private func registerContinuedProcessing(_ identifier: String) -> Bool {
+    BGTaskScheduler.shared.register(
+      forTaskWithIdentifier: identifier, using: .main
+    ) { [weak self] task in
+      guard let controller = self, controller.active,
             task.identifier == controller.continuedRequestIdentifier,
             let continued = task as? BGContinuedProcessingTask else {
         task.setTaskCompleted(success: false)
         return
       }
       controller.continuedTask = continued
+      controller.handlerStarted = true
+      controller.processingState = "running"
       continued.progress.totalUnitCount = 200
       continued.progress.completedUnitCount = Int64(min(controller.actions, 199))
       continued.expirationHandler = { [weak controller] in
         DispatchQueue.main.async { controller?.expire() }
       }
       controller.endBackgroundTask()
+      controller.publishDiagnostics()
     }
   }
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "tw.avianjay.tako/remote_session", binaryMessenger: messenger)
     super.init()
-    Self.current = self
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else { result(nil); return }
       switch call.method {
+      case "diagnostics": result(self.diagnostics()); return
       case "start": self.start()
       case "end": self.finish()
       case "progress":
@@ -84,10 +90,29 @@ final class RemoteSessionController: NSObject {
   private func localized(_ en: String, _ zh: String) -> String {
     Locale.preferredLanguages.first?.hasPrefix("zh") == true ? zh : en
   }
+  private func diagnostics() -> [String: Any] {
+    var values: [String: Any] = [
+      "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?",
+      "processing_state": processingState,
+      "registered": registered,
+      "submitted": submitted,
+      "handler_started": handlerStarted
+    ]
+    if let error = submissionError {
+      values["error_domain"] = error.domain
+      values["error_code"] = error.code
+    }
+    return values
+  }
+  private func publishDiagnostics() {
+    channel.invokeMethod("diagnosticsChanged", arguments: diagnostics())
+  }
   private func start() {
     guard !active else { return }
     active = true; expired = false; actions = 0
-    if #available(iOS 26.0, *), Self.registered,
+    registered = false; submitted = false; handlerStarted = false
+    submissionError = nil; processingState = "bounded"
+    if #available(iOS 26.0, *),
        UIApplication.shared.applicationState == .active {
       let identifier = "tw.avianjay.tako.remote." + UUID().uuidString
       let request = BGContinuedProcessingTaskRequest(
@@ -97,12 +122,23 @@ final class RemoteSessionController: NSObject {
       // Never queue a phone task to restart after its initiating turn ends.
       request.strategy = .fail
       continuedRequestIdentifier = identifier
-      do { try BGTaskScheduler.shared.submit(request) }
-      catch {
+      registered = registerContinuedProcessing(identifier)
+      if registered {
+        do {
+          try BGTaskScheduler.shared.submit(request)
+          submitted = true
+          if !handlerStarted { processingState = "submitted" }
+        } catch {
+          submissionError = error as NSError
+          processingState = "submission_failed"
+          continuedRequestIdentifier = nil
+        }
+      } else {
+        processingState = "registration_failed"
         continuedRequestIdentifier = nil
-        /* Retain the bounded UIApplication fallback below. */
       }
     }
+    publishDiagnostics()
     if ActivityAuthorizationInfo().areActivitiesEnabled {
       let state = RemoteActivityAttributes.ContentState(message: localized("Controlling the screen", "正在操作螢幕"), actions: 0, running: true)
       do {
@@ -122,6 +158,7 @@ final class RemoteSessionController: NSObject {
   private func expire() {
     guard active else { return }
     expired = true
+    processingState = "expired"
     active = false
     channel.invokeMethod("backgroundExpired", arguments: nil)
     finish()
@@ -140,6 +177,7 @@ final class RemoteSessionController: NSObject {
   }
   private func finish() {
     active = false
+    if !expired { processingState = "ended" }
     if let continued = continuedTask {
       continuedTask = nil
       if #available(iOS 26.0, *),
@@ -153,6 +191,7 @@ final class RemoteSessionController: NSObject {
       BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
     }
     endBackgroundTask()
+    publishDiagnostics()
     guard let current = activity else { return }
     activity = nil
     let message = expired ? localized("Paused — open Tako to continue", "已暫停，請開啟 Tako 繼續") : localized("Remote task ended", "遠端任務已結束")

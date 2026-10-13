@@ -15,6 +15,7 @@ abstract class RemoteScreen extends ScreenCapability {
   String get endpoint;
   RemoteScreenStatus get status;
   String? get errorCode;
+  Map<String, Object?> get sessionDiagnostics => const {};
   bool get canOverlayApproval => false;
   Future<void> connect({String? endpoint});
   Future<void> disconnect();

@@ -123,6 +123,21 @@ class _IctrlSettingsState extends State<IctrlSettings> {
           ],
         ),
         const Divider(height: 32),
+        if (screen.sessionDiagnostics.isNotEmpty) ...[
+          Text(
+            '${tr('Background execution', '背景執行')} · '
+            '${screen.sessionDiagnostics['processing_state']} · '
+            'build ${screen.sessionDiagnostics['build']}',
+            key: const ValueKey('ictrl-background-state'),
+          ),
+          Text(
+            'registered=${screen.sessionDiagnostics['registered']}, '
+            'submitted=${screen.sessionDiagnostics['submitted']}, '
+            'handler=${screen.sessionDiagnostics['handler_started']}'
+            '${screen.sessionDiagnostics['error_code'] == null ? '' : ', ${screen.sessionDiagnostics['error_domain']}:${screen.sessionDiagnostics['error_code']}'}',
+          ),
+          const SizedBox(height: 12),
+        ],
         Text(
           tr(
             'For another device, enable Remote Access in iCTRL and enter its LAN or Tailscale address. Pairing is encrypted and the key stays in secure storage.',

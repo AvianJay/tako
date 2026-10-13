@@ -131,7 +131,7 @@ measured end-to-end latency result or proof that the Discord send completed.
 
 On iOS 26 and later, a foreground user-started remote session submits a
 `BGContinuedProcessingTaskRequest` with immediate-or-fail strategy. Its handler
-is registered once during application launch.
+is registered for the concrete identifier immediately before submission.
 Each submitted identifier uses a unique suffix under the permitted
 `tw.avianjay.tako.remote.*` wildcard; stale task callbacks cannot attach to a
 new remote session. The system progress reflects
@@ -153,3 +153,15 @@ not prove the installed-app background fix; that requires the later IPA trial.
 The unsigned IPA must contain `PlugIns/TakoRemoteActivity.appex`, with the same build/version as the app. GitHub Actions verifies that extension and `NSSupportsLiveActivities` after compiling. The signer must preserve and sign the extension for Lock Screen / Dynamic Island display. CI compilation does not establish on-device background behavior.
 
 Protocol reference: [OpenMinis/iCTRL](https://github.com/OpenMinis/iCTRL), Apache-2.0. See [third-party notices](../THIRD_PARTY_NOTICES.md).
+
+
+Build 16's installed Calculator trial still cancelled after 32.158 seconds,
+23 steps and 5 model rounds. It did not verify the requested final result 408.
+Build 17 registers the same concrete identifier for the handler and request,
+following Apple's example, with weak capture and stale callback rejection.
+The permitted Info.plist value remains a wildcard. Device control settings
+retain build, registration, submission, handler-start and scheduler error
+domain/code diagnostics after a session ends. These contain no credentials,
+task text or screen content. Submission failure remains bounded; no phone
+actions are queued for delayed replay. Local validation passed 602 tests
+with two opt-in tests skipped, 10 browser checks and clean analysis/formatting.
