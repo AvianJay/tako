@@ -411,6 +411,8 @@ Live Sonnet 5.5 Medium trials on this phone:
 | Baseline Calculator 123+456 | 10.056 s | 1 | 3.320 s | Native 579 verified |
 | Reduced polling Calculator 7+8 | 10.182 s | 1 | 4.981 s | Native 15 verified |
 | Reduced polling Calculator 123+456 | 43.292 s | 1 | 35.003 s | Native 579 verified; slow provider response |
+| Final build-20 Calculator 7+8 | 15.770 s | 1 | 10.061 s | Native 15 verified |
+| Final build-20 Calculator 123+456 | 17.032 s | 1 | 9.725 s | Native 579 verified |
 | Initial nested Settings recovery | 239.854 s | 12 | 127.771 s | Failed with repeated UI/provider timeouts; motivated bounded busy stop |
 | Settings About after native settling | 58.128 s | 7 | 45.422 s | iOS 27.0/model reported; independent inspection matched |
 | Supplied Settings root/General/About workflow | 8.681 s | 0 | 0 s | Exact iPhone 16 Pro Max/app verified |
@@ -427,7 +429,11 @@ points tasks; it does not prove every possible free reward is unavailable.
 One provider round took 35 seconds despite a small action plan. No universal
 best-speed, measured Android parity, or installed rhythm-game result is
 claimed. In an earlier Calculator RPC sample, average find/tap/page-source
-costs were 187/430/265 ms respectively, separate from model latency.
+costs were 187/430/265 ms respectively, separate from model latency. The final
+two Calculator trials made seven page-source calls combined, versus fourteen
+in the earlier Android-style sample; both final trials completed in one worker
+round. These runtime results measure the production Dart worker on the phone
+through Tailscale, before IPA installation.
 
 On iOS 26+, successful continued-processing submission already supplies a
 system Live Activity, so build 20 does not create a duplicate custom one. The
@@ -443,3 +449,76 @@ Local build-20 verification: **685 passed, three opt-in tests skipped**,
 clean Flutter analysis, unchanged Dart formatting and browser runtime 10/10.
 The latest requested installed configuration is main GPT 6.1 Sol and worker
 Sonnet 5.5 / Medium / Messages. CI and installed validation follow separately.
+
+## Build 20 release and installed validation
+
+Implementation commit `23693c7e29f86bffccc7cf5fb64a7b57af7e34ac` passed
+all check, iOS and release jobs in
+[Actions run 38423659526](https://github.com/AvianJay/tako/actions/runs/38423659526).
+The [nightly release](https://github.com/AvianJay/tako/releases/tag/nightly)
+published version `0.5.0+20` at that commit. The exact 21,040,672-byte IPA
+passed ZIP integrity checks. App and Live Activity extension both report
+build 20; bundle ID is `tw.avianjay.tako`, with Live Activities enabled. Its
+SHA-256 matches the GitHub release asset digest:
+`80be0c2c188188ab5293c7a823b8ae2574c5d47027ddf5d40157bb51a798130c`.
+
+External Claude downloaded the exact `Tako-23693c7.ipa` through Safari and
+imported it into LCSign. The first Haiku QA controller wandered in the picker
+and incorrectly inferred cancellation meant import had failed. A separate
+Sonnet Medium QA inspection checked the existing newest project first, found
+the new source, and completed signing without importing again. The signing
+log identifies build 20 and source `Tako-23693c7`; the install manifest
+identifies `bundleID=tw.avianjay.tako, version=20`. It used the unchanged
+saved signer, selected immediate install and accepted iOS installation once.
+Tako reopened with existing chats. A later native diagnostics read confirmed
+the installed executable is build 20, not merely the signed package. No
+additional messages, cart changes, coin claims or wheel spins occurred.
+
+Claude submitted phone requests through the installed GPT 6.1 Sol main agent.
+All target-app actions came from the installed Sonnet 5.5 Medium Messages
+worker; QA only submitted requests and inspected results afterward. It
+preserved local pairing at `http://127.0.0.1:8200`, model selections, credentials
+and chats. Installed outcomes:
+
+| Request | Main before worker | Worker elapsed/model time | Worker rounds/steps | Saved outcome |
+| --- | ---: | ---: | ---: | --- |
+| Settings iOS version/model | 10.470 s, 1 main round | 9.978 / 8.092 s | 1 / 2 | Reported iOS 27.0, iPhone 16 Pro Max; semantic review |
+| Calculator clear then 7+8=15 | 11.957 s, 1 main round | 15.016 / 9.547 s | 2 / 7 | Native exact 15/app verified |
+
+Settings was already on About after an earlier trial. Two worker steps
+(launch and proof read) did not establish the requested path through Settings
+home/General. Its final values matched native labels, but the receipt correctly
+kept `status=reported_complete`, `verified=false`, and
+`semantic_review_needed=true`. This is a read/report test, not a navigation
+benchmark from the root. The final answer was labeled
+`操作模型回報（尚未獨立驗證）`.
+
+Calculator independently reported `status=verified`, `verified=true`,
+`matched_text=["15"]`, `semantic_review_needed=false`,
+`worker_model=claude-sonnet-5-5`, `worker_effort=medium`,
+`workflow_used=true`, `recovery_attempts=0`. Its tool arguments contained
+`reply_direct=true` and `reply_language=繁體中文`. The final assistant text was
+`已由畫面核對。15`, with no additional main-model synthesis. The first QA
+report confused the row timestamp with a duration and did not inspect all
+JSON fields; retained screenshots and a separate OCR inspection established
+the actual values above. The second controller initially failed to read the
+top JSON fields, which are plainly present in its saved first screenshot;
+direct visual review confirmed those fields rather than assuming they were
+absent. These QA inspection delays are separate from the measured app task.
+
+The installed Calculator path took at least **26.973 seconds** before the
+small local save/display work: 11.957 seconds main plus 15.016 worker. Of that,
+21.504 seconds was model response time. Direct reporting removes a third
+summary request; it does not eliminate the initial main planner or guarantee
+low provider latency. This is still slow for simple arithmetic and does not
+demonstrate Android hardware parity. General workflows can bypass worker
+model calls when their exact route and final proof are supplied.
+
+Native Device control diagnostics show `build 20`, `processing_state=ended`,
+`registered=true`, `submitted=true`, `handler=true`, and
+`custom_status=false`, with no error displayed. This confirms background
+execution ran and no duplicate custom activity was present; it does not
+prove Apple automatically hides its active system status. Readiness remains
+`Sonnet 5.5 · messages · medium`, delegation enabled, with GPT 6.1 Sol in
+the main chat. The phone was left in the main chat with keyboard dismissed
+and no unsent draft.
