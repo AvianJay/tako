@@ -201,6 +201,53 @@ void main() {
     expect(client.calls.last.$2.containsKey('element_type'), false);
     screen.dispose();
   });
+  test('literal multiline labels retain control types, frames and parents', () {
+    final tree = parseIctrlTree(
+      {
+        'bundle_id': 'com.example.settings',
+        'source':
+            "Application, label: 'Example', {{0, 0}, {440, 956}}\n"
+            "  ScrollView, label: 'Settings\nChoices', {{0, 100}, {440, 700}}\n"
+            "    Switch, label: 'Full permissions\nRead and act', value: '1', {{20, 200}, {400, 80}}\n"
+            "    Button, label: 'Show report\nTwo steps completed', id: 'report', {{20, 300}, {400, 80}}\n"
+            "    StaticText, label: 'Quoted 'text'\nMore text', {{20, 400}, {400, 80}}",
+      },
+      token: 1,
+      width: 440,
+      height: 956,
+    );
+    expect(tree.nodes, hasLength(5));
+    expect(tree.nodes[2].parent, 1);
+    expect(tree.nodes[2].description, 'Full permissions\nRead and act');
+    expect(tree.nodes[2].flags & ScreenFlags.checked, isNonZero);
+    expect(tree.nodes[2].actionable, true);
+    expect(tree.nodes[3].viewId, 'report');
+    expect(tree.nodes[3].bounds.top, 300);
+    expect(tree.nodes[4].text, "Quoted 'text'\nMore text");
+    expect(ScreenReading.from(tree).toToolText(), contains('Two steps'));
+  });
+  test('multiline secure values remain private and do not become nodes', () {
+    final tree = parseIctrlTree(
+      {
+        'bundle_id': 'com.example.login',
+        'source':
+            'Application, {{0, 0}, {440, 956}}\n'
+            '  SecureTextField, label: \'API key\nPrivate\', value: \'SECRET\nSECOND LINE\', {{20, 200}, {400, 80}}\n'
+            "  TextView, label: 'Compose', value: 'First line\nSecond line', {{20, 300}, {400, 80}}",
+      },
+      token: 1,
+      width: 440,
+      height: 956,
+    );
+    expect(tree.nodes, hasLength(3));
+    expect(tree.nodes[1].password, true);
+    expect(tree.nodes[1].text, isNull);
+    expect(tree.nodes[2].editable, true);
+    expect(tree.nodes[2].text, 'First line\nSecond line');
+    final text = ScreenReading.from(tree).toToolText();
+    expect(text, isNot(contains('SECRET')));
+    expect(text, isNot(contains('SECOND LINE')));
+  });
   test('clipped cells cannot redirect a tap into status bar', () async {
     final client = _DeviceClient()
       ..source = {

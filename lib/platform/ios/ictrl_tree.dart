@@ -19,8 +19,8 @@ ScreenTree parseIctrlTree(
   final source = result['source'] as String? ?? '';
   var label = '';
   var dialog = false;
-  for (final line in source.split('\n')) {
-    final frame = frames.firstMatch(line);
+  for (final line in _sourceRecords(source)) {
+    final frame = frames.allMatches(line).lastOrNull;
     if (frame == null || nodes.length >= 400) continue;
     final indent = line.length - line.trimLeft().length;
     final type = line.trimLeft().split(',').first;
@@ -229,6 +229,29 @@ ScreenTree parseIctrlTree(
     ],
     truncated: result['truncated'] == true || nodes.length >= 400,
   );
+}
+
+/// Native accessibility labels and values can contain literal newlines.
+/// Their trailing frame closes a record; splitting on every newline loses the
+/// control type, indentation and text (including password-field protection).
+Iterable<String> _sourceRecords(String source) sync* {
+  final end = RegExp(
+    r'\{\{[-\d.]+,\s*[-\d.]+\},\s*\{[-\d.]+,\s*[-\d.]+\}\}\s*$',
+  );
+  final start = RegExp(r'^[ \t]*[A-Za-z][A-Za-z0-9]*,');
+  StringBuffer? pending;
+  for (final line in source.split('\n')) {
+    if (pending == null) {
+      if (!start.hasMatch(line)) continue;
+      pending = StringBuffer(line);
+    } else {
+      pending.write('\n$line');
+    }
+    if (end.hasMatch(line)) {
+      yield pending.toString();
+      pending = null;
+    }
+  }
 }
 
 // OCR changes spacing and full-width punctuation between identical frames.

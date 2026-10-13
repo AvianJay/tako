@@ -105,7 +105,17 @@ For a user-authorized IPA installation, also set `TAKO_ICTRL_INSTALL=1`, `TAKO_I
 
 For an explicitly authorized free daily-coin task on an account you control, set `TAKO_ICTRL_SHOPEE=1`. This is a live account action, not a repeatable unit test. Private timing, tool results and proof images go under `.build/ictrl-smoke/` and are excluded from Git.
 
-## iOS lifecycle and packaging
+## Installed-app setup and multiline accessibility
+
+The IPA from successful Actions run [38357906188](https://github.com/AvianJay/tako/actions/runs/38357906188), commit `4a3c951`, was installed through LCSign and launched as `tw.avianjay.tako`. Claude configured the private provider using the existing local environment credentials, verified its model-list connection, and confirmed local pairing at `http://127.0.0.1:8200`. Screenshots were enabled; the worker settings showed Haiku Messages with `xhigh`. Credentials and device/account evidence remain ignored.
+
+At the user's explicit request, both full permissions and skipping high-risk confirmations were enabled and verified after reopening settings. A Calculator task submitted through the installed app delegated the actual phone actions and reached the native displayed result `15` for `7 + 8`. A later main response confirmed it. The independent test controller only entered prompts into Tako and observed the other apps.
+
+Longer shopping tasks reached Shopee search results but did not verify a cart addition. Returning to Tako while a worker or its final check is active changes the observed app and invalidates verification. Do not equate a quiet screen with task completion, or report a result-page minimum as an inspected variant price.
+
+Live settings and chat screens exposed literal newlines inside accessibility labels. Parsing each physical line discarded control types and the text before the newline. The parser now joins complete records through their final frame, retaining indentation, flags, values and labels. Regression tests cover multiline switches, buttons, displayed text, editable values and secure-value redaction. Normal validation passed 595 tests with two opt-in live tests skipped.
+
+## Background execution and packaging
 
 ActivityKit displays progress; `UIApplication.beginBackgroundTask` supplies limited execution time. On expiration the native channel stops the agent, ends the background task, and marks the activity paused. Live Activities cannot provide indefinite background execution. iOS approvals require returning to Tako.
 
