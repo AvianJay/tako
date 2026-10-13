@@ -491,7 +491,9 @@ class AppController extends ChangeNotifier {
       return (config: provider, adapter: await adapterFor(provider));
     },
     screenshots: () =>
-        controlSettings.screenshots && services.screen.screenshotsSupported,
+        controlSettings.screenshots &&
+        services.screen.screenshotsSupported &&
+        remoteAgentProvider?.capabilities.acceptsImageInput == true,
     disabledTools: () => toolSettings.disabled,
     stepLimit: () => toolSettings.maxScreenSteps,
   );

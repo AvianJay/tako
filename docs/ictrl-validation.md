@@ -578,7 +578,7 @@ stale/ambiguous navigation selectors now return a fresh screen/image before
 the next worker decision, within the same three-recovery bound; failed
 gestures are never replayed. Tests cover disabled image access, dense screens,
 own-app exclusion, action observations and failed-selector recovery.
-The final local suite passes 697 tests with three opt-in device tests skipped;
+The local suite at that revision passed 697 tests with three opt-in device tests skipped;
 Flutter analysis is clean, all 224 Dart files are formatted unchanged, browser
 runtime checks pass 10/10, and Actions YAML parses with the expected triggers
 and release dependencies. Native Swift still requires the unavailable iOS
@@ -616,6 +616,7 @@ credentials were retained.
 | 台中高工考成表 link | Main found the official page titled `考程表`, containing 109/110-year dates; current exam schedule was not verified. | Approximately one minute by chat timestamps; no remote-worker timing receipt, because it used page/browser tools. |
 | Cheap USB-C cable, inspect then add one | Independent cart screenshot confirms `6A閃充 USB-Typec`, 100 cm, quantity 1, NT$48. Cart count rose from six to seven; older items remain. Worker explicitly reports USB-A to USB-C, not dual USB-C, and distinguishes advertised charging claims from verified specs. No checkout. | 14.557 s main + 89.462 s worker = at least 104.019 s; 12 worker rounds / 13 steps, 59.289 s worker model time. |
 | Free daily 蝦幣 | Independent screenshot confirms congratulations for 0.15 蝦幣 and balance increase from 0.16 to 0.31. No further rewards are claimed as verified; wheel/draw and message tasks were skipped. Native receipt remains `reported_complete`, `verified=false`, `semantic_review_needed=true`. | 16.362 s main + 179.357 s worker = at least 195.719 s; 18 worker rounds / 19 steps, 126.222 s worker model time. |
+| Several cheap 64GB microSD cards | Reached matching listings, then checked one card's 64G variant at NT$402. The listing's NT$145 was a different capacity's starting price. GIGASTONE NT$249 and ADATA NT$381 remained unchecked listing prices. Comparison is incomplete; receipt shows `status=incomplete`, `verified=false`, `reason=worker_reported_incomplete`. Cart stayed at seven; no addition or order. | 116.218 s worker, 84.684 s worker model time; 11 worker rounds / 12 steps, one unfinished-task recovery. Main duration was not read; the 01:55:14 header is a timestamp, not a duration. |
 
 Discord QA left the phone untouched after submission. Its observation limit
 elapsed without a visible completion signal because the finished worker left
@@ -645,3 +646,51 @@ evidence of a wrong task because the user's wording may be a typo. Its
 age and unverified latest announcement prevent a current-schedule success
 claim. No known URL or procedural guidance was inserted into the installed
 test prompt.
+
+### One visual read after native settling
+
+Sparse iOS model observations now settle through native accessibility reads
+before acquiring their visual representation. When the selected worker accepts
+images and screenshots are enabled, a sparse observation receives one image
+without also calling `screen_text`. With screenshots disabled or a text-only
+worker, OCR runs once on the final observation, rather than on each loading
+poll. Dense screens still use native text. Tako's own chat is excluded from
+both fallback captures. The screenshot gate follows the independently chosen
+worker's image capability, so changing to a text-only model cannot discard
+the only representation of a sparse screen.
+
+Tap permission resolution still obtains fresh OCR where accessibility is
+sparse. This change removes duplicate observation work without weakening
+action classification or silently authorizing unnamed targets. Screen-state
+comparison excludes OCR enrichment so missing OCR during a polling read cannot
+make an unchanged page appear changed. Existing bounded polling, per-action
+audit, explicit denies and no-replay behavior remain in effect.
+
+The shared Android-style execution path uses local search/back/keypad workflows,
+fresh action observations and exact native final proof. Raw screen history
+stays within the worker; a standalone direct result avoids another main-model
+summary. Neither provider latency nor iOS execution lifetime is eliminated.
+The build-20 microSD, cable and coin trials spent roughly 73%, 66% and 70% of
+worker elapsed time in model requests. Reducing worker rounds is therefore
+more consequential than saving one small screen RPC; both are addressed in
+the pending build. This is an architectural comparison, not a measured
+Android hardware benchmark.
+
+Current local validation: **700 tests passed, three opt-in device tests
+skipped**, clean Flutter analysis, all 224 Dart files formatted unchanged,
+browser runtime 10/10 and clean `git diff --check`. New regressions cover one
+OCR call after loading, image observations without duplicate OCR, current
+OCR for coordinate permission checks, unchanged native state despite OCR
+enrichment, and a configured text-only worker with screenshots enabled.
+Native compilation, LCSign installation and installed-build speed validation
+remain pending while GitHub Actions access is disabled.
+
+External QA's first microSD inspection missed the grouped receipt and exhausted
+its round limit. A bounded receipt-only inspection opened it afterward. That
+controller claimed the top fields were unread, but its retained first screenshot
+plainly contains the incomplete status, false verification and reason. Direct
+image review establishes those fields and the bottom timing values. The final
+reply was already saved at 01:57 before QA reopened Tako. QA inspection/wait
+time is separate from production worker elapsed time. The card image shows
+the selected 64G option and NT$402; genuine capacity and all other cards'
+64GB prices remain unverified.

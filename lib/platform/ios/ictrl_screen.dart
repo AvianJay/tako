@@ -204,7 +204,9 @@ class IctrlScreen extends RemoteScreen {
     }
   }
 
-  Future<ScreenTree> _tree(CancelToken cancel) async {
+  Future<({ScreenTree tree, Map<String, Object?> source})> _readTree(
+    CancelToken cancel,
+  ) async {
     final source = await rpc('page_source', {
       'visible_only': true,
       'max_elements': 400,
@@ -233,20 +235,31 @@ class IctrlScreen extends RemoteScreen {
         source['sparse_hint'] != null ||
         source['viewport_warning'] != null ||
         usefulLabels == 0;
-    if (_sourceNeedsImage &&
-        (source['ocr_items'] as List?)?.isNotEmpty != true) {
-      final ocr = await rpc('screen_text', const {}, cancel);
-      source['ocr_items'] = ocr['items'];
-    } else {
-      return parsed;
+    return (tree: parsed, source: source);
+  }
+
+  Future<ScreenTree> _withOcr(
+    ({ScreenTree tree, Map<String, Object?> source}) reading,
+    CancelToken cancel,
+  ) async {
+    if (!_sourceNeedsImage ||
+        reading.tree.ownAppInFront ||
+        (reading.source['ocr_items'] as List?)?.isNotEmpty == true) {
+      return reading.tree;
     }
+    final ocr = await rpc('screen_text', const {}, cancel);
     return parseIctrlTree(
-      source,
-      token: parsed.token,
+      {...reading.source, 'ocr_items': ocr['items']},
+      token: reading.tree.token,
       width: _pointWidth,
       height: _pointHeight,
     );
   }
+
+  // Target permission checks still need current OCR labels when native AX is
+  // sparse. Model observations can use the image instead of running both.
+  Future<ScreenTree> _tree(CancelToken cancel) async =>
+      _withOcr(await _readTree(cancel), cancel);
 
   bool _loading(ScreenTree tree) => tree.nodes.any(
     (n) =>
@@ -262,20 +275,23 @@ class IctrlScreen extends RemoteScreen {
 
   String _screenState(ScreenTree tree) =>
       '${tree.packageName}|${tree.width}x${tree.height}|'
-      '${tree.nodes.map((n) => '${n.className}:${ownLabel(n)}:${n.bounds.left},${n.bounds.top}').join('|')}';
+      '${tree.nodes.where((n) => n.className != 'OCRText').map((n) => '${n.className}:${ownLabel(n)}:${n.bounds.left},${n.bounds.top}').join('|')}';
 
-  Future<ScreenTree> _observedTree(CancelToken cancel) async {
+  Future<({ScreenTree tree, Map<String, Object?> source})> _observedTree(
+    CancelToken cancel,
+  ) async {
     final pending = _observationPending;
     final app = _launchedApp;
     _observationPending = false;
     _launchedApp = null;
-    var tree = await _tree(cancel);
-    if (!pending) return tree;
+    var reading = await _readTree(cancel);
+    if (!pending) return reading;
     final previous = _latest == null ? null : _screenState(_latest!);
     // Android waits for accessibility events to become quiet. iCTRL has no
     // event channel: bounded fresh reads handle unchanged/loading transitions
     // without a model round or any replay of the committed action.
     for (var retry = 0; retry < 3; retry++) {
+      final tree = reading.tree;
       final waiting =
           _sourceLoading ||
           _loading(tree) ||
@@ -285,9 +301,9 @@ class IctrlScreen extends RemoteScreen {
       await cancel.bind(
         Future<void>.delayed(Duration(milliseconds: retry == 0 ? 100 : 180)),
       );
-      tree = await _tree(cancel);
+      reading = await _readTree(cancel);
     }
-    return tree;
+    return reading;
   }
 
   @override
@@ -312,12 +328,18 @@ class IctrlScreen extends RemoteScreen {
     bool automaticScreenshot = false,
     required CancelToken cancel,
   }) async {
-    final tree = await _observedTree(cancel);
+    final reading = await _observedTree(cancel);
+    final withImage =
+        (screenshot || automaticScreenshot && _sourceNeedsImage) &&
+        !reading.tree.ownAppInFront;
+    // Settle with cheap native reads, then obtain one visual representation.
+    // Text-only callers retain OCR, and coordinate permission checks use
+    // _tree above regardless of the observation's image preference.
+    final tree = withImage ? reading.tree : await _withOcr(reading, cancel);
     Uint8List? bytes;
     var iw = 0;
     var ih = 0;
-    if ((screenshot || automaticScreenshot && _sourceNeedsImage) &&
-        !tree.ownAppInFront) {
+    if (withImage) {
       final shot = await rpc('screenshot', {
         // On phones one image pixel per point avoids coordinate conversion
         // mistakes. Tablets keep the smaller payload.

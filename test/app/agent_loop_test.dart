@@ -117,6 +117,25 @@ class _RemoteServices extends _Services {
   ScreenCapability get screen => remote;
 }
 
+class _ImagePreferenceScreen extends FakeScreen {
+  _ImagePreferenceScreen(super.views, {required super.start})
+    : super(screenshots: true);
+  final imageRequests = <bool>[];
+  @override
+  Future<ScreenTree> snapshotForModel({
+    required bool screenshot,
+    required bool automaticScreenshot,
+    required CancelToken cancel,
+  }) {
+    imageRequests.add(screenshot || automaticScreenshot);
+    return super.snapshotForModel(
+      screenshot: screenshot,
+      automaticScreenshot: automaticScreenshot,
+      cancel: cancel,
+    );
+  }
+}
+
 class _Tool extends Tool {
   _Tool({this.risk = RiskLevel.safe, this.onRun, this.imageResult = false});
   final RiskLevel risk;
@@ -446,7 +465,7 @@ void main() {
       'main delegates with direct reply $direct and sees only compact evidence',
       () async {
         final database = AppDatabase(NativeDatabase.memory());
-        final screen = FakeScreen({
+        final screen = _ImagePreferenceScreen({
           'ready': FakeView('com.example.fixture', 'Fixture', [
             FakeWindow(box([button('Start', opens: 'done')])),
           ]),
@@ -524,6 +543,9 @@ void main() {
         await app.savePermissionPolicy(
           const PermissionPolicy(fullPermissions: true),
         );
+        await app.saveControlSettings(
+          const DeviceControlSettings(screenshots: true),
+        );
         await app.send('Start the phone task');
         expect(main.requests, hasLength(direct ? 1 : 2));
         expect(child.requests, hasLength(1));
@@ -531,6 +553,8 @@ void main() {
         expect(childConfig!.apiType, ApiType.messages);
         expect(childConfig!.reasoningEffort, 'xhigh');
         expect(childConfig!.reasoningMode, ReasoningMode.adaptive);
+        expect(screen.imageRequests, isNotEmpty);
+        expect(screen.imageRequests.any((image) => image), false);
         expect(
           main.requests.first.tools.map((t) => t.name),
           contains('remote_control'),

@@ -512,6 +512,7 @@ void main() {
       );
       expect(hidden.image, isNull);
       expect(client.calls.where((c) => c.$1 == 'screenshot'), isEmpty);
+      expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
       final shown = await screen.snapshotForModel(
         screenshot: false,
         automaticScreenshot: true,
@@ -520,6 +521,7 @@ void main() {
       expect(shown.image, [1, 2, 3]);
       expect(shown.imageWidth, 440);
       expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
+      expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
       client.source = {
         'bundle_id': 'com.example.native',
         'source':
@@ -544,10 +546,125 @@ void main() {
       );
       expect(own.image, isNull);
       expect(client.calls.where((c) => c.$1 == 'screenshot'), hasLength(1));
+      expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
       expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(4));
       screen.dispose();
     },
   );
+  test('sparse transitions defer OCR until the final text-only read', () async {
+    for (final image in [false, true]) {
+      final client = _DeviceClient()
+        ..sources = [
+          {
+            'bundle_id': 'com.example.custom',
+            'sparse_hint': 'Custom screen',
+            'loading': true,
+            'source': 'Application, {{0, 0}, {440, 956}}',
+          },
+          {
+            'bundle_id': 'com.example.custom',
+            'sparse_hint': 'Custom screen',
+            'source':
+                "Application, {{0, 0}, {440, 956}}\n  StaticText, label: 'Ready', {{20, 180}, {60, 40}}",
+          },
+        ]
+        ..ocrItems = [
+          {
+            'label': 'Visual result',
+            'x': 20,
+            'y': 300,
+            'width': 90,
+            'height': 30,
+          },
+        ];
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      screen.expectObservation(app: 'com.example.custom');
+      final tree = await screen.snapshotForModel(
+        screenshot: false,
+        automaticScreenshot: image,
+        cancel: CancelToken(),
+      );
+      expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(2));
+      expect(
+        client.calls.where((c) => c.$1 == 'screen_text'),
+        hasLength(image ? 0 : 1),
+      );
+      expect(
+        client.calls.where((c) => c.$1 == 'screenshot'),
+        hasLength(image ? 1 : 0),
+      );
+      expect(tree.nodes.any((n) => n.text == 'Ready'), true);
+      expect(tree.nodes.any((n) => n.text == 'Visual result'), !image);
+      screen.dispose();
+    }
+  });
+  test(
+    'image observations retain fresh OCR in tap permission checks',
+    () async {
+      final client = _DeviceClient()
+        ..source = {
+          'bundle_id': 'com.example.custom',
+          'sparse_hint': 'Custom screen',
+          'source': 'Application, {{0, 0}, {440, 956}}',
+        }
+        ..ocrItems = [
+          {'label': 'Buy now', 'x': 20, 'y': 300, 'width': 90, 'height': 30},
+        ];
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      await screen.snapshotForModel(
+        screenshot: false,
+        automaticScreenshot: true,
+        cancel: CancelToken(),
+      );
+      expect(client.calls.where((c) => c.$1 == 'screen_text'), isEmpty);
+      final target = await screen.resolvePoint(50, 310, CancelToken());
+      expect(target.actionText, 'Buy now');
+      expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(1));
+      expect(client.calls.where((c) => c.$1 == 'tap'), isEmpty);
+      screen.dispose();
+    },
+  );
+  test('OCR enrichment does not make an unchanged screen appear changed', () async {
+    final client = _DeviceClient()
+      ..source = {
+        'bundle_id': 'com.example.custom',
+        'sparse_hint': 'Custom screen',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  StaticText, label: 'Old', {{20, 180}, {60, 40}}",
+      }
+      ..ocrItems = [
+        {
+          'label': 'Visual result',
+          'x': 20,
+          'y': 300,
+          'width': 90,
+          'height': 30,
+        },
+      ];
+    final screen = IctrlScreen(client: client);
+    await screen.connect();
+    await screen.snapshot(screenshot: false, cancel: CancelToken());
+    client.sources = [
+      client.source!,
+      {
+        'bundle_id': 'com.example.custom',
+        'sparse_hint': 'Custom screen',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  StaticText, label: 'New', {{20, 180}, {60, 40}}",
+      },
+    ];
+    screen.expectObservation();
+    final tree = await screen.snapshot(
+      screenshot: false,
+      cancel: CancelToken(),
+    );
+    expect(tree.nodes.any((n) => n.text == 'New'), true);
+    expect(client.calls.where((c) => c.$1 == 'page_source'), hasLength(3));
+    expect(client.calls.where((c) => c.$1 == 'screen_text'), hasLength(2));
+    screen.dispose();
+  });
   test(
     'timed inputs use bounded root guard and stop on geometry change',
     () async {
