@@ -58,6 +58,7 @@ class ScreenWorkflowTool extends Tool {
       'Select controls by exact label or view_id from each fresh screen; never reuse ids or coordinates. '
       'For tap/type_text require expect_app. Each action is independently checked, permitted and audited. '
       'Stops on ambiguity, warnings, changed app or failed text checks. Use known links to skip navigation. '
+      'expect_text matches a complete label/value exactly, not a substring. '
       'Returns completed steps and the final screen; never replay completed steps.';
   @override
   Capability get requires => screen;
@@ -131,7 +132,7 @@ class ScreenWorkflowTool extends Tool {
       }
       int? id;
       if ({'tap', 'type_text'}.contains(tool)) {
-        final matches = current!.elements.where((e) {
+        var matches = current!.elements.where((e) {
           final n = current.tree.nodes[e.node];
           if (n.password ||
               !n.enabled ||
@@ -147,6 +148,12 @@ class ScreenWorkflowTool extends Tool {
             e.label,
           ].whereType<String>().any((s) => _normalize(s) == wanted);
         }).toList();
+        if (tool == 'tap') {
+          final controls = matches
+              .where((e) => current.tree.nodes[e.node].actionable)
+              .toList();
+          if (controls.isNotEmpty) matches = controls;
+        }
         if (matches.length != 1) {
           error = 'workflow_target_missing_or_ambiguous';
           break;
@@ -170,7 +177,7 @@ class ScreenWorkflowTool extends Tool {
         ),
         ToolContext(
           conversationId: ctx.conversationId,
-          messageId: ctx.messageId,
+          messageId: '${ctx.messageId}-workflow-$index',
           cancel: ctx.cancel,
         ),
       )).result;
@@ -180,7 +187,7 @@ class ScreenWorkflowTool extends Tool {
       receipts.add({
         'step': index + 1,
         'tool': tool,
-        'receipt': result.content,
+        'receipt': result.content.split('\nscreen after the action:').first,
         'error': result.isError,
       });
       if (result.isError) {
@@ -200,7 +207,7 @@ class ScreenWorkflowTool extends Tool {
         error = 'workflow_warning_read_before_replanning';
         break;
       }
-      final seen = readings.latest(ctx.conversationId);
+      var seen = readings.latest(ctx.conversationId);
       if (seen == null || seen.tree.token == current?.tree.token) {
         error = 'workflow_observation_unavailable';
         break;
@@ -210,16 +217,52 @@ class ScreenWorkflowTool extends Tool {
         break;
       }
       if (step['expect_text'] case final String wanted) {
-        if (!seen.tree.nodes
-            .where((n) => !n.password)
-            .expand((n) => [n.text, n.description])
-            .whereType<String>()
-            .any((s) => _normalize(s) == _normalize(wanted))) {
+        // Navigation can reply during the transition. Wait only by fresh reads;
+        // never replay the action when its postcondition arrives late.
+        for (var retry = 0; retry < 2 && remaining() > 0; retry++) {
+          if (seen!.tree.nodes
+              .where((n) => !n.password)
+              .expand((n) => [n.text, n.description])
+              .whereType<String>()
+              .any((s) => _normalize(s) == _normalize(wanted))) {
+            break;
+          }
+          final refreshed = (await executor().execute(
+            ToolCallBlock(
+              id: '${ctx.messageId}-workflow-$index-read-$retry',
+              name: 'read_screen',
+              arguments: jsonEncode({'title': title}),
+            ),
+            ToolContext(
+              conversationId: ctx.conversationId,
+              messageId: '${ctx.messageId}-workflow-$index-read-$retry',
+              cancel: ctx.cancel,
+            ),
+          )).result;
+          onStep(refreshed);
+          if (refreshed.isError) break;
+          seen = readings.latest(ctx.conversationId);
+          attachments = refreshed.attachments;
+          if (seen == null || app != null && seen.tree.packageName != app) {
+            break;
+          }
+        }
+        if (seen == null ||
+            (app != null && seen.tree.packageName != app) ||
+            !seen.tree.nodes
+                .where((n) => !n.password)
+                .expand((n) => [n.text, n.description])
+                .whereType<String>()
+                .any((s) => _normalize(s) == _normalize(wanted))) {
           error = 'workflow_postcondition_failed';
           break;
         }
       }
     }
+    // The outer response has now consumed a new observation. Sibling calls
+    // must not reuse its earlier IDs, and exact verification can finish here.
+    final latest = readings.latest(ctx.conversationId);
+    if (latest != null) readings.remember(ctx, latest);
     return ToolResult(
       content: jsonEncode({
         'completed': error == null,
@@ -227,6 +270,9 @@ class ScreenWorkflowTool extends Tool {
         'attempted': receipts.length,
         'error': ?error,
         'receipts': receipts,
+        'final_screen': ?readings
+            .latest(ctx.conversationId)
+            ?.toToolText(maxChars: 4500),
         if (error != null)
           'hint':
               'Replan from the current screen; do not replay completed steps.',

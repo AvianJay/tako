@@ -9,7 +9,7 @@ A local-first AI assistant for Android, built with Flutter. Bring your own model
 
 Conversations stay on the device in SQLite. API keys and headers are kept in secure storage, never in the database or logs.
 
-An iOS build is included. It compiles in CI but has not yet been run on a device; see [iOS](#ios).
+An iOS build is included and has been tested on a physical iPhone with iCTRL; see [iOS](#ios) and [device validation](docs/ictrl-validation.md) for the tested scope.
 
 ## Features
 
@@ -20,6 +20,11 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
   - Markdown and LaTeX rendering.
   - Image, PDF and text attachments.
   - Several models per provider, switched from the chat title.
+  - Automatic model discovery with cached, searchable friendly names. Enable
+    **CPA / multi-API proxy** for a shared connection that routes Claude to
+    Messages, GPT to Responses and other recognized families to Chat Completions.
+    Model settings and main/worker selections survive refresh; offline failures
+    keep the saved list. Custom model APIs can be set individually.
   - Image generation through compatible Images APIs, chat image output, or the
     Responses image tool. Configure the output mode and reference-image support
     for each model in **Settings → Providers**. Switch to an image model for
@@ -67,6 +72,10 @@ An iOS build is included. It compiles in CI but has not yet been run on a device
   - **`notifications_list`** to read current notifications.
 - **iOS screen control** through [iCTRL](https://github.com/OpenMinis/iCTRL):
   - Delegate phone tasks to a separate worker in **Settings → Device control**. Choose its saved provider, model and reasoning effort independently from the main chat model. Automatic selection uses an available Haiku Messages connection.
+  - Worker effort offers supported Low, Medium, High, Extra and Maximum levels.
+    Claude also offers explicit **Off**; GPT 6 uses **Low** as its lowest effort.
+    Lower effort can reduce latency, but native control and provider latency
+    still matter. Haiku Extra remains the default until you change it.
   - Generic workflows resolve exact labels against each fresh screen. Stable keypad sequences and calibrated timed game segments execute locally between model turns. The main model receives compact native evidence instead of the worker's full screen history.
   - Start the iCTRL runner on the phone. Tako detects `127.0.0.1:8200`, requests pairing once, and stores the approved key in secure storage.
   - **Settings → Device control** also accepts LAN and Tailscale endpoints. Enable iCTRL Remote Access for another device.

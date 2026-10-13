@@ -47,4 +47,5 @@ const deviceToolNames = <String>{
   'set_timer',
   'open_url',
   'open_app',
+  'resolve_app',
 };

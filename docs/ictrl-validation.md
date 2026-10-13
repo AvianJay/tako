@@ -217,3 +217,92 @@ remains in the cart along with all original items. Claude unchecked only
 the newly added item, leaving zero selected and no checkout. Final local
 validation passed604tests with2opt-in tests skipped and cleananalysis,
 formatting, and10browser checks.
+
+## Automatic proxy discovery and worker reasoning (build 19)
+
+The CPA proxy changes its model-ID format according to authentication. A live
+Bearer request to `/v1/models` returns 57 mixed model IDs including
+`gpt-6.1-sol` and `claude-haiku-5-5`. The same URL with Anthropic headers
+returns Claude-formatted IDs and no GPT IDs. Multi-API mode therefore uses
+Bearer authentication for discovery, Messages for Claude generation and
+Responses for GPT generation. A live GPT 6.1 Sol Responses request successfully
+returned the requested harmless `echo_test` function call.
+
+Discovery runs on startup, provider save, foreground return and model selection,
+with a 15-minute successful-fetch cache and coalesced requests. Refresh preserves
+edited profiles, shared secure-storage references, the main selection and the
+independent worker selection. Empty/offline replies retain the saved list. A
+reply for a changed connection is discarded; updates wait for active generation
+to finish. Friendly names affect presentation only; exact IDs remain on the wire.
+Unknown model capabilities remain manual rather than inferred from `/models`.
+
+Worker reasoning is independently selectable. Claude Off sends
+`thinking.type=disabled`; Low/Medium/High/Extra use the selected supported effort.
+GPT 6.1 offers Low through Maximum, without an unsupported Off choice. Haiku's
+previous Extra default remains unless the user changes the worker setting.
+
+The real production Dart Haiku worker on the PC controlled this iPhone's
+Calculator and verified both results from fresh native screen data. No Codex
+chose the key taps. Each cell is one live trial, not a statistical benchmark:
+
+| Worker effort | 7 + 8 = 15 | 123 + 456 = 579 | Model rounds |
+| --- | ---: | ---: | --- |
+| Off | 7.542 s | 14.573 s | 1 / 3 |
+| Low | 7.550 s | 9.672 s | 1 / 1 |
+| Extra | 7.655 s | 10.383 s | 1 / 1 |
+
+These timings exclude main-agent planning and app launch. Low used roughly
+3.1 seconds of model time per expression; native checks and taps account for
+the remaining time. Off did not improve the longer case because it needed
+additional model rounds. The main agent received 428–430 result characters,
+with no raw worker screen history. These figures do not establish identical
+performance for arbitrary apps or games.
+
+## General navigation, recovery and chat fixes (build 19)
+
+App resolution reads the runner's opened-app history first and matches supplied
+English/localized names without launching. Catalog suggestions retain their
+source and never claim installation. On this phone `Shopee|蝦皮` resolves
+`com.beeasy.shopee.tw`; `Settings|設定` resolves `com.apple.Preferences`.
+The upstream name catalog returned unrelated candidates for English Shopee,
+so treating every catalog result as installed would be incorrect. An empty
+lookup does not prove that an app is absent. Android resolves actual installed
+packages using its native listing.
+
+Workflows prefer actionable controls over a matching page title, expose stable
+native IDs for buttons, revalidate each step against a fresh observation and
+return one final screen instead of every intermediate screen. A bounded
+postcondition read can wait for a transition without replaying its gesture.
+Read-only locator failures can fall back to an exact fresh-tree identity and
+nearby geometry match; changed apps, moved controls and ambiguous matches
+remain rejected. No uncertain mutation is automatically retried.
+
+An unfinished worker gets one bounded recovery opportunity within the original
+task. Password/login/CAPTCHA/denial blockers stop it. A constraint reminder such
+as 'I did not enter passwords' does not incorrectly prevent navigation recovery.
+Missing expected evidence prevents a worker's verbal completion from ending
+the run as success. Remote results needing semantic review show Incomplete
+rather than Completed. Tapping blank chat history or dragging it dismisses the
+keyboard and preserves the draft.
+
+Live Claude Low trials through the production Dart worker:
+
+| Task | Elapsed | Worker rounds | Model time | Outcome |
+| --- | ---: | ---: | ---: | --- |
+| Storage from a wrong nested Settings page | 37.002 s | 9 | 24.289 s | Reached storage, read figures |
+| Storage via root and General after workflow fixes | 18.817 s | 2 | 9.556 s | Read 178.49/256 GB and largest visible app 31.41 GB |
+| Discord to Nicko DM, read only | 30.728 s | 4 | 22.168 s | DM reached; message author remained ambiguous |
+| Calculator 7+8 | 11.048 s | 2 | 6.948 s | Native result 15 verified; first request had malformed tap_ids |
+| Calculator 123+456 | 9.831 s | 1 | 3.140 s | Native result 579 verified |
+
+These are single trials with different starting states and tasks, not an A/B
+benchmark. Storage and Discord remain semantic-review results; their compact
+native evidence does not prove the full meaning of the worker's claims. No
+extra Discord message was sent. Calculator main results were 429/431 characters.
+Schema guidance now explicitly requires tap_ids to be an integer JSON array.
+No claim of universal best speed or installed Tako osu gameplay is made.
+
+Local checks after integrating the concurrent upstream updates: 659 tests passed
+with three opt-in tests skipped; clean Flutter
+analysis and Dart formatting; browser runtime 10/10. These checks are distinct
+from CI packaging and the later LCSign installed-app trial.

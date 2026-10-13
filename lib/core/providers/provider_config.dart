@@ -1,7 +1,21 @@
 import '../util/json.dart';
+import 'model_names.dart' as names;
 
 /// [onDevice] runs a local model through llama.cpp or AICore, without a URL.
 enum ApiType { chatCompletions, responses, messages, onDevice }
+
+/// Conventional routes for a multi-API proxy. Fixed connections keep their API.
+ApiType modelApiType(String id, {required ApiType fallback}) {
+  final model = id.trim().toLowerCase().split('/').last;
+  if (model.startsWith('claude-')) return ApiType.messages;
+  if (model.startsWith('gpt-') || RegExp(r'^o[134](?:-|$)').hasMatch(model)) {
+    return ApiType.responses;
+  }
+  if (RegExp(r'^(deepseek|gemini|grok|glm|kimi|qwen)[-]').hasMatch(model)) {
+    return ApiType.chatCompletions;
+  }
+  return fallback;
+}
 
 enum ReasoningMode { off, enabled, adaptive }
 
@@ -88,6 +102,8 @@ class ProviderCapabilities {
 class ModelProfile {
   const ModelProfile({
     required this.id,
+    this.label,
+    this.apiType,
     this.capabilities = const ProviderCapabilities(),
     this.maxOutputTokens = 4096,
     this.reasoningMode = ReasoningMode.off,
@@ -96,6 +112,9 @@ class ModelProfile {
     this.autoDetect = false,
   });
   final String id;
+  final String? label;
+  final ApiType? apiType;
+  String get displayName => names.modelDisplayName(id, suppliedName: label);
   final ProviderCapabilities capabilities;
   final int maxOutputTokens;
   final ReasoningMode reasoningMode;
@@ -104,6 +123,8 @@ class ModelProfile {
   final bool autoDetect;
   factory ModelProfile.fromJson(JsonMap json) => ModelProfile(
     id: asString(json['id']) ?? '',
+    label: asString(json['label']),
+    apiType: ApiType.values.where((v) => v.name == json['apiType']).firstOrNull,
     capabilities: ProviderCapabilities.fromJson(
       asMap(json['capabilities']) ?? {},
     ),
@@ -118,6 +139,8 @@ class ModelProfile {
   );
   JsonMap toJson() => {
     'id': id,
+    if (label != null) 'label': label,
+    if (apiType != null) 'apiType': apiType!.name,
     'capabilities': capabilities.toJson(),
     'maxOutputTokens': maxOutputTokens,
     'reasoningMode': reasoningMode.name,
@@ -136,6 +159,9 @@ class ProviderConfig {
     required this.apiType,
     required this.baseUrl,
     required this.model,
+    this.autoFetchModels = true,
+    this.autoRouteModels = false,
+    this.disableReasoning = false,
     this.apiKeyRef,
     this.extraHeadersRef,
     this.extraHeaders = const {},
@@ -162,6 +188,8 @@ class ProviderConfig {
     ),
     baseUrl: asString(json['baseUrl']) ?? '',
     model: asString(json['model']) ?? '',
+    autoFetchModels: asBool(json['autoFetchModels']) ?? true,
+    autoRouteModels: asBool(json['autoRouteModels']) ?? false,
     apiKeyRef: asString(json['apiKeyRef']),
     extraHeadersRef: asString(json['extraHeadersRef']),
     isLocal: asBool(json['isLocal']),
@@ -186,6 +214,18 @@ class ProviderConfig {
   final ApiType apiType;
   final String baseUrl;
   final String model;
+  final bool autoFetchModels;
+  final bool autoRouteModels;
+
+  /// Runtime override used by a worker's explicit Off choice.
+  final bool disableReasoning;
+  ApiType get requestApiType => !autoRouteModels || apiType == ApiType.onDevice
+      ? apiType
+      : models.where((m) => m.id == model).firstOrNull?.apiType ??
+            modelApiType(model, fallback: apiType);
+  String get modelDisplayName =>
+      models.where((m) => m.id == model).firstOrNull?.displayName ??
+      names.modelDisplayName(model);
   final List<ModelProfile>? _models;
   bool get generatesImages => switch (capabilities.imageGeneration) {
     ImageGenerationMode.none => false,
@@ -213,6 +253,9 @@ class ProviderConfig {
         models.where((m) => m.id == modelId).firstOrNull ?? models.first;
     return copyWith(
       model: profile.id,
+      apiType: autoRouteModels && apiType != ApiType.onDevice
+          ? profile.apiType ?? modelApiType(profile.id, fallback: apiType)
+          : apiType,
       capabilities: profile.capabilities,
       maxOutputTokens: profile.maxOutputTokens,
       reasoningMode: profile.reasoningMode,
@@ -238,6 +281,8 @@ class ProviderConfig {
     'apiType': apiType.name,
     'baseUrl': baseUrl,
     'model': model,
+    'autoFetchModels': autoFetchModels,
+    'autoRouteModels': autoRouteModels,
     'apiKeyRef': apiKeyRef,
     'extraHeadersRef': extraHeadersRef,
     'isLocal': isLocal,
@@ -254,6 +299,9 @@ class ProviderConfig {
     ApiType? apiType,
     String? baseUrl,
     String? model,
+    bool? autoFetchModels,
+    bool? autoRouteModels,
+    bool? disableReasoning,
     String? apiKeyRef,
     String? extraHeadersRef,
     Map<String, String>? extraHeaders,
@@ -270,6 +318,9 @@ class ProviderConfig {
     apiType: apiType ?? this.apiType,
     baseUrl: baseUrl ?? this.baseUrl,
     model: model ?? this.model,
+    autoFetchModels: autoFetchModels ?? this.autoFetchModels,
+    autoRouteModels: autoRouteModels ?? this.autoRouteModels,
+    disableReasoning: disableReasoning ?? this.disableReasoning,
     apiKeyRef: apiKeyRef ?? this.apiKeyRef,
     extraHeadersRef: extraHeadersRef ?? this.extraHeadersRef,
     extraHeaders: extraHeaders ?? this.extraHeaders,

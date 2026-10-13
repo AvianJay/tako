@@ -351,36 +351,45 @@ class IctrlScreen extends RemoteScreen {
               (n.bounds.left - before.bounds.left).abs() < 4 &&
               (n.bounds.top - before.bounds.top).abs() < 4,
         )) {
-      final hit = await rpc('find_element', {
-        'element_id': label,
-        'match': 'exact',
-        if (ictrlFindType(before.className) case final String type)
-          'element_type': type,
-        'bundle_id': previous.packageName,
-      }, cancel);
-      if (hit['exists'] == false ||
-          hit['ref'] is! String ||
-          hit['hittable'] == false ||
-          hit['visibility'] != 'in_view' ||
-          (hit['match_count'] as num? ?? 1) != 1 ||
-          ictrlNodeClass(hit['element_type'] as String? ?? '') !=
-              before.className ||
-          (hit['element_type'] == 'SecureTextField') != before.password) {
-        throw const ScreenException('element_changed_read_again');
+      Map<String, Object?>? hit;
+      try {
+        hit = await rpc('find_element', {
+          'element_id': label,
+          'match': 'exact',
+          if (ictrlFindType(before.className) case final String type)
+            'element_type': type,
+          'bundle_id': previous.packageName,
+        }, cancel);
+      } on ScreenException catch (error) {
+        // Read-only AX lookup failure cannot commit a gesture. Some navigation
+        // labels exist in page_source but iOS's locator cannot find them.
+        if (error.code != 'ictrl_rpc_failed_read_again') rethrow;
       }
-      final observed = hit['label'] as String? ?? label;
-      if (before.description?.isNotEmpty == true &&
-          observed != before.description) {
-        throw const ScreenException('element_changed_read_again');
+      if (hit != null && hit['exists'] != false && hit['ref'] is String) {
+        if (hit['hittable'] == false ||
+            hit['visibility'] != 'in_view' ||
+            (hit['match_count'] as num? ?? 1) != 1 ||
+            ictrlNodeClass(hit['element_type'] as String? ?? '') !=
+                before.className ||
+            (hit['element_type'] == 'SecureTextField') != before.password) {
+          throw const ScreenException('element_changed_read_again');
+        }
+        final observed = hit['label'] as String? ?? label;
+        if (before.description?.isNotEmpty == true &&
+            observed != before.description) {
+          throw const ScreenException('element_changed_read_again');
+        }
+        _refs[(token, node)] = hit['ref'] as String;
+        if (hit['center_x'] is num && hit['center_y'] is num) {
+          _points[(token, node)] = (
+            (hit['center_x'] as num).toDouble(),
+            (hit['center_y'] as num).toDouble(),
+          );
+        }
+        return _info(previous, node);
       }
-      _refs[(token, node)] = hit['ref'] as String;
-      if (hit['center_x'] is num && hit['center_y'] is num) {
-        _points[(token, node)] = (
-          (hit['center_x'] as num).toDouble(),
-          (hit['center_y'] as num).toDouble(),
-        );
-      }
-      return _info(previous, node);
+      // Fall through to a fresh tree and match exact identity plus geometry.
+      // Never use the old point or repeat an action that may have committed.
     }
     final live = await _tree(cancel);
     if (live.packageName != previous.packageName ||
@@ -407,6 +416,16 @@ class IctrlScreen extends RemoteScreen {
       throw const ScreenException('element_changed_read_again');
     }
     final b = matches.single.$2.bounds;
+    if (live.nodes[matches.single.$1].password != before.password ||
+        live.nodes[matches.single.$1].className != before.className ||
+        !live.nodes[matches.single.$1].enabled ||
+        b.area <= 0 ||
+        b.left < 0 ||
+        b.top < 0 ||
+        b.right > live.width ||
+        b.bottom > live.height) {
+      throw const ScreenException('element_changed_read_again');
+    }
     _points[(token, node)] = ((b.left + b.right) / 2, (b.top + b.bottom) / 2);
     return _info(live, matches.single.$1, token: token, node: node);
   }

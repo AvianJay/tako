@@ -25,7 +25,7 @@
     }
   },
   "toolRunTitle": "Tool activity",
-  "toolRunIncomplete": "No result recorded",
+  "toolRunIncomplete": "Incomplete",
   "toolRunUnavailable": "This tool activity is no longer on the current conversation branch.",
   "undo": "Undo",
   "deleteAttachmentBody": "This attachment may be used by earlier chats. Deleting it will make those image/file references unavailable. A backup and Undo will be offered.",

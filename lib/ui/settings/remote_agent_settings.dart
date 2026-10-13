@@ -23,17 +23,7 @@ class RemoteAgentSettings extends ConsumerWidget {
     final models =
         connection?.models.where((m) => m.capabilities.tools).toList() ??
         <ModelProfile>[];
-    final efforts = {
-      '',
-      'off',
-      'low',
-      'medium',
-      'high',
-      'xhigh',
-      'max',
-      if (preferences.remoteAgentEffort?.isNotEmpty == true)
-        preferences.remoteAgentEffort!,
-    };
+    final efforts = ['', if (worker != null) ...workerReasoningOptions(worker)];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -112,7 +102,10 @@ class RemoteAgentSettings extends ConsumerWidget {
                 for (final model in models)
                   DropdownMenuItem(
                     value: model.id,
-                    child: Text(model.id, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      model.displayName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
               onChanged: app.busy
@@ -131,7 +124,9 @@ class RemoteAgentSettings extends ConsumerWidget {
               key: ValueKey(
                 'remote-agent-effort-${preferences.remoteAgentEffort}',
               ),
-              initialValue: preferences.remoteAgentEffort ?? '',
+              initialValue: efforts.contains(preferences.remoteAgentEffort)
+                  ? preferences.remoteAgentEffort
+                  : '',
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: tr('Worker reasoning effort', '操作模型推理強度'),
@@ -142,12 +137,21 @@ class RemoteAgentSettings extends ConsumerWidget {
                     value: effort,
                     child: Text(
                       effort.isEmpty
-                          ? tr('Model default', '模型預設')
+                          ? tr(
+                              'Model default (${worker?.reasoningEffort})',
+                              '模型預設（${worker?.reasoningEffort}）',
+                            )
                           : effort == 'off'
-                          ? tr('Off (fastest)', '關閉（最快）')
+                          ? tr('Off (no thinking)', '關閉（不推理）')
                           : effort == 'xhigh'
-                          ? 'Extra (xhigh)'
-                          : effort,
+                          ? tr('Extra', '額外')
+                          : switch (effort) {
+                              'low' => tr('Low (faster)', '低（較快）'),
+                              'medium' => tr('Medium', '中'),
+                              'high' => tr('High', '高'),
+                              'max' => tr('Maximum', '最高'),
+                              _ => effort,
+                            },
                     ),
                   ),
               ],
@@ -161,7 +165,11 @@ class RemoteAgentSettings extends ConsumerWidget {
           const SizedBox(height: 12),
           Text(
             worker != null
-                ? '${tr('Ready', '已就緒')} · ${worker.model} · ${worker.apiType.name} · ${worker.reasoningMode == ReasoningMode.off ? 'off' : worker.reasoningEffort}'
+                ? '${tr('Ready', '已就緒')} · ${worker.modelDisplayName} · ${worker.apiType.name} · ${worker.disableReasoning
+                      ? 'off'
+                      : worker.reasoningMode == ReasoningMode.off
+                      ? 'default'
+                      : worker.reasoningEffort}'
                 : tr(
                     'Add a provider with tool support in Providers, then select it here.',
                     '請在供應商設定新增支援工具的模型，再於此選擇。',

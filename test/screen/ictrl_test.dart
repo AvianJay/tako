@@ -8,8 +8,10 @@ import 'package:tako/core/providers/cancel_token.dart';
 import 'package:tako/core/screen/remote_screen.dart';
 import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/screen/screen_reading.dart';
+import 'package:tako/platform/device_tools_capability.dart';
 import 'package:tako/platform/ios/ictrl_client.dart';
 import 'package:tako/platform/ios/ictrl_crypto.dart';
+import 'package:tako/platform/ios/ictrl_device_tools.dart';
 import 'package:tako/platform/ios/ictrl_screen.dart';
 import 'package:tako/platform/ios/ictrl_tree.dart';
 
@@ -200,6 +202,21 @@ void main() {
     expect(target.target!.editable, true);
     expect(client.calls.last.$2.containsKey('element_type'), false);
     screen.dispose();
+  });
+  test('native value and its label stay paired inside a labeled wrapper', () {
+    final tree = parseIctrlTree(
+      {
+        'bundle_id': 'com.example.stats',
+        'source':
+            "Application, {{0, 0}, {440, 956}}\n  Other, label: 'Apps', value: '129 GB', {{20, 200}, {200, 40}}\n    StaticText, label: 'Apps', {{20, 200}, {100, 30}}\n  Other, label: 'Photos', value: '2 GB', {{20, 250}, {200, 40}}",
+      },
+      token: 1,
+      width: 440,
+      height: 956,
+    );
+    expect(ownLabel(tree.nodes[1]), '129 GB · Apps');
+    expect(ownLabel(tree.nodes[3]), '2 GB · Photos');
+    expect(ScreenReading.from(tree).toToolText(), contains('129 GB · Apps'));
   });
   test('literal multiline labels retain control types, frames and parents', () {
     final tree = parseIctrlTree(
@@ -416,6 +433,100 @@ void main() {
     expect(client.calls.where((c) => c.$1 == 'screenshot'), isEmpty);
     screen.dispose();
   });
+  test('read-only locator failure uses a freshly matched point, once', () async {
+    for (final failedLookup in [false, true]) {
+      final client = _DeviceClient();
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      final tree = await screen.snapshot(
+        screenshot: false,
+        cancel: CancelToken(),
+      );
+      client.hit['exists'] = false;
+      client.findFailure = failedLookup;
+      client.source = {
+        'bundle_id': 'com.apple.calculator',
+        'source':
+            "Application, label: 'Calculator', {{0, 0}, {440, 956}}\n  Key, label: '7', id: 'Seven', {{24, 184}, {60, 40}}",
+      };
+      await screen.resolveNode(tree.token, 1, CancelToken());
+      await screen.act(ScreenAction(action: 'tap', token: tree.token, node: 1));
+      final taps = client.calls.where((c) => c.$1 == 'tap');
+      expect(taps, hasLength(1));
+      expect(taps.single.$2['x'], 54);
+      expect(taps.single.$2['y'], 204);
+      expect(taps.single.$2, isNot(contains('ref')));
+      expect(client.calls.where((c) => c.$1 == 'find_element'), hasLength(1));
+      screen.dispose();
+    }
+  });
+  test('locator fallback rejects a changed app or moved target', () async {
+    for (final changedApp in [false, true]) {
+      final client = _DeviceClient();
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      final tree = await screen.snapshot(
+        screenshot: false,
+        cancel: CancelToken(),
+      );
+      client.findFailure = true;
+      client.source = {
+        'bundle_id': changedApp ? 'com.example.other' : 'com.apple.calculator',
+        'source':
+            "Application, label: 'Calculator', {{0, 0}, {440, 956}}\n  Key, label: '7', id: 'Seven', {{20, ${changedApp ? 180 : 380}}, {60, 40}}",
+      };
+      await expectLater(
+        screen.resolveNode(tree.token, 1, CancelToken()),
+        throwsA(isA<ScreenException>()),
+      );
+      expect(client.calls.where((c) => c.$1 == 'tap'), isEmpty);
+      screen.dispose();
+    }
+  });
+  test(
+    'iCTRL resolves real installed bundles and never launches ambiguous matches',
+    () async {
+      final client = _DeviceClient();
+      final screen = IctrlScreen(client: client);
+      await screen.connect();
+      final tools = IctrlDeviceTools(
+        screen: screen,
+        native: const UnavailableDeviceTools(),
+      );
+      final resolved = await tools.invoke('resolve_app', {
+        'name': 'Shopee',
+      }, cancel: CancelToken());
+      expect(resolved, {
+        'apps': [
+          {
+            'name': 'Shopee',
+            'package': 'com.beeasy.shopee.tw',
+            'installed': true,
+          },
+        ],
+      });
+      expect(client.calls.where((c) => c.$1 == 'launch_app'), isEmpty);
+      await tools.invoke('open_app', {'name': 'Shopee'}, cancel: CancelToken());
+      expect(
+        client.calls.where((c) => c.$1 == 'launch_app').single.$2['bundle_id'],
+        'com.beeasy.shopee.tw',
+      );
+      expect(client.calls.where((c) => c.$1 == 'list_apps'), hasLength(1));
+      client.apps.add({'name': 'Shopee Beta', 'bundle_id': 'com.example.beta'});
+      final newTools = IctrlDeviceTools(
+        screen: screen,
+        native: const UnavailableDeviceTools(),
+      );
+      await expectLater(
+        newTools.invoke('open_app', {
+          'name': 'Shopee|Shopee Beta',
+        }, cancel: CancelToken()),
+        throwsA(isA<DeviceToolException>()),
+      );
+      expect(client.calls.where((c) => c.$1 == 'launch_app'), hasLength(1));
+      screen.dispose();
+    },
+  );
   test(
     'a wrapper cannot shadow a labeled button during ref resolution',
     () async {
@@ -630,6 +741,10 @@ class _DeviceClient extends IctrlClient {
   final Map<String, String> secrets;
   final calls = <(String, Map<String, Object?>)>[];
   bool landscape = false;
+  bool findFailure = false;
+  final apps = <Map<String, Object?>>[
+    {'name': 'Shopee', 'bundle_id': 'com.beeasy.shopee.tw'},
+  ];
   Map<String, Object?>? source;
   List<Map<String, Object?>> ocrItems = [];
   final hit = <String, Object?>{
@@ -649,6 +764,9 @@ class _DeviceClient extends IctrlClient {
     CancelToken? cancel,
   ]) async {
     calls.add((method, params));
+    if (method == 'find_element' && findFailure) {
+      throw const ScreenException('ictrl_rpc_failed_read_again');
+    }
     return switch (method) {
       'device_info' => {'point_width': 440, 'point_height': 956},
       'page_source' =>
@@ -660,6 +778,8 @@ class _DeviceClient extends IctrlClient {
             },
       'screen_text' => {'items': ocrItems},
       'find_element' => hit,
+      'resolve_app' => {'apps': apps},
+      'list_apps' => {'apps': apps, 'source': 'opened_history'},
       _ => <String, Object?>{},
     };
   }

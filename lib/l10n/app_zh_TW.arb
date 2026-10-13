@@ -25,7 +25,7 @@
     }
   },
   "toolRunTitle": "工具執行過程",
-  "toolRunIncomplete": "未記錄結果",
+  "toolRunIncomplete": "未完成",
   "toolRunUnavailable": "目前的對話分支已不包含這段工具執行過程。",
   "undo": "復原",
   "deleteAttachmentBody": "此附件可能仍被較早的對話使用。刪除後，相關圖片／檔案將無法讀取；操作後會提供備份與復原。",

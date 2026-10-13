@@ -194,7 +194,7 @@ class SettingsScreen extends ConsumerWidget {
                     leading: Icon(providerIcon(p)),
                     title: Text(p.displayName),
                     subtitle: Text(
-                      '${p.models.map((model) => model.id).join(', ')}\n'
+                      '${p.models.map((model) => model.displayName).take(4).join(', ')}${p.models.length > 4 ? ' … (${p.models.length})' : ''}\n'
                       '${p.apiType == ApiType.onDevice ? l.onDeviceApi : p.baseUrl}',
                     ),
                     isThreeLine: true,

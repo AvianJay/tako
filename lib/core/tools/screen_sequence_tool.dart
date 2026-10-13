@@ -47,7 +47,7 @@ class ScreenSequenceTool extends Tool {
         'maxItems': 12,
         'items': {'type': 'integer', 'minimum': 1, 'maximum': 100000},
         'description':
-            'Compact ordered ids for taps, including repeated keys. Prefer this for keypads.',
+            'A JSON array of integer ids, e.g. [4,7,8,9,12]. Never a quoted string or ellipsis. Includes repeated keys; prefer this for keypads.',
       },
       'actions': {
         'type': 'array',

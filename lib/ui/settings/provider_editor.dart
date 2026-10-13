@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_controller.dart';
 import '../../core/providers/hosted_search_probe.dart';
 import '../../core/providers/model_catalog.dart';
+import '../../core/providers/model_names.dart';
 import '../../core/providers/providers.dart';
 import '../../core/util/ids.dart';
 import '../../l10n/gen/app_localizations.dart';
@@ -38,6 +39,8 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       _output,
       _budget;
   late ApiType _type;
+  late bool _autoFetchModels, _autoRouteModels;
+  ApiType? _modelApiOverride;
   late ReasoningMode _reasoning;
   String _effort = 'medium';
   late bool _local, _tools, _vision, _canReason;
@@ -79,6 +82,8 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     _output = TextEditingController(text: '${p?.maxOutputTokens ?? 4096}');
     _budget = TextEditingController(text: '${p?.thinkingBudgetTokens ?? 1024}');
     _type = p?.apiType ?? ApiType.chatCompletions;
+    _autoFetchModels = p?.autoFetchModels ?? true;
+    _autoRouteModels = p?.autoRouteModels ?? false;
     _reasoning = p?.reasoningMode ?? ReasoningMode.off;
     _effort = p?.reasoningEffort ?? 'medium';
     _local = p?.isLocal ?? true;
@@ -104,15 +109,19 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
   }
 
   bool get _onDevice => _type == ApiType.onDevice;
+  ApiType get _effectiveApi => _autoRouteModels && !_onDevice
+      ? _modelApiOverride ?? modelApiType(_model.text, fallback: _type)
+      : _type;
 
   bool get _imagesOnly => _imageGeneration == ImageGenerationMode.imagesApi;
 
   bool _supportsImageMode(ImageGenerationMode mode) => switch (mode) {
     ImageGenerationMode.none => true,
     ImageGenerationMode.imagesApi =>
-      _type == ApiType.chatCompletions || _type == ApiType.responses,
-    ImageGenerationMode.chatOutput => _type == ApiType.chatCompletions,
-    ImageGenerationMode.responsesTool => _type == ApiType.responses,
+      _effectiveApi == ApiType.chatCompletions ||
+          _effectiveApi == ApiType.responses,
+    ImageGenerationMode.chatOutput => _effectiveApi == ApiType.chatCompletions,
+    ImageGenerationMode.responsesTool => _effectiveApi == ApiType.responses,
   };
 
   /// Specs of a model: for on-device models, read from the GGUF file.
@@ -160,6 +169,10 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
 
   ModelProfile _currentProfile() => ModelProfile(
     id: _model.text.trim(),
+    label: _models[_editingModel].id == _model.text.trim()
+        ? _models[_editingModel].label
+        : null,
+    apiType: _modelApiOverride,
     capabilities: ProviderCapabilities(
       tools: _tools,
       vision: _vision,
@@ -210,6 +223,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     _loadingModel = true;
     final model = _models[index];
     _editingModel = index;
+    _modelApiOverride = model.apiType;
     _model.text = model.id;
     _context.text = '${model.capabilities.contextWindow ?? 32768}';
     _output.text = '${model.maxOutputTokens}';
@@ -281,9 +295,21 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
   }
 
   ModelProfile _profileForApi(ModelProfile model) {
-    if (_supportsImageMode(model.capabilities.imageGeneration)) return model;
+    final api = _autoRouteModels && !_onDevice
+        ? model.apiType ?? modelApiType(model.id, fallback: _type)
+        : _type;
+    final compatible = switch (model.capabilities.imageGeneration) {
+      ImageGenerationMode.none => true,
+      ImageGenerationMode.imagesApi =>
+        api == ApiType.responses || api == ApiType.chatCompletions,
+      ImageGenerationMode.chatOutput => api == ApiType.chatCompletions,
+      ImageGenerationMode.responsesTool => api == ApiType.responses,
+    };
+    if (compatible) return model;
     return ModelProfile(
       id: model.id,
+      label: model.label,
+      apiType: model.apiType,
       capabilities: model.capabilities.copyWith(
         imageGeneration: ImageGenerationMode.none,
         imageReferenceInput: false,
@@ -300,6 +326,8 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     id: _id,
     displayName: _name.text.trim(),
     apiType: _type,
+    autoFetchModels: _autoFetchModels,
+    autoRouteModels: _autoRouteModels,
     baseUrl: _onDevice ? '' : _url.text.trim(),
     model: _model.text.trim(),
     models: _models.map(_profileForApi).toList(),
@@ -320,6 +348,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
     maxOutputTokens: int.tryParse(_output.text) ?? 4096,
     reasoningMode: _reasoning,
     thinkingBudgetTokens: int.tryParse(_budget.text) ?? 1024,
+    reasoningEffort: _effort,
   );
 
   Future<void> _save() async {
@@ -467,6 +496,10 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
               _models.add(
                 ModelProfile(
                   id: id,
+                  label: models
+                      .where((m) => m.id == id)
+                      .firstOrNull
+                      ?.displayName,
                   autoDetect: true,
                   capabilities:
                       spec?.capabilities ??
@@ -501,7 +534,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
   }
 
   bool get _nativeSearchProtocol =>
-      _type == ApiType.responses || _type == ApiType.messages;
+      _effectiveApi == ApiType.responses || _effectiveApi == ApiType.messages;
 
   void _invalidateSearchProbe() {
     if (_searchProbeResult != null) {
@@ -686,12 +719,88 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                         }),
                 ),
                 const SizedBox(height: 16),
+                if (_autoRouteModels && !_onDevice) ...[
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('provider-model-api-$_editingModel'),
+                    initialValue: _modelApiOverride?.name ?? '',
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText:
+                          Localizations.localeOf(context).languageCode == 'zh'
+                          ? '此模型的 API'
+                          : 'API for this model',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: '', child: Text('Automatic')),
+                      DropdownMenuItem(
+                        value: 'messages',
+                        child: Text('Anthropic Messages'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'responses',
+                        child: Text('OpenAI Responses'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'chatCompletions',
+                        child: Text('OpenAI Chat Completions'),
+                      ),
+                    ],
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() {
+                            _modelApiOverride = ApiType.values
+                                .where((a) => a.name == v)
+                                .firstOrNull;
+                            _searchProbeResult = null;
+                          }),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 if (_onDevice)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(l.onDeviceProviderHelp),
                   ),
                 if (!_onDevice) ...[
+                  SwitchListTile(
+                    key: const ValueKey('provider-auto-fetch-models'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      Localizations.localeOf(context).languageCode == 'zh'
+                          ? '自動取得模型清單'
+                          : 'Fetch models automatically',
+                    ),
+                    subtitle: Text(
+                      Localizations.localeOf(context).languageCode == 'zh'
+                          ? '啟動、儲存與開啟選單時更新；保留模型設定。'
+                          : 'Refresh on startup, save and model selection; keep model settings.',
+                    ),
+                    value: _autoFetchModels,
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() => _autoFetchModels = v),
+                  ),
+                  SwitchListTile(
+                    key: const ValueKey('provider-auto-route-models'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      Localizations.localeOf(context).languageCode == 'zh'
+                          ? 'CPA / 多 API 代理'
+                          : 'CPA / multi-API proxy',
+                    ),
+                    subtitle: Text(
+                      Localizations.localeOf(context).languageCode == 'zh'
+                          ? 'Claude 使用 Messages，GPT 使用 Responses，其他模型使用相容 API。'
+                          : 'Route Claude through Messages, GPT through Responses, and other models through compatible APIs.',
+                    ),
+                    value: _autoRouteModels,
+                    onChanged: _working
+                        ? null
+                        : (v) => setState(() {
+                            _autoRouteModels = v;
+                            _searchProbeResult = null;
+                          }),
+                  ),
                   field(
                     _url,
                     l.baseUrl,
@@ -742,42 +851,67 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                     ),
                   ],
                 ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    for (final entry in _models.indexed)
-                      InputChip(
-                        label: Text(
-                          entry.$1 == _editingModel
-                              ? (_model.text.isEmpty ? l.newModel : _model.text)
-                              : entry.$2.id,
+                if (_models.length > 6)
+                  DropdownButtonFormField<int>(
+                    key: ValueKey(
+                      'provider-edit-model-$_editingModel-${_models.length}',
+                    ),
+                    initialValue: _editingModel,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: l.model),
+                    items: [
+                      for (final entry in _models.indexed)
+                        DropdownMenuItem(
+                          value: entry.$1,
+                          child: Text(
+                            entry.$2.displayName,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        selected: entry.$1 == _editingModel,
-                        onPressed: _working || entry.$1 == _editingModel
-                            ? null
-                            : () => _selectModel(entry.$1),
-                        onDeleted: _working || _models.length == 1
-                            ? null
-                            : () {
-                                if (entry.$1 != _editingModel &&
-                                    !_storeModel()) {
-                                  return;
-                                }
-                                setState(() {
-                                  final previous = _editingModel;
-                                  _models.removeAt(entry.$1);
-                                  _loadModel(
-                                    entry.$1 == previous
-                                        ? 0
-                                        : previous -
-                                              (entry.$1 < previous ? 1 : 0),
-                                  );
-                                });
-                              },
-                      ),
-                  ],
-                ),
+                    ],
+                    onChanged: _working
+                        ? null
+                        : (value) => _selectModel(value!),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final entry in _models.indexed)
+                        InputChip(
+                          label: Text(
+                            entry.$1 == _editingModel
+                                ? (_model.text.isEmpty
+                                      ? l.newModel
+                                      : modelDisplayName(_model.text))
+                                : entry.$2.displayName,
+                          ),
+                          selected: entry.$1 == _editingModel,
+                          onPressed: _working || entry.$1 == _editingModel
+                              ? null
+                              : () => _selectModel(entry.$1),
+                          onDeleted: _working || _models.length == 1
+                              ? null
+                              : () {
+                                  if (entry.$1 != _editingModel &&
+                                      !_storeModel()) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    final previous = _editingModel;
+                                    _models.removeAt(entry.$1);
+                                    _loadModel(
+                                      entry.$1 == previous
+                                          ? 0
+                                          : previous -
+                                                (entry.$1 < previous ? 1 : 0),
+                                    );
+                                  });
+                                },
+                        ),
+                    ],
+                  ),
                 const SizedBox(height: 16),
                 field(
                   _model,

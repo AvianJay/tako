@@ -260,6 +260,71 @@ void _show(WidgetTester tester) {
 
 void main() {
   testWidgets(
+    'worker effort selector saves Low independently and offers true Off',
+    (tester) async {
+      final app = await _boot(
+        tester,
+        screen: _Screen(),
+        notifications: _Notifications(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: RemoteAgentSettings(),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        await app.saveProvider(
+          ProviderConfig(
+            id: 'cpa',
+            displayName: 'CPA',
+            apiType: ApiType.messages,
+            baseUrl: 'https://proxy.test/v1',
+            model: 'claude-haiku-5-5',
+            autoFetchModels: false,
+            autoRouteModels: true,
+            models: const [
+              ModelProfile(
+                id: 'claude-haiku-5-5',
+                capabilities: ProviderCapabilities(
+                  tools: true,
+                  reasoning: true,
+                ),
+              ),
+            ],
+          ),
+        );
+        await app.saveControlSettings(
+          app.controlSettings.copyWith(
+            remoteAgentProviderId: 'cpa',
+            remoteAgentModelId: 'claude-haiku-5-5',
+          ),
+        );
+      });
+      await tester.pumpAndSettle();
+      final main = app.selectedProvider!.model;
+      final effort = find.byWidgetPredicate(
+        (w) =>
+            w is DropdownButtonFormField<String> &&
+            w.key.toString().contains('remote-agent-effort'),
+      );
+      await tester.ensureVisible(effort);
+      await tester.tap(effort);
+      await tester.pumpAndSettle();
+      expect(find.text('Off (no thinking)'), findsOneWidget);
+      await tester.tap(find.text('Low (faster)').last);
+      await tester.pumpAndSettle();
+      expect(app.controlSettings.remoteAgentEffort, 'low');
+      expect(app.remoteAgentProvider!.reasoningEffort, 'low');
+      expect(app.selectedProvider!.model, main);
+      expect(find.textContaining('Haiku 5.5'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'worker selector fits narrow Traditional Chinese screen and saves independently',
     (tester) async {
       final app = await _boot(

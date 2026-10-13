@@ -367,7 +367,10 @@ class AppController extends ChangeNotifier {
     if (appInForeground == value) return;
     appInForeground = value;
     _emit();
-    if (value) unawaited(refreshDeviceControl());
+    if (value) {
+      unawaited(refreshDeviceControl());
+      unawaited(refreshProviderModels());
+    }
   }
 
   /// Removes the screenshots that only [deleted] messages used, when the
@@ -443,8 +446,8 @@ class AppController extends ChangeNotifier {
         : providers
               .where(
                 (p) =>
-                    p.apiType == ApiType.messages &&
-                    p.models.any((m) => m.id == 'claude-haiku-5-5'),
+                    p.models.any((m) => m.id == 'claude-haiku-5-5') &&
+                    p.forModel('claude-haiku-5-5').apiType == ApiType.messages,
               )
               .firstOrNull;
     if (connection == null) return null;
@@ -471,18 +474,7 @@ class AppController extends ChangeNotifier {
         maxOutputTokens: max(8192, worker.maxOutputTokens),
       );
     }
-    final effort = controlSettings.remoteAgentEffort;
-    if (effort?.isNotEmpty == true && worker.capabilities.reasoning) {
-      worker = worker.copyWith(
-        reasoningMode: effort == 'off'
-            ? ReasoningMode.off
-            : worker.reasoningMode == ReasoningMode.off
-            ? ReasoningMode.enabled
-            : worker.reasoningMode,
-        reasoningEffort: effort == 'off' ? worker.reasoningEffort : effort,
-      );
-    }
-    return worker;
+    return withWorkerReasoning(worker, controlSettings.remoteAgentEffort);
   }
 
   late final _remoteAgent = RemoteControlAgent(
@@ -672,81 +664,194 @@ class AppController extends ChangeNotifier {
     } finally {
       _mutating = false;
       _emit();
+      if (_pendingModelLists.isNotEmpty && !_disposed) {
+        unawaited(_applyModelLists());
+      }
     }
   }
 
-  Future<void> initialize() => _mutate(() async {
-    try {
-      await chats.recoverInterruptedMessages();
-      await _discardScreenshots(
-        await chats.deleteIncognitoConversations(),
-        always: true,
-      );
-      await audit.recoverInterrupted();
-      final loaded = await (
-        providerRepository.list(),
-        chats.listConversations(),
-        settings.readAll(),
-      ).wait;
-      providers = loaded.$1;
-      conversations = loaded.$2;
-      final preferences = loaded.$3;
-      permissionGate.policy = PermissionPolicy.decode(
-        preferences[PermissionPolicy.settingsKey],
-      );
-      toolSettings = ToolSettings.fromJson(
-        tryDecodeObject(preferences['tools.settings'] ?? '') ?? {},
-      );
-      searchConfig = SearchConfig.fromJson(
-        tryDecodeObject(preferences['search.config'] ?? '') ?? {},
-      );
-      JsonMap stored(String key) =>
-          tryDecodeObject(preferences[key] ?? '') ?? {};
-      memorySettings = MemorySettings.fromJson(
-        stored(MemorySettings.settingsKey),
-      );
-      personalization = PersonalizationSettings.fromJson(
-        stored(PersonalizationSettings.settingsKey),
-      );
-      browserSettings = BrowserSettings.fromJson(
-        stored(BrowserSettings.settingsKey),
-      );
-      controlSettings = DeviceControlSettings.fromJson(
-        stored(DeviceControlSettings.settingsKey),
-      );
-      services.onDevice.preferSpeed =
-          asBool(stored(_onDeviceKey)['preferSpeed']) ?? false;
-      services.shortcuts.names = [
-        for (final name in asList(stored(_shortcutsKey)['names']) ?? const [])
-          if (name is String) name,
-      ];
-      // Before the current chat's prompt is checked against available tools.
-      await refreshDeviceControl();
-      // Model files and interrupted downloads, for settings and the picker.
-      unawaited(services.onDevice.refresh().catchError((_) {}));
-      toolRegistry = _makeRegistry();
-      selectedProviderId = preferences['provider'];
-      selectedModelId = preferences['model'];
-      final theme = preferences['theme'];
-      themeMode = ThemeMode.values.firstWhere(
-        (v) => v.name == theme,
-        orElse: () => ThemeMode.system,
-      );
-      locale = preferences['language'] == 'en'
-          ? const Locale('en')
-          : const Locale('zh', 'TW');
-      textScale = (double.tryParse(preferences['textScale'] ?? '') ?? 1).clamp(
-        .85,
-        1.4,
-      );
-      final current = preferences['conversation'];
-      if (current != null) await _openConversation(current);
-    } catch (_) {
-      errorCode = 'operationFailed';
-    } finally {
-      initialized = true;
+  Future<void> initialize() async {
+    await _mutate(() async {
+      try {
+        await chats.recoverInterruptedMessages();
+        await _discardScreenshots(
+          await chats.deleteIncognitoConversations(),
+          always: true,
+        );
+        await audit.recoverInterrupted();
+        final loaded = await (
+          providerRepository.list(),
+          chats.listConversations(),
+          settings.readAll(),
+        ).wait;
+        providers = loaded.$1;
+        conversations = loaded.$2;
+        final preferences = loaded.$3;
+        permissionGate.policy = PermissionPolicy.decode(
+          preferences[PermissionPolicy.settingsKey],
+        );
+        toolSettings = ToolSettings.fromJson(
+          tryDecodeObject(preferences['tools.settings'] ?? '') ?? {},
+        );
+        searchConfig = SearchConfig.fromJson(
+          tryDecodeObject(preferences['search.config'] ?? '') ?? {},
+        );
+        JsonMap stored(String key) =>
+            tryDecodeObject(preferences[key] ?? '') ?? {};
+        memorySettings = MemorySettings.fromJson(
+          stored(MemorySettings.settingsKey),
+        );
+        personalization = PersonalizationSettings.fromJson(
+          stored(PersonalizationSettings.settingsKey),
+        );
+        browserSettings = BrowserSettings.fromJson(
+          stored(BrowserSettings.settingsKey),
+        );
+        controlSettings = DeviceControlSettings.fromJson(
+          stored(DeviceControlSettings.settingsKey),
+        );
+        services.onDevice.preferSpeed =
+            asBool(stored(_onDeviceKey)['preferSpeed']) ?? false;
+        services.shortcuts.names = [
+          for (final name in asList(stored(_shortcutsKey)['names']) ?? const [])
+            if (name is String) name,
+        ];
+        // Before the current chat's prompt is checked against available tools.
+        await refreshDeviceControl();
+        // Model files and interrupted downloads, for settings and the picker.
+        unawaited(services.onDevice.refresh().catchError((_) {}));
+        toolRegistry = _makeRegistry();
+        selectedProviderId = preferences['provider'];
+        selectedModelId = preferences['model'];
+        final theme = preferences['theme'];
+        themeMode = ThemeMode.values.firstWhere(
+          (v) => v.name == theme,
+          orElse: () => ThemeMode.system,
+        );
+        locale = preferences['language'] == 'en'
+            ? const Locale('en')
+            : const Locale('zh', 'TW');
+        textScale = (double.tryParse(preferences['textScale'] ?? '') ?? 1)
+            .clamp(.85, 1.4);
+        final current = preferences['conversation'];
+        if (current != null) await _openConversation(current);
+      } catch (_) {
+        errorCode = 'operationFailed';
+      } finally {
+        initialized = true;
+      }
+    });
+    if (!_disposed) unawaited(refreshProviderModels());
+  }
+
+  static const _modelListLifetime = Duration(minutes: 15);
+  final _modelFetches = <String, Future<void>>{};
+  final _modelFetchTokens = <String, CancelToken>{};
+  final _modelFetchedAt = <String, DateTime>{};
+  final _pendingModelLists = <String, (ProviderConfig, List<ModelInfo>)>{};
+  final modelFetchErrors = <String, String>{};
+  Future<void>? _modelApply;
+  bool get fetchingModels => _modelFetches.isNotEmpty;
+
+  /// Coalesced discovery runs independently of chat generation. A late reply
+  /// is applied only when idle and when its connection settings still match.
+  Future<void> refreshProviderModels({
+    String? providerId,
+    bool force = false,
+  }) async {
+    if (_disposed) return;
+    final connections = List<ProviderConfig>.of(providers);
+    await Future.wait([
+      for (final provider in connections)
+        if (provider.apiType != ApiType.onDevice &&
+            (providerId == null
+                ? provider.autoFetchModels
+                : provider.id == providerId))
+          _fetchModelList(provider, force: force),
+    ]);
+    await _applyModelLists();
+  }
+
+  Future<void> _fetchModelList(ProviderConfig provider, {required bool force}) {
+    if (_modelFetches[provider.id] case final inFlight?) return inFlight;
+    final previous = _modelFetchedAt[provider.id];
+    if (!force &&
+        previous != null &&
+        DateTime.now().difference(previous) < _modelListLifetime) {
+      return Future.value();
     }
-  });
+    final token = _modelFetchTokens[provider.id] = CancelToken();
+    final fetching = Future<void>.microtask(() async {
+      try {
+        token.throwIfCancelled();
+        final adapter = await adapterFor(provider);
+        token.throwIfCancelled();
+        final found = await token
+            .bind(adapter.listModels(cancel: token))
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                token.cancel();
+                throw TimeoutException('Model discovery timed out');
+              },
+            );
+        if (_disposed) return;
+        if (found.isEmpty) {
+          modelFetchErrors[provider.id] = 'no_models';
+          return;
+        }
+        modelFetchErrors.remove(provider.id);
+        _modelFetchedAt[provider.id] = DateTime.now();
+        _pendingModelLists[provider.id] = (provider, found);
+      } catch (_) {
+        if (!_disposed) modelFetchErrors[provider.id] = 'connection_failed';
+      } finally {
+        unawaited(_modelFetches.remove(provider.id));
+        _modelFetchTokens.remove(provider.id);
+        _emit();
+      }
+    });
+    _modelFetches[provider.id] = fetching;
+    _emit();
+    return fetching;
+  }
+
+  Future<void> _applyModelLists() {
+    if (_modelApply case final applying?) return applying;
+    if (_disposed || busy || _pendingModelLists.isEmpty) return Future.value();
+    final applying = _mutate(() async {
+      final pending = Map.of(_pendingModelLists);
+      _pendingModelLists.clear();
+      for (final entry in pending.entries) {
+        final current = providers.where((p) => p.id == entry.key).firstOrNull;
+        if (current == null ||
+            jsonEncode(current.toJson()) !=
+                jsonEncode(entry.value.$1.toJson())) {
+          _modelFetchedAt.remove(entry.key);
+          continue;
+        }
+        final merged = mergeDiscoveredModels(current, entry.value.$2);
+        if (jsonEncode(current.toJson()) == jsonEncode(merged.toJson())) {
+          continue;
+        }
+        try {
+          await providerRepository.save(merged);
+          providers = [
+            for (final p in providers) p.id == merged.id ? merged : p,
+          ];
+        } catch (_) {
+          modelFetchErrors[entry.key] = 'save_failed';
+        }
+      }
+    });
+    _modelApply = applying.whenComplete(() {
+      _modelApply = null;
+      if (!_disposed && !busy && _pendingModelLists.isNotEmpty) {
+        unawaited(_applyModelLists());
+      }
+    });
+    return _modelApply!;
+  }
 
   Future<void> updateAppearance({
     ThemeMode? theme,
@@ -989,29 +1094,35 @@ class AppController extends ChangeNotifier {
     String? headers,
     bool removeKey = false,
     bool removeHeaders = false,
-  }) => _mutate(() async {
-    if (config.apiType != ApiType.onDevice) {
-      providerEndpoint(config.baseUrl, 'models');
+  }) async {
+    await _mutate(() async {
+      if (config.apiType != ApiType.onDevice) {
+        providerEndpoint(config.baseUrl, 'models');
+      }
+      final keyRef = config.apiKeyRef ?? 'provider.${config.id}.key';
+      final headersRef =
+          config.extraHeadersRef ?? 'provider.${config.id}.headers';
+      if (removeKey || key?.isNotEmpty == true) {
+        await services.writeSecret(keyRef, removeKey ? null : key);
+      }
+      if (removeHeaders || headers?.isNotEmpty == true) {
+        await services.writeSecret(headersRef, removeHeaders ? null : headers);
+      }
+      final saved = config.copyWith(
+        apiKeyRef: keyRef,
+        extraHeadersRef: headersRef,
+      );
+      await providerRepository.save(saved);
+      providers = await providerRepository.list();
+      selectedProviderId ??= saved.id;
+      await settings.setString('provider', selectedProviderId);
+      if (conversation?.providerId == saved.id) await _selectProvider(saved.id);
+      _modelFetchedAt.remove(saved.id);
+    });
+    if (!_disposed && config.autoFetchModels) {
+      unawaited(refreshProviderModels(providerId: config.id));
     }
-    final keyRef = config.apiKeyRef ?? 'provider.${config.id}.key';
-    final headersRef =
-        config.extraHeadersRef ?? 'provider.${config.id}.headers';
-    if (removeKey || key?.isNotEmpty == true) {
-      await services.writeSecret(keyRef, removeKey ? null : key);
-    }
-    if (removeHeaders || headers?.isNotEmpty == true) {
-      await services.writeSecret(headersRef, removeHeaders ? null : headers);
-    }
-    final saved = config.copyWith(
-      apiKeyRef: keyRef,
-      extraHeadersRef: headersRef,
-    );
-    await providerRepository.save(saved);
-    providers = await providerRepository.list();
-    selectedProviderId ??= saved.id;
-    await settings.setString('provider', selectedProviderId);
-    if (conversation?.providerId == saved.id) await _selectProvider(saved.id);
-  });
+  }
 
   Future<void> deleteProvider(String id) => _mutate(() async {
     final provider = providers.firstWhere((p) => p.id == id);
@@ -1145,7 +1256,11 @@ class AppController extends ChangeNotifier {
         ? <String, String>{}
         : temporaryHeaders ??
               await services.readHeaders(provider.extraHeadersRef);
-    return _adapterFactory(provider, key, headers);
+    return _adapterFactory(
+      provider.copyWith(apiType: provider.requestApiType),
+      key,
+      headers,
+    );
   }
 
   /// An explicit, isolated capability check. It never saves this temporary
@@ -1479,6 +1594,7 @@ class AppController extends ChangeNotifier {
       services.browser.endModelSession();
       services.screen.endModelSession();
       _emit();
+      unawaited(_applyModelLists());
     }
   }
 
@@ -1567,6 +1683,7 @@ class AppController extends ChangeNotifier {
       services.browser.endModelSession();
       services.screen.endModelSession();
       _emit();
+      unawaited(_applyModelLists());
     }
   }
 
@@ -2252,6 +2369,10 @@ class AppController extends ChangeNotifier {
     for (final token in _titleJobs.values) {
       token.cancel();
     }
+    for (final token in _modelFetchTokens.values) {
+      token.cancel();
+    }
+    _pendingModelLists.clear();
     stop();
     if (services.browser.onTakeOver == stop) services.browser.onTakeOver = null;
     if (services.screen.onTakeOver == stop) services.screen.onTakeOver = null;

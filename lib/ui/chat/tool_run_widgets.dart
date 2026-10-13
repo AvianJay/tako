@@ -55,9 +55,17 @@ class _RunActivity {
 
 _StepState _stepState(ToolRunStep step, _RunActivity activity) {
   if (step.result case final result?) {
-    if (!result.isError) return _StepState.completed;
     try {
       final decoded = jsonDecode(result.content);
+      if (decoded is Map &&
+          {'remote_control', 'remote_control_check'}.contains(step.call.name)) {
+        if (decoded['status'] == 'cancelled') return _StepState.stopped;
+        if (decoded['status'] == 'blocked') return _StepState.failed;
+        if (decoded['verified'] != true ||
+            decoded['semantic_review_needed'] == true) {
+          return _StepState.incomplete;
+        }
+      }
       if (decoded is Map &&
           const {
             'cancelled',
@@ -69,7 +77,7 @@ _StepState _stepState(ToolRunStep step, _RunActivity activity) {
     } on FormatException {
       // Tool text is not required to be JSON.
     }
-    return _StepState.failed;
+    return result.isError ? _StepState.failed : _StepState.completed;
   }
   if (step.message.status == MessageStatus.stopped) return _StepState.stopped;
   if (step.message.status == MessageStatus.error) return _StepState.failed;

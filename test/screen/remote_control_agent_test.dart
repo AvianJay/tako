@@ -321,13 +321,74 @@ void main() {
   test('worker claims cannot satisfy a missing expected label', () async {
     adapter = _Adapter([
       [const TextDelta('Task completed: Done'), const Done('end_turn')],
+      [const TextDelta('Task completed: Done'), const Done('end_turn')],
     ]);
     build();
     final receipt = jsonDecode((await run()).content) as Map;
     expect(receipt['verified'], false);
     expect(receipt['missing_text'], ['Done']);
-    expect(receipt['status'], 'reported_complete');
+    expect(receipt['status'], 'incomplete');
+    expect(adapter.requests, hasLength(2));
     expect(receipt['semantic_review_needed'], true);
+  });
+  test(
+    'unfinished navigation recovers once without treating reminders as blockers',
+    () async {
+      adapter = _Adapter([
+        [
+          const TextDelta(
+            'Not completed: stuck on navigation. I did not enter passwords.',
+          ),
+          const Done('end_turn'),
+        ],
+        call('tap', {'title': 'Recover navigation', 'id': 1}),
+      ]);
+      build();
+      final receipt = jsonDecode((await run()).content) as Map;
+      expect(receipt['status'], 'verified');
+      expect(receipt['verified'], true);
+      expect(adapter.requests, hasLength(2));
+      expect(screen.actions, hasLength(1));
+      expect(
+        adapter.requests[1].messages.last.content
+            .whereType<TextBlock>()
+            .first
+            .text,
+        contains('Recover within its original scope'),
+      );
+    },
+  );
+  test('concrete login and password gates do not retry navigation', () async {
+    for (final note in [
+      'Unable to continue: login required.',
+      'A password prompt blocks this task.',
+      '無法繼續：需要登入。',
+    ]) {
+      adapter = _Adapter([
+        [TextDelta(note), const Done('end_turn')],
+      ]);
+      build();
+      final result = await run();
+      final receipt = jsonDecode(result.content) as Map;
+      expect(receipt['status'], 'blocked', reason: note);
+      expect(result.isError, true);
+      expect(adapter.requests, hasLength(1));
+      expect(screen.actions, isEmpty);
+    }
+  });
+  test('unfinished recovery is bounded to one attempt', () async {
+    adapter = _Adapter([
+      [const TextDelta('Not completed: stuck'), const Done('end_turn')],
+      [const TextDelta('Not completed: stuck'), const Done('end_turn')],
+    ]);
+    build();
+    final result = await run();
+    final receipt = jsonDecode(result.content) as Map;
+    expect(result.isError, true);
+    expect(receipt['status'], 'incomplete');
+    expect(receipt['reason'], 'worker_reported_incomplete');
+    expect(adapter.requests, hasLength(2));
+    expect(screen.actions, isEmpty);
   });
   test(
     'verification matches a value separately from its accessibility label',
@@ -408,6 +469,64 @@ void main() {
       expect(receipt['model_rounds'], 0);
       expect(adapter.requests, isEmpty);
       expect(screen.actions, hasLength(1));
+    },
+  );
+  test(
+    'worker workflow can finish with native proof without a second model turn',
+    () async {
+      adapter = _Adapter([
+        call('screen_workflow', {
+          'title': 'Complete navigation',
+          'steps': [
+            {
+              'tool': 'tap',
+              'label': 'Start',
+              'expect_app': 'com.example.fixture',
+              'expect_text': 'Done',
+            },
+          ],
+        }),
+      ]);
+      build();
+      final receipt = jsonDecode((await run()).content) as Map;
+      expect(receipt['verified'], true);
+      expect(receipt['workflow_used'], true);
+      expect(receipt['model_rounds'], 1);
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+  test(
+    'workflow selects the control over the same page title and uses fresh ids between steps',
+    () async {
+      screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(box([label('Start'), button('Start', opens: 'middle')])),
+      ]);
+      screen.views['middle'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(box([button('Finish', opens: 'done')])),
+      ]);
+      build();
+      final receipt =
+          jsonDecode(
+                (await run(
+                  workflow: [
+                    {
+                      'tool': 'tap',
+                      'label': 'Start',
+                      'expect_app': 'com.example.fixture',
+                    },
+                    {
+                      'tool': 'tap',
+                      'label': 'Finish',
+                      'expect_app': 'com.example.fixture',
+                    },
+                  ],
+                )).content,
+              )
+              as Map;
+      expect(receipt['verified'], true);
+      expect(receipt['model_rounds'], 0);
+      expect(screen.actions, hasLength(2));
+      expect(adapter.requests, isEmpty);
     },
   );
   test(

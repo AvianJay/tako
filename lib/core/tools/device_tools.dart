@@ -46,7 +46,7 @@ class _DeviceTool extends Tool {
   @override
   RiskLevel riskFor(Map<String, Object?> args, ToolContext ctx) =>
       switch (name) {
-        'get_device_status' => RiskLevel.safe,
+        'get_device_status' || 'resolve_app' => RiskLevel.safe,
         'get_location' ||
         'clipboard_read' ||
         'calendar_list' => RiskLevel.sensitive,
@@ -104,6 +104,11 @@ typedef InstalledApp = ({String label, String packageName});
 /// Apps whose label matches [query]: exact labels (or the package name)
 /// first, then label prefixes, then labels containing the query.
 List<InstalledApp> matchApps(String query, List<InstalledApp> apps) {
+  if (query.contains('|')) {
+    return {
+      for (final term in query.split('|')) ...matchApps(term, apps),
+    }.toList();
+  }
   String normalize(String value) => value
       .toLowerCase()
       .split(RegExp('[ \t]+'))
@@ -170,6 +175,9 @@ bool validDeviceArguments(String name, Map<String, Object?> args) {
         return false;
       }
     }
+  }
+  if (name == 'resolve_app' && (args['name'] as String).trim().isEmpty) {
+    return false;
   }
   if (name == 'calendar_list' || name == 'calendar_add') {
     final start = _date(args['start']);
@@ -252,6 +260,8 @@ const _descriptions = {
       'Open an HTTP or HTTPS URL externally. Sends the URL to the selected app.',
   'open_app':
       'Launch an installed app by its name, or exact Android package / iOS bundle id.',
+  'resolve_app':
+      'Resolve an app name to actual bundle ids without opening it. Use localized/English aliases separated by |. Only installed=true confirms this device; catalog suggestions require launch verification. Use before specifying expected_app; never guess a bundle, infer authenticity from spelling, or claim absence from an empty lookup.',
 };
 const _sideEffectKinds = {
   'clipboard_write': 'clipboard_written',
@@ -282,6 +292,7 @@ Map<String, Object?> _integer(int min, int max) => {
   'maximum': max,
 };
 final _schemas = <String, Map<String, Object?>>{
+  'resolve_app': _object({'name': _string(100, min: 1)}, ['name']),
   for (final name in ['get_device_status', 'get_location', 'clipboard_read'])
     name: _object({}, []),
   'clipboard_write': _object({'text': _string(100000)}, ['text']),

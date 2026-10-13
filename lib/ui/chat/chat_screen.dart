@@ -410,40 +410,93 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
       return;
     }
+    unawaited(app.refreshProviderModels());
+    var modelQuery = '';
     final id = await showModalBottomSheet<(String, String)>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                l.chooseModel,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            for (final p in app.providers)
-              for (final model in p.models)
-                ListTile(
-                  leading: Icon(
-                    p.forModel(model.id).generatesImages
-                        ? Icons.image_outlined
-                        : providerIcon(p),
+      builder: (context) => StatefulBuilder(
+        builder: (context, updatePicker) => AnimatedBuilder(
+          animation: app,
+          builder: (context, _) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.chooseModel,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      if (app.fetchingModels)
+                        Text(
+                          '${l.loadModels}…',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        )
+                      else
+                        IconButton(
+                          tooltip: l.loadModels,
+                          icon: const Icon(Icons.refresh),
+                          onPressed: () =>
+                              app.refreshProviderModels(force: true),
+                        ),
+                    ],
                   ),
-                  title: Text(model.id),
-                  subtitle: app.providers.length > 1
-                      ? Text(p.displayName)
-                      : null,
-                  trailing:
-                      p.id == app.selectedProvider?.id &&
-                          model.id == app.selectedProvider?.model
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () => Navigator.pop(context, (p.id, model.id)),
                 ),
-          ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: TextField(
+                    key: const ValueKey('main-model-search'),
+                    decoration: InputDecoration(
+                      labelText: l.model,
+                      prefixIcon: const Icon(Icons.search),
+                    ),
+                    onChanged: (value) => updatePicker(
+                      () => modelQuery = value.trim().toLowerCase(),
+                    ),
+                  ),
+                ),
+                if (app.modelFetchErrors.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      l.connectionFailed,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                for (final p in app.providers)
+                  for (final model in p.models)
+                    if (modelQuery.isEmpty ||
+                        '${model.id} ${model.displayName} ${p.displayName}'
+                            .toLowerCase()
+                            .contains(modelQuery))
+                      ListTile(
+                        leading: Icon(
+                          p.forModel(model.id).generatesImages
+                              ? Icons.image_outlined
+                              : providerIcon(p),
+                        ),
+                        title: Text(model.displayName),
+                        subtitle: app.providers.length > 1
+                            ? Text(p.displayName)
+                            : null,
+                        trailing:
+                            p.id == app.selectedProvider?.id &&
+                                model.id == app.selectedProvider?.model
+                            ? const Icon(Icons.check)
+                            : null,
+                        onTap: () => Navigator.pop(context, (p.id, model.id)),
+                      ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1322,7 +1375,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  app.selectedProvider?.model ?? kAppName,
+                                  app.selectedProvider?.modelDisplayName ??
+                                      kAppName,
                                   style: Theme.of(
                                     context,
                                   ).textTheme.titleMedium,
@@ -1423,172 +1477,187 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                   ),
                 Expanded(
-                  child: visible.isEmpty
-                      ? Center(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(32),
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.secondaryContainer,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: IconTheme.merge(
-                                      data: IconThemeData(
-                                        size: 44,
+                  child: GestureDetector(
+                    key: const ValueKey('chat-history-surface'),
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _focus.unfocus,
+                    child: visible.isEmpty
+                        ? Center(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(32),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 420,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
                                         color: Theme.of(
                                           context,
-                                        ).colorScheme.primary,
+                                        ).colorScheme.secondaryContainer,
+                                        shape: BoxShape.circle,
                                       ),
-                                      child: app.incognito
-                                          ? const Icon(
-                                              Icons.visibility_off_outlined,
-                                            )
-                                          : const TakoMark(),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 28),
-                                  Text(
-                                    app.providers.isEmpty
-                                        ? l.noProviders
-                                        : app.incognito
-                                        ? l.incognitoChat
-                                        : l.welcome,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.headlineSmall,
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    app.providers.isEmpty
-                                        ? l.setupBody
-                                        : app.incognito
-                                        ? l.incognitoBody
-                                        : l.welcomeBody,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context).textTheme.bodyLarge
-                                        ?.copyWith(height: 1.65),
-                                  ),
-                                  if (app.providers.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 24),
-                                      child: FilledButton.icon(
-                                        onPressed: () => Navigator.push<void>(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const ProviderEditor(),
-                                          ),
-                                        ),
-                                        icon: const Icon(Icons.add),
-                                        label: Text(l.addProvider),
-                                      ),
-                                    ),
-                                  if (app.providers.isEmpty &&
-                                      app.services.onDevice.isAvailable)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      child: TextButton.icon(
-                                        key: const ValueKey('setup-on-device'),
-                                        onPressed: () => Navigator.push<void>(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const OnDeviceModelsScreen(),
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.smartphone_outlined,
-                                        ),
-                                        label: Text(l.useOnDeviceModel),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : Align(
-                          alignment: Alignment.topCenter,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 840),
-                            child: ListView.builder(
-                              controller: _scroll,
-                              padding: const EdgeInsets.only(
-                                top: 8,
-                                bottom: 24,
-                              ),
-                              itemCount:
-                                  timeline.length +
-                                  (continuations.isEmpty ? 0 : 1),
-                              itemBuilder: (context, index) {
-                                if (index == timeline.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Wrap(
-                                      spacing: 8,
-                                      children: [
-                                        for (final child in continuations)
-                                          OutlinedButton.icon(
-                                            onPressed: app.busy
-                                                ? null
-                                                : () => _run(
-                                                    () =>
-                                                        app.switchBranch(child),
-                                                  ),
-                                            icon: const Icon(
-                                              Icons.redo,
-                                              size: 16,
-                                            ),
-                                            label: Text(
-                                              '${l.continueAction} · ${child.text.characters.take(28)}',
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                final entry = timeline[index];
-                                final message = entry.anchor;
-                                final date = DateFormat.yMMMd(
-                                  l.localeName,
-                                ).format(message.wallTime);
-                                final previousDate = index == 0
-                                    ? null
-                                    : DateFormat.yMMMd(l.localeName).format(
-                                        timeline[index - 1].anchor.wallTime,
-                                      );
-                                return Column(
-                                  children: [
-                                    if (date != previousDate)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                        child: Text(
-                                          date,
-                                          style: Theme.of(
+                                      child: IconTheme.merge(
+                                        data: IconThemeData(
+                                          size: 44,
+                                          color: Theme.of(
                                             context,
-                                          ).textTheme.labelSmall,
+                                          ).colorScheme.primary,
+                                        ),
+                                        child: app.incognito
+                                            ? const Icon(
+                                                Icons.visibility_off_outlined,
+                                              )
+                                            : const TakoMark(),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 28),
+                                    Text(
+                                      app.providers.isEmpty
+                                          ? l.noProviders
+                                          : app.incognito
+                                          ? l.incognitoChat
+                                          : l.welcome,
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineSmall,
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Text(
+                                      app.providers.isEmpty
+                                          ? l.setupBody
+                                          : app.incognito
+                                          ? l.incognitoBody
+                                          : l.welcomeBody,
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(height: 1.65),
+                                    ),
+                                    if (app.providers.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 24),
+                                        child: FilledButton.icon(
+                                          onPressed: () => Navigator.push<void>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const ProviderEditor(),
+                                            ),
+                                          ),
+                                          icon: const Icon(Icons.add),
+                                          label: Text(l.addProvider),
                                         ),
                                       ),
-                                    entry.isAssistantTurn
-                                        ? _assistantTurn(entry, app, l)
-                                        : _message(message, app, l),
+                                    if (app.providers.isEmpty &&
+                                        app.services.onDevice.isAvailable)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: TextButton.icon(
+                                          key: const ValueKey(
+                                            'setup-on-device',
+                                          ),
+                                          onPressed: () => Navigator.push<void>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const OnDeviceModelsScreen(),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.smartphone_outlined,
+                                          ),
+                                          label: Text(l.useOnDeviceModel),
+                                        ),
+                                      ),
                                   ],
-                                );
-                              },
+                                ),
+                              ),
+                            ),
+                          )
+                        : Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 840),
+                              child: ListView.builder(
+                                key: const ValueKey('chat-history-list'),
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                controller: _scroll,
+                                padding: const EdgeInsets.only(
+                                  top: 8,
+                                  bottom: 24,
+                                ),
+                                itemCount:
+                                    timeline.length +
+                                    (continuations.isEmpty ? 0 : 1),
+                                itemBuilder: (context, index) {
+                                  if (index == timeline.length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Wrap(
+                                        spacing: 8,
+                                        children: [
+                                          for (final child in continuations)
+                                            OutlinedButton.icon(
+                                              onPressed: app.busy
+                                                  ? null
+                                                  : () => _run(
+                                                      () => app.switchBranch(
+                                                        child,
+                                                      ),
+                                                    ),
+                                              icon: const Icon(
+                                                Icons.redo,
+                                                size: 16,
+                                              ),
+                                              label: Text(
+                                                '${l.continueAction} · ${child.text.characters.take(28)}',
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  final entry = timeline[index];
+                                  final message = entry.anchor;
+                                  final date = DateFormat.yMMMd(
+                                    l.localeName,
+                                  ).format(message.wallTime);
+                                  final previousDate = index == 0
+                                      ? null
+                                      : DateFormat.yMMMd(l.localeName).format(
+                                          timeline[index - 1].anchor.wallTime,
+                                        );
+                                  return Column(
+                                    children: [
+                                      if (date != previousDate)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 16,
+                                          ),
+                                          child: Text(
+                                            date,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.labelSmall,
+                                          ),
+                                        ),
+                                      entry.isAssistantTurn
+                                          ? _assistantTurn(entry, app, l)
+                                          : _message(message, app, l),
+                                    ],
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
                 if (app.pendingApproval != null) ToolApprovalSheet(app: app),
                 if (app.errorCode != null)

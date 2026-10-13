@@ -198,7 +198,7 @@ abstract class AppLocalizations {
   /// No description provided for @toolRunIncomplete.
   ///
   /// In zh, this message translates to:
-  /// **'未記錄結果'**
+  /// **'未完成'**
   String get toolRunIncomplete;
 
   /// No description provided for @toolRunUnavailable.

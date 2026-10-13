@@ -313,6 +313,35 @@ void main() {
         expect(client.closed, isTrue);
       });
 
+      test(
+        'multi-API proxy discovers the full catalog with Bearer authentication',
+        () async {
+          final client = FakeClient(
+            (_) async => http.StreamedResponse(
+              fragmented(
+                '{"data":[{"id":"gpt-6.1-sol"},{"id":"claude-haiku-5-5"}]}',
+              ),
+              200,
+            ),
+          );
+          final adapter = ProviderAdapter.create(
+            config(type).copyWith(autoRouteModels: true),
+            apiKey: 'fixture-key',
+            clientFactory: () => client,
+          );
+          expect(await adapter.listModels(), hasLength(2));
+          expect(
+            client.lastRequest!.headers['authorization'],
+            'Bearer fixture-key',
+          );
+          expect(client.lastRequest!.headers.containsKey('x-api-key'), false);
+          expect(
+            client.lastRequest!.headers.containsKey('anthropic-version'),
+            false,
+          );
+        },
+      );
+
       test('Stop cancels while waiting for headers', () async {
         final started = Completer<void>();
         final pending = Completer<http.StreamedResponse>();

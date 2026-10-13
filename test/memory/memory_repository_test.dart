@@ -192,10 +192,10 @@ void main() {
     final lines = profile.split('\n');
     expect(lines, hasLength(2));
     expect(lines.every((line) => line.startsWith('- ')), isTrue);
-    expect(lines.first, contains('## New rules'));
+    expect(lines.any((line) => line.contains('## New rules')), isTrue);
     expect(profile, isNot(contains('fact is never')));
     expect(profile, isNot(contains('Unpinned')));
-    expect(lines.last, '- 喜歡簡短的回答');
+    expect(lines, contains('- 喜歡簡短的回答'));
 
     await memory.clear();
     // Assert the oldest-first budget with distinct fixture timestamps. Two

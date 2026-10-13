@@ -44,9 +44,18 @@ class FakeAdapter implements ProviderAdapter {
   ];
   Completer<void>? started;
   bool waitForStop = false;
+  List<ModelInfo> models = [];
+  Completer<List<ModelInfo>>? pendingModels;
+  bool failModels = false;
+  int modelFetches = 0;
 
   @override
-  Future<List<ModelInfo>> listModels({CancelToken? cancel}) async => [];
+  Future<List<ModelInfo>> listModels({CancelToken? cancel}) async {
+    modelFetches++;
+    if (failModels) throw StateError('offline');
+    return pendingModels == null ? models : await pendingModels!.future;
+  }
+
   @override
   Stream<ProviderEvent> send(
     ChatRequest request, {
@@ -96,6 +105,113 @@ void main() {
   tearDown(() async {
     app.dispose();
     await database.close();
+  });
+
+  test(
+    'automatic discovery coalesces and preserves independent selections',
+    () async {
+      await app.refreshProviderModels();
+      adapter.models = const [
+        ModelInfo(id: 'gpt-6.1-sol'),
+        ModelInfo(id: 'claude-haiku-5-5'),
+        ModelInfo(id: 'gpt-6.1-sol'),
+      ];
+      const savedHaiku = ModelProfile(
+        id: 'claude-haiku-5-5',
+        maxOutputTokens: 12000,
+        reasoningMode: ReasoningMode.adaptive,
+        reasoningEffort: 'xhigh',
+        capabilities: ProviderCapabilities(
+          tools: true,
+          vision: true,
+          reasoning: true,
+        ),
+      );
+      final cpa = config().copyWith(
+        apiType: ApiType.messages,
+        autoRouteModels: true,
+        model: savedHaiku.id,
+        models: [savedHaiku],
+      );
+      await app.saveProvider(cpa, key: 'secure-test-key');
+      await app.refreshProviderModels(providerId: cpa.id);
+      final fetched = app.providers.single;
+      expect(fetched.models, hasLength(2));
+      expect(fetched.models.first.toJson(), savedHaiku.toJson());
+      expect(app.selectedProvider!.model, 'claude-haiku-5-5');
+      expect(app.remoteAgentProvider!.model, 'claude-haiku-5-5');
+      await app.selectProvider(cpa.id, model: 'gpt-6.1-sol');
+      expect(app.selectedProvider!.apiType, ApiType.responses);
+      expect(app.selectedProvider!.modelDisplayName, 'GPT 6.1 Sol');
+      expect(app.remoteAgentProvider!.apiType, ApiType.messages);
+      expect(app.remoteAgentProvider!.reasoningEffort, 'xhigh');
+      final before = adapter.modelFetches;
+      adapter.pendingModels = Completer<List<ModelInfo>>();
+      final first = app.refreshProviderModels(force: true);
+      final second = app.refreshProviderModels(force: true);
+      await Future<void>.delayed(Duration.zero);
+      expect(adapter.modelFetches, before + 1);
+      adapter.pendingModels!.complete(const [ModelInfo(id: 'gpt-6-sol')]);
+      await Future.wait([first, second]);
+      expect(app.providers.single.models, hasLength(3));
+      expect(app.selectedProvider!.model, 'gpt-6.1-sol');
+      expect(services.secrets.values, contains('secure-test-key'));
+      expect(
+        app.providers.single.toJson().toString(),
+        isNot(contains('secure-test-key')),
+      );
+    },
+  );
+
+  test('offline and empty model lists never erase saved models', () async {
+    await app.refreshProviderModels();
+    final previous = app.providers.single.toJson();
+    adapter.failModels = true;
+    await app.refreshProviderModels(force: true);
+    expect(app.providers.single.toJson(), previous);
+    expect(app.modelFetchErrors, containsPair('local', 'connection_failed'));
+    adapter.failModels = false;
+    await app.refreshProviderModels(force: true);
+    expect(app.providers.single.toJson(), previous);
+    expect(app.modelFetchErrors, containsPair('local', 'no_models'));
+  });
+
+  test(
+    'model discovery waits for generation to finish before applying',
+    () async {
+      await app.refreshProviderModels();
+      adapter.pendingModels = Completer<List<ModelInfo>>();
+      final fetching = app.refreshProviderModels(force: true);
+      adapter.started = Completer<void>();
+      adapter.waitForStop = true;
+      adapter.events = const [TextDelta('Working')];
+      final sending = app.send('Keep the selected model for this request');
+      await adapter.started!.future;
+      adapter.pendingModels!.complete(const [ModelInfo(id: 'gpt-6.1-sol')]);
+      await fetching;
+      expect(app.providers.single.models, hasLength(1));
+      app.stop();
+      await sending;
+      await app.refreshProviderModels();
+      expect(app.providers.single.models, hasLength(2));
+      expect(app.selectedProvider!.model, 'model-1');
+    },
+  );
+
+  test('late discovery cannot overwrite a changed connection', () async {
+    await app.refreshProviderModels();
+    adapter.pendingModels = Completer<List<ModelInfo>>();
+    final fetching = app.refreshProviderModels(force: true);
+    await app.saveProvider(
+      config().copyWith(
+        baseUrl: 'https://changed.example/v1',
+        autoFetchModels: false,
+      ),
+    );
+    adapter.pendingModels!.complete(const [ModelInfo(id: 'old-server-model')]);
+    await fetching;
+    expect(app.providers.single.baseUrl, 'https://changed.example/v1');
+    expect(app.providers.single.models, hasLength(1));
   });
 
   test(

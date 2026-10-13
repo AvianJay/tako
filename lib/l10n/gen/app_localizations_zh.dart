@@ -60,7 +60,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toolRunTitle => '工具執行過程';
 
   @override
-  String get toolRunIncomplete => '未記錄結果';
+  String get toolRunIncomplete => '未完成';
 
   @override
   String get toolRunUnavailable => '目前的對話分支已不包含這段工具執行過程。';
@@ -1568,7 +1568,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get toolRunTitle => '工具執行過程';
 
   @override
-  String get toolRunIncomplete => '未記錄結果';
+  String get toolRunIncomplete => '未完成';
 
   @override
   String get toolRunUnavailable => '目前的對話分支已不包含這段工具執行過程。';

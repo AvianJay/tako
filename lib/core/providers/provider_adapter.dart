@@ -11,6 +11,7 @@ import 'cancel_token.dart';
 import 'chat_completions/chat_completions_adapter.dart';
 import 'images/images_adapter.dart';
 import 'messages/messages_adapter.dart';
+import 'model_names.dart' as names;
 import 'on_device/on_device_adapter.dart';
 import 'provider_config.dart';
 import 'provider_event.dart';
@@ -116,9 +117,11 @@ class ToolDefinition {
 
 class ModelInfo {
   const ModelInfo({required this.id, String? displayName})
-    : displayName = displayName ?? id;
+    : _displayName = displayName;
   final String id;
-  final String displayName;
+  final String? _displayName;
+  String get displayName =>
+      names.modelDisplayName(id, suppliedName: _displayName);
 }
 
 abstract class ProviderAdapter {
@@ -129,6 +132,7 @@ abstract class ProviderAdapter {
     http.Client Function()? clientFactory,
     OnDeviceCapability? onDevice,
   }) {
+    config = config.copyWith(apiType: config.requestApiType);
     if (config.capabilities.imageGeneration == ImageGenerationMode.imagesApi &&
         (config.apiType == ApiType.chatCompletions ||
             config.apiType == ApiType.responses)) {
@@ -194,13 +198,15 @@ abstract class HttpProviderAdapter implements ProviderAdapter {
   JsonMap buildBody(ChatRequest request);
   Stream<ProviderEvent> decode(Stream<SseEvent> events);
 
-  Map<String, String> get headers {
+  Map<String, String> get headers => _headersFor(config.apiType);
+
+  Map<String, String> _headersFor(ApiType apiType) {
     final values = <String, String>{
       'content-type': 'application/json',
       'accept': 'text/event-stream',
-      if (config.apiType == ApiType.messages) 'anthropic-version': '2023-06-01',
+      if (apiType == ApiType.messages) 'anthropic-version': '2023-06-01',
       if (_apiKey?.isNotEmpty ?? false)
-        if (config.apiType == ApiType.messages)
+        if (apiType == ApiType.messages)
           'x-api-key': _apiKey!
         else
           'authorization': 'Bearer $_apiKey',
@@ -391,8 +397,15 @@ abstract class HttpProviderAdapter implements ProviderAdapter {
     final client = _clientFactory();
     token.addListener(client.close);
     try {
-      final request = _request('GET', 'models', token)
-        ..headers['accept'] = 'application/json';
+      final request = _request('GET', 'models', token);
+      request.headers
+        ..clear()
+        ..addAll(
+          _headersFor(
+            config.autoRouteModels ? ApiType.chatCompletions : config.apiType,
+          ),
+        )
+        ..['accept'] = 'application/json';
       final response = await token.bind(
         client.send(request).timeout(const Duration(seconds: 30)),
       );

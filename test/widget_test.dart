@@ -30,12 +30,16 @@ const captureUi = bool.fromEnvironment('UPDATE_UI_SCREENSHOTS');
 const captureKey = Key('app-screenshot');
 
 class ModelListAdapter implements ProviderAdapter {
+  ModelListAdapter({this.catalog});
+  final List<ModelInfo>? catalog;
   @override
-  Future<List<ModelInfo>> listModels({CancelToken? cancel}) async => [
-    const ModelInfo(id: 'deepseek-flash'),
-    const ModelInfo(id: 'deepseek-v4-pro'),
-    for (var i = 0; i < 60; i++) ModelInfo(id: 'custom-$i'),
-  ];
+  Future<List<ModelInfo>> listModels({CancelToken? cancel}) async =>
+      catalog ??
+      [
+        const ModelInfo(id: 'deepseek-flash'),
+        const ModelInfo(id: 'deepseek-v4-pro'),
+        for (var i = 0; i < 60; i++) ModelInfo(id: 'custom-$i'),
+      ];
   @override
   Stream<ProviderEvent> send(
     ChatRequest request, {
@@ -692,6 +696,57 @@ void main() {
   );
 
   testWidgets(
+    'automatically fetched friendly main models can be searched independently',
+    (tester) async {
+      final controller = await boot(
+        tester,
+        locale: const Locale('en'),
+        size: const Size(390, 844),
+        adapterFactory: (_, _, _) => ModelListAdapter(
+          catalog: const [
+            ModelInfo(id: 'gpt-6.1-sol'),
+            ModelInfo(id: 'claude-haiku-5-5'),
+          ],
+        ),
+      );
+      await tester.runAsync(() async {
+        await controller.saveProvider(
+          ProviderConfig(
+            id: 'cpa',
+            displayName: 'CPA',
+            apiType: ApiType.messages,
+            baseUrl: 'https://proxy.test/v1',
+            model: 'claude-haiku-5-5',
+            autoRouteModels: true,
+            capabilities: const ProviderCapabilities(
+              tools: true,
+              reasoning: true,
+            ),
+          ),
+        );
+        await controller.refreshProviderModels();
+      });
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Haiku 5.5'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('main-model-search')),
+        'gpt 6.1',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('GPT 6.1 Sol'), findsOneWidget);
+      await tester.tap(find.text('GPT 6.1 Sol'));
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      });
+      await tester.pumpAndSettle();
+      expect(controller.selectedProvider!.model, 'gpt-6.1-sol');
+      expect(controller.remoteAgentProvider!.model, 'claude-haiku-5-5');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'provider editor detects specs and saves multiple model profiles',
     (tester) async {
       final controller = await boot(
@@ -777,6 +832,8 @@ void main() {
       220,
       scrollable: scroll,
     );
+    await tester.ensureVisible(find.text('Load models'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Load models'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('deepseek-flash'));
@@ -794,6 +851,13 @@ void main() {
     );
     expect(find.text('Add selected').hitTestable(), findsOneWidget);
     await tester.tap(find.text('Add selected'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('provider-auto-fetch-models')),
+      -300,
+      scrollable: scroll,
+    );
+    await tester.tap(find.byKey(const ValueKey('provider-auto-fetch-models')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Save'), 300, scrollable: scroll);
     await tester.tap(find.text('Save'));
@@ -911,6 +975,67 @@ void main() {
         'Keep this draft',
       );
       expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'tapping blank chat history and dragging dismiss the keyboard without losing a draft',
+    (tester) async {
+      final app = await boot(
+        tester,
+        locale: const Locale('en'),
+        size: const Size(390, 844),
+        seeded: true,
+      );
+      final field = find.byType(TextField);
+      final history = find.byKey(const ValueKey('chat-history-surface'));
+      await tester.enterText(field, 'Keep this draft');
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, true);
+      final area = tester.getRect(history);
+      await tester.tapAt(Offset(area.right - 8, area.bottom - 8));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, false);
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'Keep this draft',
+      );
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, true);
+      await tester.runAsync(() async {
+        await app.chats.saveMessage(
+          ChatMessage(
+            id: 'scroll-history',
+            conversationId: 'visual',
+            parentId: 'answer',
+            role: MessageRole.assistant,
+            createdAt: DateTime.now(),
+            content: [
+              TextBlock(
+                List.filled(
+                  40,
+                  'A long history paragraph for scrolling.',
+                ).join('\n\n'),
+              ),
+            ],
+          ),
+        );
+        await app.openConversation('visual');
+      });
+      await tester.pumpAndSettle();
+      final list = tester.getRect(
+        find.byKey(const ValueKey('chat-history-list')),
+      );
+      await tester.dragFrom(
+        Offset(list.right - 8, list.center.dy),
+        const Offset(0, 100),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, false);
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'Keep this draft',
+      );
     },
   );
 
@@ -1220,6 +1345,68 @@ void main() {
     await screenshot(tester, 'tool-drawer');
     expect(tester.takeException(), isNull);
   });
+  for (final proof in [
+    (verified: true, review: false, label: 'Completed'),
+    (verified: false, review: true, label: 'Incomplete'),
+    (verified: true, review: true, label: 'Incomplete'),
+  ]) {
+    testWidgets(
+      'remote task badge reflects ${proof.label} with verified=${proof.verified} review=${proof.review}',
+      (tester) async {
+        final app = await boot(
+          tester,
+          locale: const Locale('en'),
+          size: const Size(390, 844),
+          seeded: true,
+        );
+        await tester.runAsync(() async {
+          final now = DateTime.now();
+          await app.chats.saveMessage(
+            ChatMessage(
+              id: 'remote-call',
+              conversationId: 'visual',
+              parentId: 'answer',
+              role: MessageRole.assistant,
+              createdAt: now,
+              content: const [
+                ToolCallBlock(
+                  id: 'remote',
+                  name: 'remote_control',
+                  arguments: '{"title":"Read storage"}',
+                ),
+              ],
+            ),
+          );
+          await app.chats.saveMessage(
+            ChatMessage(
+              id: 'remote-result',
+              conversationId: 'visual',
+              parentId: 'remote-call',
+              role: MessageRole.tool,
+              createdAt: now.add(const Duration(seconds: 1)),
+              content: [
+                ToolResultBlock(
+                  toolCallId: 'remote',
+                  toolName: 'remote_control',
+                  content: jsonEncode({
+                    'status': 'reported_complete',
+                    'verified': proof.verified,
+                    'semantic_review_needed': proof.review,
+                  }),
+                ),
+              ],
+            ),
+          );
+          await app.openConversation('visual');
+        });
+        await tester.pumpAndSettle();
+        expect(find.textContaining('· ${proof.label}'), findsOneWidget);
+        if (proof.label == 'Incomplete') {
+          expect(find.textContaining('· Completed'), findsNothing);
+        }
+      },
+    );
+  }
 
   testWidgets(
     'phone action titles appear in summaries and details with legacy fallback',

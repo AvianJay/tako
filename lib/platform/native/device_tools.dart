@@ -167,6 +167,21 @@ class NativeDeviceTools implements DeviceToolsCapability {
         );
       case 'open_url':
         return _launched(await _api.openUrl(args['url'] as String));
+      case 'resolve_app':
+        final apps = [
+          for (final app in await _api.listApps())
+            (label: app.label, packageName: app.packageName),
+        ];
+        return {
+          'apps': [
+            for (final app in matchApps(args['name'] as String, apps).take(10))
+              {
+                'name': app.label,
+                'package': app.packageName,
+                'installed': true,
+              },
+          ],
+        };
       case 'open_app':
         final package =
             args['package'] as String? ??

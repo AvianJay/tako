@@ -38,10 +38,17 @@ void main() {
   final customTask = Platform.environment['TAKO_ICTRL_WORKER_TASK'];
   final customApp = Platform.environment['TAKO_ICTRL_WORKER_APP'];
   final customText = Platform.environment['TAKO_ICTRL_WORKER_TEXT'];
+  final customQuery = Platform.environment['TAKO_ICTRL_WORKER_QUERY'];
+  final customCriteria = Platform.environment['TAKO_ICTRL_WORKER_CRITERIA'];
   final prefix = Platform.environment['TAKO_ICTRL_WORKER_PREFIX'];
   final customWorkflow = Platform.environment['TAKO_ICTRL_WORKER_PLAN'];
+  final effort = Platform.environment['TAKO_ICTRL_WORKER_EFFORT'] ?? 'xhigh';
   test(
-    'Haiku Extra delegates ${search ? 'Shopee search' : 'Calculator'} without main screen history',
+    'Haiku $effort delegates ${customApp != null
+        ? 'cross-app task'
+        : search
+        ? 'Shopee search'
+        : 'Calculator'} without main screen history',
     () async {
       final endpoint =
           Platform.environment['TAKO_ICTRL_ENDPOINT'] ??
@@ -75,20 +82,23 @@ void main() {
               .replaceAll(RegExp(r'''^["']|["']$'''), '');
         }
       }
-      final config = ProviderConfig(
-        id: 'worker-live',
-        displayName: 'Haiku Extra',
-        apiType: ApiType.messages,
-        baseUrl: env['api_endpoint']!,
-        model: 'claude-haiku-5-5',
-        reasoningMode: ReasoningMode.adaptive,
-        reasoningEffort: 'xhigh',
-        maxOutputTokens: 8192,
-        capabilities: const ProviderCapabilities(
-          tools: true,
-          vision: true,
-          reasoning: true,
+      final config = withWorkerReasoning(
+        ProviderConfig(
+          id: 'worker-live',
+          displayName: 'Haiku Extra',
+          apiType: ApiType.messages,
+          baseUrl: env['api_endpoint']!,
+          model: 'claude-haiku-5-5',
+          reasoningMode: ReasoningMode.adaptive,
+          reasoningEffort: 'xhigh',
+          maxOutputTokens: 8192,
+          capabilities: const ProviderCapabilities(
+            tools: true,
+            vision: true,
+            reasoning: true,
+          ),
         ),
+        effort,
       );
       final gate = PermissionGate(
         policy: const PermissionPolicy(
@@ -127,6 +137,28 @@ void main() {
       try {
         await screen.connect();
         expect(screen.status, RemoteScreenStatus.ready);
+        final resolver = IctrlDeviceTools(
+          screen: screen,
+          native: const UnavailableDeviceTools(),
+        );
+        for (final app in [
+          ('Shopee|蝦皮', 'com.beeasy.shopee.tw'),
+          ('Settings|設定', 'com.apple.Preferences'),
+        ]) {
+          final found = await resolver.invoke('resolve_app', {
+            'name': app.$1,
+          }, cancel: CancelToken());
+          expect(
+            found['apps'],
+            contains(
+              equals({
+                'name': app.$2 == 'com.apple.Preferences' ? '設定' : '蝦皮購物',
+                'package': app.$2,
+                'installed': true,
+              }),
+            ),
+          );
+        }
         for (final problem
             in customApp != null
                 ? [('Cross-app worker smoke', 'custom')]
@@ -152,14 +184,17 @@ void main() {
                         : search
                         ? 'Open Shopee (com.beeasy.shopee.tw) and search for ESP32-S3 development boards. Find matching products on the actual search-results page and stop. Only search and inspect results. Do not buy, add to cart, share, message, delete data, change settings or claim rewards. If a login or CAPTCHA blocks searching, stop and report it. Use a real search field, type the term, submit, then inspect matching product titles; a search-history suggestion is not a product result.'
                         : 'Use Calculator to calculate ${problem.$1}. Clear the previous expression, enter all keys, press equals, verify and stop. Only operate Calculator. Labels are Traditional Chinese; 加 is plus, 等於 equals, 全部清除 all clear. Use screen_sequence for the full stable key sequence.'),
-                'success_criteria': customApp != null
-                    ? 'Requested app and expected text visible; report outcome and stop.'
-                    : cart
-                    ? 'Cart contains quantity one of the cheapest eligible ESP32-S3 development board, with the variant and price checked against ascending search results. Report the product title, variant, price, and compact cart evidence.'
-                    : search
-                    ? 'Shopee search results show ESP32-S3 development-board product titles'
-                    : 'Calculator result must show exactly ${problem.$2}',
+                'success_criteria':
+                    customCriteria ??
+                    (customApp != null
+                        ? 'Requested app and expected text visible; report outcome and stop.'
+                        : cart
+                        ? 'Cart contains quantity one of the cheapest eligible ESP32-S3 development board, with the variant and price checked against ascending search results. Report the product title, variant, price, and compact cart evidence.'
+                        : search
+                        ? 'Shopee search results show ESP32-S3 development-board product titles'
+                        : 'Calculator result must show exactly ${problem.$2}'),
                 if (customText != null) 'expected_text': [customText],
+                'result_contains': ?customQuery,
                 if (cart && customApp == null) 'expected_text': ['購物車'],
                 if (search && customApp == null)
                   'result_contains': 'ESP32S3'

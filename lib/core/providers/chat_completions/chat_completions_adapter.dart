@@ -28,6 +28,9 @@ class ChatCompletionsAdapter extends HttpProviderAdapter {
     'model': config.model,
     'stream': true,
     'stream_options': {'include_usage': true},
+    if (config.disableReasoning &&
+        config.model.toLowerCase().split('/').last.startsWith('deepseek-'))
+      'thinking': {'type': 'disabled'},
     if (config.capabilities.imageGeneration == ImageGenerationMode.chatOutput)
       'modalities': ['text', 'image'],
     if ({

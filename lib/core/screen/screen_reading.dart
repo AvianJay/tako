@@ -267,7 +267,9 @@ class ScreenReading {
           value: value,
           flags: screenFlagLabels(node, type),
           window: node.window,
-          viewId: {'Image', 'ImageView'}.contains(type) && own.isEmpty
+          viewId:
+              (node.actionable ||
+                  {'Image', 'ImageView'}.contains(type) && own.isEmpty)
               ? screenText(node.viewId, 120)
               : null,
         ),

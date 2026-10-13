@@ -77,6 +77,7 @@ class MessagesAdapter extends HttpProviderAdapter {
             ]
           : request.systemPrompt,
       'messages': messages,
+      if (config.disableReasoning) 'thinking': {'type': 'disabled'},
       if (_webSearch(request) && request.forceBuiltInWebSearch)
         'tool_choice': {'type': 'tool', 'name': 'web_search'},
       if (config.reasoningMode == ReasoningMode.enabled)

@@ -72,7 +72,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolRunTitle => 'Tool activity';
 
   @override
-  String get toolRunIncomplete => 'No result recorded';
+  String get toolRunIncomplete => 'Incomplete';
 
   @override
   String get toolRunUnavailable =>

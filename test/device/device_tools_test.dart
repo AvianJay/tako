@@ -30,6 +30,16 @@ class FakeDevice implements DeviceToolsCapability {
 }
 
 class FakeApi extends DeviceApi {
+  List<DeviceAppEntry> apps = [];
+  final launchedApps = <String>[];
+  @override
+  Future<List<DeviceAppEntry>> listApps() async => apps;
+  @override
+  Future<DeviceLaunchResult> openApp(String package) async {
+    launchedApps.add(package);
+    return DeviceLaunchResult(launched: true);
+  }
+
   final location = Completer<DeviceLocation>();
   final cancelled = <String>[];
   String? operation;
@@ -67,6 +77,38 @@ ToolContext context([CancelToken? cancel]) => ToolContext(
 );
 
 void main() {
+  test('app resolution returns actual matches without launching', () async {
+    final api = FakeApi()
+      ..apps = [
+        DeviceAppEntry(label: 'Shopee', packageName: 'com.beeasy.shopee.tw'),
+        DeviceAppEntry(label: 'Chat Alpha', packageName: 'example.alpha'),
+        DeviceAppEntry(label: 'Chat Beta', packageName: 'example.beta'),
+        DeviceAppEntry(label: 'Unrelated', packageName: 'example.private'),
+      ];
+    final registry = ToolRegistry(
+      createDeviceTools(NativeDeviceTools(platform: 'Android', api: api)),
+    );
+    final tool = registry.get('resolve_app')!;
+    final resolved = await tool.run({'name': 'Shopee'}, context());
+    expect(jsonDecode(resolved.content), {
+      'apps': [
+        {
+          'name': 'Shopee',
+          'package': 'com.beeasy.shopee.tw',
+          'installed': true,
+        },
+      ],
+    });
+    final ambiguous = await tool.run({'name': 'Chat'}, context());
+    expect((jsonDecode(ambiguous.content) as Map)['apps'], hasLength(2));
+    expect(
+      jsonDecode((await tool.run({'name': 'Missing'}, context())).content),
+      {'apps': []},
+    );
+    expect((await tool.run({'name': ' '}, context())).isError, true);
+    expect(api.launchedApps, isEmpty);
+    expect(iosDeviceToolNames, isNot(contains('resolve_app')));
+  });
   test(
     'Stop racing a committed write preserves its eventual side effect',
     () async {
@@ -115,6 +157,7 @@ void main() {
       };
       expect(risks, {
         'get_device_status': RiskLevel.safe,
+        'resolve_app': RiskLevel.safe,
         'get_location': RiskLevel.sensitive,
         'clipboard_read': RiskLevel.sensitive,
         'clipboard_write': RiskLevel.action,
