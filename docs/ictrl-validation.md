@@ -204,3 +204,16 @@ This timing starts on Shopee Home and excludes the main model and app launch.
 It verifies navigation, not item price or quantity. The result drawer shows
 results before long arguments so device verification does not require
 scrolling past a full workflow JSON.
+
+
+The subsequent external Claude stage relocated the mixed C3/S3/C6/H2 listing
+using an exact-title search URL and rechecked its ESP32-S3-SuperMini board
+variant at147(152struck), stock169, quantity1. It committed one add and
+verified sellerwmx88's exact variant in the cart at152before discount;
+badge5became6. Independent screenshots confirm both selector and cart.
+This completes the lowest-among-four variant addition, not a worldwide
+cheapest guarantee or an installed-worker add. The earlier165testboard
+remains in the cart along with all original items. Claude unchecked only
+the newly added item, leaving zero selected and no checkout. Final local
+validation passed604tests with2opt-in tests skipped and cleananalysis,
+formatting, and10browser checks.
