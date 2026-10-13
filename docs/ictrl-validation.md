@@ -165,3 +165,42 @@ domain/code diagnostics after a session ends. These contain no credentials,
 task text or screen content. Submission failure remains bounded; no phone
 actions are queued for delayed replay. Local validation passed 602 tests
 with two opt-in tests skipped, 10 browser checks and clean analysis/formatting.
+
+
+## Build 17 installed validation and native icon workflows
+
+Build 17 (3968436, successful Actions run 38372521120) was signed with the
+existing LCSign configuration, installed and launched. Device control shows
+`build 17`, `registered=true`, `submitted=true`, `handler=true`, state `ended`,
+local pairing ready at 127.0.0.1:8200 and Haiku Messages xhigh ready. The
+installed Calculator task ran beyond the previous 32-second cancellation.
+External Claude observations independently captured 7+8=15, 123+456=579 and
+98-76=22; the Tako response reports the two intermediate answers 408 and134.
+The main model split the prompt into separate remote_control calls. Those
+observations prove continued execution on this phone, not indefinite uptime
+or a measured speed improvement for the entire five-operation task.
+
+The latest authorized Nicko message was sent once through the production
+Haiku worker on the PC and independently verified in history. No further
+Nicko messages were sent.
+
+Shopee's cart now contains one environment-technology ESP32-S3 SuperMini
+board, variant unsoldered pins, actual cart price TWD165. A native read and
+independent screenshot confirm title, variant and quantity1. The badge
+increased from4to5 during the external Claude attempt; its verbal report
+incorrectly said nothing was added. The subsequent installed worker reached
+the cart and reported165 but did not establish quantity itself. Preserve
+existing items and never retry an add from an uncertain verbal report.
+This is a failed cheapest-price selection:147 was previously inspected,
+not relocated for the final addition, and the165item is not globally cheapest.
+
+Build18 makes visible unnamed native image IDs discoverable in compact
+screen reads across apps, allowing workflow view_id selection without a
+screenshot/model round. Images inside a named tappable parent stay omitted.
+The live PC-hosted production workflow opened Shopee's native cart icon
+and independently verified the cart heading in3.031seconds,3steps,0worker
+model rounds,0worker tokens and421characters returned to the main agent.
+This timing starts on Shopee Home and excludes the main model and app launch.
+It verifies navigation, not item price or quantity. The result drawer shows
+results before long arguments so device verification does not require
+scrolling past a full workflow JSON.

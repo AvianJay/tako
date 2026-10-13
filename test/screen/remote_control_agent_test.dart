@@ -7,6 +7,7 @@ import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/remote_control_agent.dart';
+import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/tools/device_tools.dart';
 import 'package:tako/core/tools/tool.dart';
 import 'package:tako/core/tools/tool_executor.dart';
@@ -367,6 +368,42 @@ void main() {
                 )).content,
               )
               as Map<String, Object?>;
+      expect(receipt['status'], 'verified');
+      expect(receipt['model_rounds'], 0);
+      expect(adapter.requests, isEmpty);
+      expect(screen.actions, hasLength(1));
+    },
+  );
+  test(
+    'native image ID workflow finishes without a worker model call',
+    () async {
+      screen.views['start'] = FakeView('com.example.fixture', 'Fixture', [
+        FakeWindow(
+          box([
+            FakeNode(
+              'Image',
+              viewId: 'ic_search_cart',
+              opens: 'done',
+              bounds: const ScreenBounds(360, 70, 384, 94),
+            ),
+          ]),
+        ),
+      ]);
+      build();
+      final receipt =
+          jsonDecode(
+                (await run(
+                  workflow: [
+                    {
+                      'tool': 'tap',
+                      'view_id': 'ic_search_cart',
+                      'expect_app': 'com.example.fixture',
+                      'expect_text': 'Done',
+                    },
+                  ],
+                )).content,
+              )
+              as Map;
       expect(receipt['status'], 'verified');
       expect(receipt['model_rounds'], 0);
       expect(adapter.requests, isEmpty);

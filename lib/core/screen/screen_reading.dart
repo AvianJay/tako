@@ -147,6 +147,7 @@ class ScreenElement {
     this.value,
     this.flags = const [],
     this.window = 0,
+    this.viewId,
   });
 
   /// Small per-read id shown to the model.
@@ -161,12 +162,14 @@ class ScreenElement {
   final String? value;
   final List<String> flags;
   final int window;
+  final String? viewId;
 
   String describe() {
     final label = this.label.replaceAll('"', "'");
     final value = this.value?.replaceAll('"', "'");
     return '[$id] $type${label.isEmpty ? '' : ' "$label"'}'
         '${value == null ? '' : ' = "$value"'}'
+        '${viewId == null ? '' : ' view_id="${viewId!.replaceAll('"', "'")}"'}'
         '${flags.isEmpty ? '' : ' (${flags.join(', ')})'}';
   }
 }
@@ -220,8 +223,36 @@ class ScreenReading {
           label = '';
         }
       } else {
-        if (own.isEmpty || covered.contains(index)) continue;
-        label = own;
+        if (covered.contains(index)) continue;
+        // Image controls often expose only a stable native ID. Include visible
+        // leaves so workflows can target them without an image/model round.
+        if (own.isEmpty) {
+          var namedParent = false;
+          var parent = node.parent;
+          for (var depth = 0; parent >= 0 && depth < 8; depth++) {
+            final ancestor = nodes[parent];
+            if (ancestor.clickable &&
+                (ownLabel(ancestor).isNotEmpty ||
+                    subtreeLabel(nodes, ends, parent).isNotEmpty)) {
+              namedParent = true;
+              break;
+            }
+            parent = ancestor.parent;
+          }
+          if (!{'Image', 'ImageView'}.contains(type) ||
+              namedParent ||
+              node.viewId?.isNotEmpty != true ||
+              node.bounds.area <= 0 ||
+              node.bounds.left < 0 ||
+              node.bounds.top < 0 ||
+              node.bounds.right > tree.width ||
+              node.bounds.bottom > tree.height) {
+            continue;
+          }
+          label = humanizeViewId(node.viewId);
+        } else {
+          label = own;
+        }
       }
       if (elements.length >= maxElements) {
         truncated = true;
@@ -236,6 +267,9 @@ class ScreenReading {
           value: value,
           flags: screenFlagLabels(node, type),
           window: node.window,
+          viewId: {'Image', 'ImageView'}.contains(type) && own.isEmpty
+              ? screenText(node.viewId, 120)
+              : null,
         ),
       );
     }

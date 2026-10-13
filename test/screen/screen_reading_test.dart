@@ -20,6 +20,58 @@ ScreenTree _tree(List<ScreenNode> nodes, {List<ScreenWindow>? windows}) =>
     );
 
 void main() {
+  test('visible unnamed image IDs are discoverable without a screenshot', () {
+    final reading = ScreenReading.from(
+      _tree(const [
+        ScreenNode(
+          className: 'Image',
+          viewId: 'ic_search_cart',
+          bounds: ScreenBounds(360, 70, 384, 94),
+        ),
+        ScreenNode(
+          className: 'android.widget.ImageView',
+          viewId: 'send_icon',
+          bounds: ScreenBounds(50, 500, 90, 540),
+        ),
+        ScreenNode(
+          className: 'Image',
+          viewId: 'clipped',
+          bounds: ScreenBounds(-10, 70, 14, 94),
+        ),
+        ScreenNode(
+          className: 'Image',
+          viewId: 'empty',
+          bounds: ScreenBounds(0, 0, 0, 0),
+        ),
+        ScreenNode(
+          className: 'Other',
+          viewId: 'whole_page',
+          bounds: ScreenBounds(0, 0, 1080, 2400),
+        ),
+        ScreenNode(
+          className: 'Image',
+          description: 'Logo',
+          viewId: 'logo',
+          bounds: ScreenBounds(0, 0, 40, 40),
+        ),
+        ScreenNode(className: 'Button', description: 'Send', flags: _click),
+        ScreenNode(
+          className: 'Image',
+          parent: 6,
+          viewId: 'send_image',
+          bounds: ScreenBounds(100, 100, 140, 140),
+        ),
+      ]),
+    );
+    expect(reading.elements.map((e) => e.node), [0, 1, 5, 6]);
+    expect(
+      reading.elements.first.describe(),
+      '[1] Image "ic search cart" view_id="ic_search_cart"',
+    );
+    expect(reading.elements[1].viewId, 'send_icon');
+    expect(reading.elements.last.viewId, isNull);
+    expect(reading.hasImage, false);
+  });
   test('view ids read as words', () {
     expect(humanizeViewId('com.whatsapp:id/send_btn'), 'send btn');
     expect(humanizeViewId('com.app:id/sendButton'), 'send button');

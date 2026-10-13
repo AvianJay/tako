@@ -1,7 +1,7 @@
 name: tako
 description: "Tako: a local-first personal AI assistant."
 publish_to: 'none'
-version: 0.5.0+17
+version: 0.5.0+18
 
 environment:
   sdk: ^3.11.4

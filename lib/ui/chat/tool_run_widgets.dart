@@ -445,6 +445,15 @@ class _ToolStepDetail extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
+        if (result != null) ...[
+          Text(l.result, style: theme.textTheme.labelLarge),
+          const SizedBox(height: 6),
+          SelectableText(
+            _pretty(result.content),
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+        ],
         Text(l.arguments, style: theme.textTheme.labelLarge),
         const SizedBox(height: 6),
         SelectableText(
@@ -452,13 +461,6 @@ class _ToolStepDetail extends StatelessWidget {
           style: theme.textTheme.bodySmall,
         ),
         if (result != null) ...[
-          const SizedBox(height: 16),
-          Text(l.result, style: theme.textTheme.labelLarge),
-          const SizedBox(height: 6),
-          SelectableText(
-            _pretty(result.content),
-            style: theme.textTheme.bodySmall,
-          ),
           if (result.attachments.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
