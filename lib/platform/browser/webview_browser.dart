@@ -382,6 +382,7 @@ class WebViewBrowser extends BrowserCapability {
 
   @override
   void takeOver() {
+    setModelActionTitle(null);
     _modelActive = false;
     _tabs.endResponse();
     _changed();
@@ -390,6 +391,7 @@ class WebViewBrowser extends BrowserCapability {
 
   @override
   void endModelSession() {
+    setModelActionTitle(null);
     _tabs.endResponse();
     if (!_modelActive) return;
     _modelActive = false;

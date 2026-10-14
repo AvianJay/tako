@@ -1,4 +1,7 @@
+import '../providers/provider_config.dart';
 import '../util/json.dart';
+
+enum ControlToolMode { automatic, basic, repl }
 
 class ToolSettings {
   const ToolSettings({
@@ -7,6 +10,7 @@ class ToolSettings {
     this.maxScreenSteps = 50,
     this.maxOutputChars = 6000,
     this.disabled = const {},
+    this.controlMode = ControlToolMode.automatic,
   });
   final bool enabled;
 
@@ -19,6 +23,13 @@ class ToolSettings {
   final int maxScreenSteps;
   final int maxOutputChars;
   final Set<String> disabled;
+  final ControlToolMode controlMode;
+  bool usesRepl(ProviderConfig provider) => switch (controlMode) {
+    ControlToolMode.basic => false,
+    ControlToolMode.repl => true,
+    ControlToolMode.automatic =>
+      provider.apiType != ApiType.onDevice && !provider.isLocal,
+  };
   factory ToolSettings.fromJson(JsonMap json) => ToolSettings(
     enabled: asBool(json['enabled']) ?? true,
     maxSteps: (asInt(json['maxSteps']) ?? 20).clamp(1, 100),
@@ -28,6 +39,10 @@ class ToolSettings {
       for (final name in asList(json['disabled']) ?? [])
         if (name is String) name,
     },
+    controlMode: ControlToolMode.values.firstWhere(
+      (mode) => mode.name == json['controlMode'],
+      orElse: () => ControlToolMode.automatic,
+    ),
   );
   JsonMap toJson() => {
     'enabled': enabled,
@@ -35,6 +50,7 @@ class ToolSettings {
     'maxScreenSteps': maxScreenSteps,
     'maxOutputChars': maxOutputChars,
     'disabled': disabled.toList(),
+    'controlMode': controlMode.name,
   };
   ToolSettings copyWith({
     bool? enabled,
@@ -42,11 +58,13 @@ class ToolSettings {
     int? maxScreenSteps,
     int? maxOutputChars,
     Set<String>? disabled,
+    ControlToolMode? controlMode,
   }) => ToolSettings(
     enabled: enabled ?? this.enabled,
     maxSteps: maxSteps ?? this.maxSteps,
     maxScreenSteps: maxScreenSteps ?? this.maxScreenSteps,
     maxOutputChars: maxOutputChars ?? this.maxOutputChars,
     disabled: disabled ?? this.disabled,
+    controlMode: controlMode ?? this.controlMode,
   );
 }

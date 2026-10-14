@@ -520,6 +520,9 @@ void main() {
           await database.close();
         });
         await app.initialize();
+        await app.saveToolSettings(
+          app.toolSettings.copyWith(controlMode: ControlToolMode.basic),
+        );
         await app.saveProvider(
           ProviderConfig(
             id: 'main',

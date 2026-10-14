@@ -4,6 +4,7 @@ import '../../platform/capabilities.dart';
 import '../browser/browser_capability.dart';
 import '../chat/content_block.dart';
 import '../search/search_service.dart';
+import 'action_title.dart';
 import 'tool.dart';
 
 const browserToolNames = {
@@ -51,23 +52,26 @@ class BrowserTool extends Tool implements TargetResolvingTool {
     const id = {'type': 'integer', 'minimum': 1, 'maximum': 100000};
     return {
       'type': 'object',
-      'properties': switch (name) {
-        'browser_open' => {
-          'url': {'type': 'string', 'minLength': 1, 'maxLength': 4096},
-        },
-        'browser_click' => {'id': id},
-        'browser_type' => {
-          'id': id,
-          'text': {'type': 'string', 'maxLength': 5000},
-          'submit': {'type': 'boolean'},
-        },
-        'browser_scroll' => {
-          'direction': {
-            'type': 'string',
-            'enum': ['down', 'up', 'top', 'bottom'],
+      'properties': {
+        'title': actionTitleSchema,
+        ...switch (name) {
+          'browser_open' => {
+            'url': {'type': 'string', 'minLength': 1, 'maxLength': 4096},
           },
+          'browser_click' => {'id': id},
+          'browser_type' => {
+            'id': id,
+            'text': {'type': 'string', 'maxLength': 5000},
+            'submit': {'type': 'boolean'},
+          },
+          'browser_scroll' => {
+            'direction': {
+              'type': 'string',
+              'enum': ['down', 'up', 'top', 'bottom'],
+            },
+          },
+          _ => <String, Object?>{},
         },
-        _ => <String, Object?>{},
       },
       'required': switch (name) {
         'browser_open' => ['url'],
@@ -136,6 +140,10 @@ class BrowserTool extends Tool implements TargetResolvingTool {
     final BrowserTarget target;
     try {
       target = await browser.resolve(id, ctx.cancel);
+      if (ctx.expectedTargetCheck != null &&
+          ctx.expectedTargetCheck != target.check) {
+        throw const ToolTargetException('element_changed_read_again');
+      }
     } on BrowserException catch (error) {
       throw ToolTargetException(error.code);
     }
@@ -160,6 +168,7 @@ class BrowserTool extends Tool implements TargetResolvingTool {
   @override
   Future<ToolResult> run(Map<String, Object?> args, ToolContext ctx) async {
     ctx.cancel.throwIfCancelled();
+    browser.setModelActionTitle(actionTitle(args));
     try {
       switch (name) {
         case 'browser_open':
@@ -170,7 +179,10 @@ class BrowserTool extends Tool implements TargetResolvingTool {
           return _json(await browser.open(url.trim(), ctx.cancel));
         case 'browser_read':
           final snapshot = await browser.read(ctx.cancel);
-          return ToolResult(content: snapshot.toToolText(maxChars: maxChars));
+          return ToolResult(
+            content: snapshot.toToolText(maxChars: maxChars),
+            data: snapshot.toJson(),
+          );
         case 'browser_click':
           final target = _target(ctx);
           final result = await browser.click(target, ctx.cancel);

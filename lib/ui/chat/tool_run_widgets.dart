@@ -82,7 +82,7 @@ _StepState _stepState(ToolRunStep step, _RunActivity activity) {
   if (step.message.status == MessageStatus.stopped) return _StepState.stopped;
   if (step.message.status == MessageStatus.error) return _StepState.failed;
   if (activity.ownerId == step.message.id) {
-    return activity.matches(step) && activity.awaitingToolName != step.call.name
+    return activity.matches(step) && activity.awaitingToolName == null
         ? _StepState.running
         : _StepState.waiting;
   }

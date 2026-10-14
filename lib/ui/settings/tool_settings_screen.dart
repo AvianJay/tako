@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_controller.dart';
 import '../../core/permissions/permission_gate.dart';
+import '../../core/tools/tool_settings.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../chat/tool_widgets.dart';
 
@@ -133,6 +134,41 @@ class _ToolSettingsScreenState extends ConsumerState<ToolSettingsScreen> {
               padding: const EdgeInsets.all(12),
               child: Text(l.toolsUnavailable),
             ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<ControlToolMode>(
+            key: const ValueKey('control-tool-mode'),
+            initialValue: app.toolSettings.controlMode,
+            decoration: InputDecoration(labelText: l.controlToolMode),
+            items: [
+              DropdownMenuItem(
+                value: ControlToolMode.automatic,
+                child: Text(l.controlToolModeAuto),
+              ),
+              DropdownMenuItem(
+                value: ControlToolMode.basic,
+                child: Text(l.controlToolModeBasic),
+              ),
+              DropdownMenuItem(
+                value: ControlToolMode.repl,
+                child: Text(l.controlToolModeRepl),
+              ),
+            ],
+            onChanged: app.busy
+                ? null
+                : (mode) {
+                    if (mode != null) {
+                      run(
+                        () => app.saveToolSettings(
+                          app.toolSettings.copyWith(controlMode: mode),
+                        ),
+                      );
+                    }
+                  },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(l.controlToolModeHelp),
+          ),
           TextFormField(
             controller: _steps,
             keyboardType: TextInputType.number,

@@ -99,6 +99,48 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @controlToolMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'瀏覽器與手機操控'**
+  String get controlToolMode;
+
+  /// No description provided for @controlToolModeAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自動'**
+  String get controlToolModeAuto;
+
+  /// No description provided for @controlToolModeBasic.
+  ///
+  /// In zh, this message translates to:
+  /// **'基礎工具'**
+  String get controlToolModeBasic;
+
+  /// No description provided for @controlToolModeRepl.
+  ///
+  /// In zh, this message translates to:
+  /// **'JavaScript REPL'**
+  String get controlToolModeRepl;
+
+  /// No description provided for @controlToolModeHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'自動模式讓遠端 API 模型使用 REPL，裝置端與本機伺服器模型使用基礎工具。REPL 可用 JavaScript 組合操作，每個動作仍需經過工具權限。'**
+  String get controlToolModeHelp;
+
+  /// No description provided for @readSkillTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'載入操作指引'**
+  String get readSkillTool;
+
+  /// No description provided for @jsReplTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行 JavaScript'**
+  String get jsReplTool;
+
   /// No description provided for @toolLoopDetected.
   ///
   /// In zh, this message translates to:

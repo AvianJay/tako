@@ -9,6 +9,28 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get controlToolMode => '瀏覽器與手機操控';
+
+  @override
+  String get controlToolModeAuto => '自動';
+
+  @override
+  String get controlToolModeBasic => '基礎工具';
+
+  @override
+  String get controlToolModeRepl => 'JavaScript REPL';
+
+  @override
+  String get controlToolModeHelp =>
+      '自動模式讓遠端 API 模型使用 REPL，裝置端與本機伺服器模型使用基礎工具。REPL 可用 JavaScript 組合操作，每個動作仍需經過工具權限。';
+
+  @override
+  String get readSkillTool => '載入操作指引';
+
+  @override
+  String get jsReplTool => '執行 JavaScript';
+
+  @override
   String get toolLoopDetected => '已阻止重复的工具循环。请查看模型说明，需要尝试其他方式时按「继续」。';
 
   @override
@@ -1515,6 +1537,28 @@ class AppLocalizationsZh extends AppLocalizations {
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
 class AppLocalizationsZhTw extends AppLocalizationsZh {
   AppLocalizationsZhTw() : super('zh_TW');
+
+  @override
+  String get controlToolMode => '瀏覽器與手機操控';
+
+  @override
+  String get controlToolModeAuto => '自動';
+
+  @override
+  String get controlToolModeBasic => '基礎工具';
+
+  @override
+  String get controlToolModeRepl => 'JavaScript REPL';
+
+  @override
+  String get controlToolModeHelp =>
+      '自動模式讓遠端 API 模型使用 REPL，裝置端與本機伺服器模型使用基礎工具。REPL 可用 JavaScript 組合操作，每個動作仍需經過工具權限。';
+
+  @override
+  String get readSkillTool => '載入操作指引';
+
+  @override
+  String get jsReplTool => '執行 JavaScript';
 
   @override
   String get toolLoopDetected => '已阻止重複的工具循環。請查看模型說明，需要嘗試其他方式時按「繼續」。';

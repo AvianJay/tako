@@ -11,6 +11,7 @@ import '../files/workspace.dart';
 import '../permissions/permission_gate.dart';
 import '../providers/providers.dart';
 import '../tools/action_title.dart';
+import '../tools/repl_tools.dart';
 import '../tools/screen_replay_tool.dart';
 import '../tools/screen_sequence_tool.dart';
 import '../tools/screen_tools.dart';
@@ -26,6 +27,18 @@ import 'screen_history.dart';
 import 'screen_reading.dart';
 
 typedef RemoteAgentBackend = ({ProviderConfig config, ProviderAdapter adapter});
+bool _basicControl(ProviderConfig _) => false;
+const _replWorkerInstructions = '''
+Tool interface for this worker: the phone operations mentioned above are host
+APIs, not direct model tools. First call read_skill with skill="phone" to load
+Tako's trusted API guide, then use js_repl with title and code. Await every
+operation and print useful observations with console.log. var bindings survive
+across js_repl calls in this task. Use returned element references; coordinates
+must come from an image already returned in an earlier model response. Every
+inner operation still passes the original permission gate and step budget.
+After an error inspect completed operation receipts before retrying. Never use
+detached work, filesystem/network APIs, Node/npm, or timers.
+''';
 
 /// Isolated screen worker: raw screen history never enters the main chat.
 /// Both its actions and deterministic verification share the app's permission
@@ -42,6 +55,8 @@ class RemoteControlAgent {
     required this.screenshots,
     required this.disabledTools,
     required this.stepLimit,
+    this.useRepl = _basicControl,
+    this.runtimeFactory,
   });
   final ScreenCapability screen;
   final WorkspaceCapability workspace;
@@ -53,6 +68,8 @@ class RemoteControlAgent {
   final bool Function() screenshots;
   final Set<String> Function() disabledTools;
   final int Function() stepLimit;
+  final bool Function(ProviderConfig config) useRepl;
+  final ReplRuntimeFactory? runtimeFactory;
   bool _running = false;
   final _reports = <String, _Report>{};
 
@@ -74,6 +91,7 @@ class RemoteControlAgent {
     var observationRecoveries = 0;
     var workflowUsed = false;
     ProviderConfig? workerConfig;
+    ReplToolSession? replSession;
     var recoveryAttempts = 0;
     final limit = stepLimit().clamp(1, 200);
     String status = 'incomplete';
@@ -330,6 +348,44 @@ class RemoteControlAgent {
             rounds < limit) {
           selected ??= await backend();
           workerConfig = selected.config;
+          if (replSession == null &&
+              runtimeFactory != null &&
+              useRepl(selected.config)) {
+            replSession = ReplToolSession(
+              registry: registry,
+              readings: readings,
+              runtimeFactory: runtimeFactory!,
+              maxOutputChars: 6000,
+              execute: (call, context) async {
+                if (steps >= limit - 1 || status == 'blocked') {
+                  return executor.reject(call, context, 'remote_step_limit');
+                }
+                primitives.disabledTools = disabledTools();
+                registry.disabledTools = disabledTools();
+                if (call.name == 'screen_workflow') workflowUsed = true;
+                final execution = await executor.execute(call, context);
+                if (!{
+                  'screen_sequence',
+                  'screen_workflow',
+                  'screen_replay',
+                }.contains(call.name)) {
+                  record(execution.result);
+                }
+                stopForBusyUi(execution.result);
+                return execution;
+              },
+            );
+          }
+          final workerRegistry = replSession == null
+              ? registry
+              : replPresentation(registry, replSession);
+          final workerExecutor = replSession == null
+              ? executor
+              : ToolExecutor(
+                  registry: workerRegistry,
+                  permissions: permissions,
+                  audit: audit,
+                );
           rounds++;
           screen.updateModelSession(
             title: title,
@@ -368,13 +424,16 @@ class RemoteControlAgent {
           try {
             await for (final event in selected.adapter.send(
               ChatRequest(
-                systemPrompt: remoteWorkerPromptFor(permissions.policy),
+                systemPrompt:
+                    '${remoteWorkerPromptFor(permissions.policy)}${replSession == null ? '' : _replWorkerInstructions}',
                 messages: prepared,
-                tools: registry.definitions,
+                tools: workerRegistry.definitions,
                 maxTokens: selected.config.maxOutputTokens,
                 replayOpaqueReasoning: !compact.changed,
                 cachePrompt: true,
-                promptHash: 'remote-worker-v7',
+                promptHash: replSession == null
+                    ? 'remote-worker-v7'
+                    : 'remote-worker-v8-repl',
               ),
               cancel: ctx.cancel,
             )) {
@@ -480,7 +539,7 @@ class RemoteControlAgent {
             // Honor tool changes made while an approval is pending.
             primitives.disabledTools = disabledTools();
             registry.disabledTools = disabledTools();
-            final result = (await executor.execute(
+            final result = (await workerExecutor.execute(
               call,
               ToolContext(
                 conversationId: ctx.conversationId,
@@ -493,6 +552,7 @@ class RemoteControlAgent {
               'screen_sequence',
               'screen_workflow',
               'screen_replay',
+              'js_repl',
             }.contains(call.name)) {
               record(result);
             } else if (result.isError &&
@@ -605,6 +665,7 @@ class RemoteControlAgent {
       status = 'incomplete';
       reason = 'worker_failed';
     } finally {
+      replSession?.close();
       _running = false;
     }
     _reports[id] = report;

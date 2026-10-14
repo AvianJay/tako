@@ -209,6 +209,8 @@ Future<(AppController, _Services)> _app(
   _Adapter adapter, {
   FakeScreen? screen,
   bool vision = false,
+  ControlToolMode mode = ControlToolMode.basic,
+  bool local = false,
 }) async {
   final db = AppDatabase(NativeDatabase.memory());
   final services = _Services(screen ?? phoneScreen());
@@ -224,12 +226,14 @@ Future<(AppController, _Services)> _app(
     await db.close();
   });
   await app.initialize();
+  await app.saveToolSettings(app.toolSettings.copyWith(controlMode: mode));
   await app.saveProvider(
     ProviderConfig(
       id: 'fixture',
       displayName: 'Fixture',
       apiType: ApiType.chatCompletions,
       baseUrl: 'https://fixture.example.com/v1',
+      isLocal: local,
       model: 'fixture-model',
       capabilities: ProviderCapabilities(
         tools: true,
@@ -277,6 +281,74 @@ List<ToolResultBlock> _results(AppController app) => [
 ];
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'API models default to guided REPL and retain variables across tool rounds',
+    () async {
+      final adapter = _Adapter([
+        _call('read_skill', {'skill': 'phone'}),
+        _call('js_repl', {
+          'title': 'Read Settings',
+          'code': 'var screen = await phone.read(); console.log(screen.app);',
+        }),
+        _call('js_repl', {
+          'title': 'Open About phone',
+          'code':
+              'await phone.tap(screen.elements.find(e => e.label.includes("About phone")));',
+        }),
+        _say((_) => 'Opened About phone.'),
+      ]);
+      final (app, services) = await _app(
+        adapter,
+        mode: ControlToolMode.automatic,
+        screen: phoneScreen()..show('settings'),
+      );
+      await _approveAll(app, app.send('Open About phone'));
+      expect(
+        adapter.requests.first.tools.map((tool) => tool.name),
+        containsAll(['read_skill', 'js_repl']),
+      );
+      expect(
+        adapter.requests.first.tools.map((tool) => tool.name),
+        isNot(contains('read_screen')),
+      );
+      expect(
+        adapter.requests.first.systemPrompt,
+        contains('phone skill is available'),
+      );
+      expect(services.screen.current, 'settings/about');
+      expect(_results(app).where((result) => result.isError), isEmpty);
+      expect(
+        _results(
+          app,
+        ).expand((result) => result.sideEffects).map((effect) => effect.kind),
+        contains('screen_tapped'),
+      );
+    },
+  );
+
+  test('local API models keep basic controls in automatic mode', () async {
+    final adapter = _Adapter([
+      _call('read_screen'),
+      _say((_) => 'Read Settings.'),
+    ]);
+    final (app, _) = await _app(
+      adapter,
+      mode: ControlToolMode.automatic,
+      local: true,
+      screen: phoneScreen()..show('settings'),
+    );
+    await _approveAll(app, app.send('Read Settings'));
+    expect(
+      adapter.requests.first.tools.map((tool) => tool.name),
+      contains('read_screen'),
+    );
+    expect(
+      adapter.requests.first.tools.map((tool) => tool.name),
+      isNot(contains('js_repl')),
+    );
+  });
+
   test(
     'the model opens an app, navigates three screens and reads back',
     () async {
@@ -448,7 +520,7 @@ void main() {
       ]);
       final (app, services) = await _app(adapter);
       await app.saveToolSettings(
-        const ToolSettings(maxSteps: 2, maxScreenSteps: 5),
+        app.toolSettings.copyWith(maxSteps: 2, maxScreenSteps: 5),
       );
       await _approveAll(app, app.send('Which Android version is this?'));
       expect(app.errorCode, isNull);
@@ -485,7 +557,7 @@ void main() {
         ]);
         final (app, _) = await _app(adapter);
         await app.saveToolSettings(
-          const ToolSettings(maxSteps: 1, maxScreenSteps: 1),
+          app.toolSettings.copyWith(maxSteps: 1, maxScreenSteps: 1),
         );
         await _approveAll(app, app.send('Look at Settings'));
         expect(app.errorCode, 'toolLoopDetected');
@@ -520,7 +592,7 @@ void main() {
       ]);
       final (app, _) = await _app(adapter);
       await app.saveToolSettings(
-        const ToolSettings(maxSteps: 1, maxScreenSteps: 1),
+        app.toolSettings.copyWith(maxSteps: 1, maxScreenSteps: 1),
       );
       await _approveAll(app, app.send('Open Settings'));
       expect(app.canContinueAfterLimit, isTrue);

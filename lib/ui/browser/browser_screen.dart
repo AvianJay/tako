@@ -498,6 +498,7 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
               children: [
                 if (modelActive)
                   _ModelBanner(
+                    title: browser.modelActionTitle,
                     onTakeOver: () {
                       _userActs();
                       browser.takeOver();
@@ -591,8 +592,9 @@ class _TabCount extends StatelessWidget {
 }
 
 class _ModelBanner extends StatelessWidget {
-  const _ModelBanner({required this.onTakeOver});
+  const _ModelBanner({required this.onTakeOver, this.title});
   final VoidCallback onTakeOver;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -618,7 +620,7 @@ class _ModelBanner extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                l.browserModelActive(kAppName),
+                '${l.browserModelActive(kAppName)}${title == null ? '' : '\n$title'}',
                 style: TextStyle(color: colors.onTertiaryContainer),
               ),
             ),

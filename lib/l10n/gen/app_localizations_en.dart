@@ -9,6 +9,28 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get controlToolMode => 'Browser and phone control';
+
+  @override
+  String get controlToolModeAuto => 'Automatic';
+
+  @override
+  String get controlToolModeBasic => 'Basic tools';
+
+  @override
+  String get controlToolModeRepl => 'JavaScript REPL';
+
+  @override
+  String get controlToolModeHelp =>
+      'Automatic uses REPL for remote API models and basic tools for on-device or local-server models. REPL can combine operations with JavaScript; every action still follows tool permissions.';
+
+  @override
+  String get readSkillTool => 'Load control guide';
+
+  @override
+  String get jsReplTool => 'Run JavaScript';
+
+  @override
   String get toolLoopDetected =>
       'A repeated tool loop was stopped. Review the explanation, then press Continue to try a different approach.';
 

@@ -8,6 +8,8 @@ import '../../core/permissions/permission_gate.dart';
 import '../../l10n/gen/app_localizations.dart';
 
 String toolLabel(String name, AppLocalizations l) => switch (name) {
+  'read_skill' => l.readSkillTool,
+  'js_repl' => l.jsReplTool,
   'get_device_status' => l.deviceStatusTool,
   'get_location' => l.locationTool,
   'clipboard_read' => l.clipboardReadTool,

@@ -10,9 +10,14 @@ import 'tool.dart';
 import 'tool_registry.dart';
 
 class ToolExecution {
-  const ToolExecution({required this.result, this.attachments = const []});
+  const ToolExecution({
+    required this.result,
+    this.attachments = const [],
+    this.data,
+  });
   final ToolResultBlock result;
   final List<ContentBlock> attachments;
+  final Map<String, Object?>? data;
 }
 
 class ToolExecutor {
@@ -27,6 +32,37 @@ class ToolExecutor {
   final PermissionGate permissions;
   final AuditRepository audit;
   final int maxOutputChars;
+
+  /// Record a loop/budget rejection before any primitive can commit an action.
+  Future<ToolExecution> reject(
+    ToolCallBlock call,
+    ToolContext context,
+    String code,
+  ) async {
+    final id = await audit.start(
+      conversationId: context.conversationId,
+      messageId: context.messageId,
+      toolCallId: call.id,
+      toolName: call.name,
+      arguments: call.arguments,
+      risk: RiskLevel.high,
+    );
+    final content = jsonEncode({'error': code});
+    await audit.finish(
+      id,
+      decision: code,
+      resultSummary: content,
+      isError: true,
+    );
+    return ToolExecution(
+      result: ToolResultBlock(
+        toolCallId: call.id,
+        toolName: call.name,
+        content: content,
+        isError: true,
+      ),
+    );
+  }
 
   Future<ToolExecution> execute(ToolCallBlock call, ToolContext context) async {
     final tool = registry.get(call.name);
@@ -146,7 +182,11 @@ class ToolExecutor {
       resultSummary: content,
       isError: result.isError,
     );
-    return ToolExecution(result: block, attachments: attachments);
+    return ToolExecution(
+      result: block,
+      attachments: attachments,
+      data: result.data,
+    );
   }
 
   String _truncate(String value) {

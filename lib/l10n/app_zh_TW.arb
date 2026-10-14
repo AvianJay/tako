@@ -1,4 +1,11 @@
 {
+  "controlToolMode": "瀏覽器與手機操控",
+  "controlToolModeAuto": "自動",
+  "controlToolModeBasic": "基礎工具",
+  "controlToolModeRepl": "JavaScript REPL",
+  "controlToolModeHelp": "自動模式讓遠端 API 模型使用 REPL，裝置端與本機伺服器模型使用基礎工具。REPL 可用 JavaScript 組合操作，每個動作仍需經過工具權限。",
+  "readSkillTool": "載入操作指引",
+  "jsReplTool": "執行 JavaScript",
   "toolLoopDetected": "已阻止重複的工具循環。請查看模型說明，需要嘗試其他方式時按「繼續」。",
   "appUpdates": "應用程式更新",
   "appUpdatesHelp": "從 GitHub nightly 檢查並安裝 Android full 版本更新。",

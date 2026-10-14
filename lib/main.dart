@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app/app_controller.dart';
@@ -7,6 +8,11 @@ import 'platform/services.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'QuickJS-NG',
+    ], await rootBundle.loadString('assets/licenses/quickjs-ng.txt'));
+  });
   runApp(
     AppBootstrap(
       loadController: () async => AppController(

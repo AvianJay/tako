@@ -34,6 +34,7 @@ import '../core/tools/file_tools.dart';
 import '../core/tools/image_generation_tool.dart';
 import '../core/tools/memory_tools.dart';
 import '../core/tools/notification_tools.dart';
+import '../core/tools/repl_tools.dart';
 import '../core/tools/screen_tools.dart';
 import '../core/tools/search_tools.dart';
 import '../core/tools/shell_tools.dart';
@@ -53,6 +54,7 @@ import '../data/provider_repository.dart';
 import '../data/settings_repository.dart';
 import '../platform/app_services.dart';
 import '../platform/capabilities.dart';
+import '../platform/repl/quickjs_repl.dart';
 import 'app_info.dart';
 
 final appControllerProvider = ChangeNotifierProvider<AppController>(
@@ -138,6 +140,33 @@ class AppController extends ChangeNotifier {
   ToolSettings toolSettings = const ToolSettings();
   SearchConfig searchConfig = const SearchConfig();
   late ToolRegistry toolRegistry = _makeRegistry();
+  ReplToolSession? _activeRepl;
+
+  bool _usesControlRepl(ProviderConfig provider) =>
+      toolSettings.usesRepl(provider) &&
+      !toolSettings.disabled.any(replToolNames.contains);
+
+  ReplToolSession _replSession(ToolRegistry backend, ReplExecute execute) =>
+      ReplToolSession(
+        registry: backend,
+        execute: execute,
+        readings: _screenReadings,
+        maxOutputChars: toolSettings.maxOutputChars,
+        runtimeFactory: () =>
+            QuickJsRepl(maxOutputChars: toolSettings.maxOutputChars),
+      );
+
+  ToolRegistry _modelRegistry(ProviderConfig provider, ToolRegistry backend) {
+    if (!_usesControlRepl(provider)) return backend;
+    final session = _replSession(
+      backend,
+      (_, _) => throw StateError('No active REPL'),
+    );
+    return session.skills.isEmpty
+        ? backend
+        : replPresentation(backend, session);
+  }
+
   String? activeToolCallId;
   String? _lastStopReason;
   List<ContentBlock> draftAttachments = [];
@@ -387,7 +416,9 @@ class AppController extends ChangeNotifier {
         if (always && block is ImageBlock) paths.add(block.path);
         if (always && block is FileBlock) paths.add(block.path);
         if (block is ToolResultBlock &&
-            (always || block.toolName == 'read_screen')) {
+            (always ||
+                screenToolNames.contains(block.toolName) ||
+                {'js_repl', 'open_app'}.contains(block.toolName))) {
           for (final attachment in block.attachments) {
             if (attachment is ImageBlock) paths.add(attachment.path);
             if (always && attachment is FileBlock) paths.add(attachment.path);
@@ -496,6 +527,9 @@ class AppController extends ChangeNotifier {
         remoteAgentProvider?.capabilities.acceptsImageInput == true,
     disabledTools: () => toolSettings.disabled,
     stepLimit: () => toolSettings.maxScreenSteps,
+    useRepl: _usesControlRepl,
+    runtimeFactory: () =>
+        QuickJsRepl(maxOutputChars: toolSettings.maxOutputChars),
   );
   bool get delegatesScreen =>
       remoteAgentProvider != null &&
@@ -586,11 +620,14 @@ class AppController extends ChangeNotifier {
             ImageGenerationMode.imagesApi) {
       return const {};
     }
-    final disabled = _disabledTools(incognito: incognito);
-    return {
-      for (final tool in toolRegistry.availableTools)
-        if (!disabled.contains(tool.name)) tool.name,
-    };
+    final offered = _modelRegistry(
+      provider,
+      ToolRegistry(
+        toolRegistry.allTools,
+        disabledTools: _disabledTools(incognito: incognito),
+      ),
+    );
+    return {for (final tool in offered.availableTools) tool.name};
   }
 
   final ChatRepository chats;
@@ -940,6 +977,17 @@ class AppController extends ChangeNotifier {
     required String userNotes,
   }) {
     final tools = _conversationTools(provider, incognito: incognito);
+    final repl = tools.contains('js_repl');
+    final backend = ToolRegistry(
+      toolRegistry.allTools,
+      disabledTools: _disabledTools(incognito: incognito),
+    );
+    final browserControl =
+        tools.contains('browser_read') ||
+        repl && backend.get('browser_read') != null;
+    final phoneControl =
+        tools.contains('read_screen') ||
+        repl && backend.get('read_screen') != null;
     // The memory section instructs the model to call memory tools. Without
     // them the pinned profile gets a short section of its own; incognito
     // chats and switched-off memory have neither.
@@ -961,21 +1009,23 @@ class AppController extends ChangeNotifier {
               !toolSettings.disabled.contains('web_search') &&
               provider.capabilities.builtInWebSearch &&
               supportsBuiltInWebSearch(provider),
-      'browser': tools.contains('browser_read'),
+      'browser': browserControl,
+      'control_repl': repl,
+      'browser_repl': repl && browserControl,
+      'phone_repl': repl && phoneControl,
       'files': tools.contains('file_list'),
       'full_permissions': permissionGate.policy.fullPermissions,
       'skip_high_risk_confirmations':
           permissionGate.policy.skipHighRiskConfirmations,
-      'screen_control': tools.contains('read_screen'),
+      'screen_control': phoneControl,
       'screen_delegate': tools.contains('remote_control'),
       'screen_elements':
-          tools.contains('read_screen') &&
+          phoneControl &&
           services.screen.observationModes.contains(
             ScreenObservationMode.elements,
           ),
-      'screen_vision': tools.contains('read_screen') && _screenVision(provider),
-      'screen_fast':
-          tools.contains('read_screen') && services.screen.supportsFastActions,
+      'screen_vision': phoneControl && _screenVision(provider),
+      'screen_fast': phoneControl && services.screen.supportsFastActions,
       'shortcuts': tools.contains('run_shortcut'),
       'shell': tools.contains('run_shell'),
       'shell_env': services.shell.environment,
@@ -998,10 +1048,17 @@ class AppController extends ChangeNotifier {
       'model': provider.model,
       'isLocal': provider.isLocal,
       'capabilities': provider.capabilities.toJson(),
-      'tools': [
-        for (final tool in toolRegistry.availableTools)
-          if (tools.contains(tool.name)) tool.name,
-      ],
+      'tools': [...tools.toList()..sort()],
+      'controlMode': toolSettings.controlMode.name,
+      'replSkills': tools.contains('js_repl')
+          ? _replSession(
+              ToolRegistry(
+                toolRegistry.allTools,
+                disabledTools: _disabledTools(incognito: incognito),
+              ),
+              (_, _) => throw StateError('No active REPL'),
+            ).methods.keys.toList()
+          : const <String>[],
       'screenVision': tools.contains('read_screen') && _screenVision(provider),
       'screenFast': services.screen.supportsFastActions,
       'fullPermissions': permissionGate.policy.fullPermissions,
@@ -1601,6 +1658,8 @@ class AppController extends ChangeNotifier {
       activeToolCallId = null;
       services.browser.endModelSession();
       services.screen.endModelSession();
+      _activeRepl?.close();
+      _activeRepl = null;
       _emit();
       unawaited(_applyModelLists());
     }
@@ -1690,6 +1749,8 @@ class AppController extends ChangeNotifier {
       activeToolCallId = null;
       services.browser.endModelSession();
       services.screen.endModelSession();
+      _activeRepl?.close();
+      _activeRepl = null;
       _emit();
       unawaited(_applyModelLists());
     }
@@ -1709,7 +1770,7 @@ class AppController extends ChangeNotifier {
         provider.capabilities.builtInWebSearch &&
         supportsBuiltInWebSearch(provider) &&
         !toolSettings.disabled.contains('web_search');
-    final registry = allowed
+    final backend = allowed
         ? ToolRegistry(
             toolRegistry.allTools,
             disabledTools: {
@@ -1719,7 +1780,7 @@ class AppController extends ChangeNotifier {
           )
         : ToolRegistry(const []);
     final executor = ToolExecutor(
-      registry: registry,
+      registry: backend,
       permissions: permissionGate,
       audit: audit,
       maxOutputChars: toolSettings.maxOutputChars,
@@ -1746,9 +1807,35 @@ class AppController extends ChangeNotifier {
     // Controlling the screen takes an action and a look per step, so a turn
     // that uses screen tools gets the larger loop-check threshold.
     var screenTurn = false;
+    ToolLoop? replLoop;
     int limit() => screenTurn
         ? max(toolSettings.maxSteps, toolSettings.maxScreenSteps)
         : toolSettings.maxSteps;
+    final session = allowed && _usesControlRepl(provider)
+        ? _replSession(backend, (call, context) async {
+            if (screenToolNames.contains(call.name)) screenTurn = true;
+            replLoop ??= executed >= limit()
+                ? loops.repeatingBefore(call)
+                : null;
+            if (replLoop != null) {
+              return executor.reject(call, context, 'tool_loop_detected');
+            }
+            final execution = await executor.execute(call, context);
+            executed++;
+            if (!token.isCancelled) await remember(call, execution.result);
+            return execution;
+          })
+        : null;
+    _activeRepl = session;
+    final registry = session != null && session.skills.isNotEmpty
+        ? replPresentation(backend, session)
+        : backend;
+    final modelExecutor = ToolExecutor(
+      registry: registry,
+      permissions: permissionGate,
+      audit: audit,
+      maxOutputChars: toolSettings.maxOutputChars,
+    );
     while (!token.isCancelled) {
       var hostedAllowed = false;
       int? hostedAudit;
@@ -1905,7 +1992,7 @@ class AppController extends ChangeNotifier {
           }
         } else {
           final beforeWorkerMs = turnTimer.elapsedMilliseconds;
-          final execution = await executor.execute(
+          final execution = await modelExecutor.execute(
             call,
             ToolContext(
               conversationId: response.conversationId,
@@ -1936,6 +2023,7 @@ class AppController extends ChangeNotifier {
             }
           }
           results.add(receipt);
+          blockedLoop ??= replLoop;
           // Persist committed actions even if Stop prevents image hydration.
           if (!token.isCancelled) await remember(call, receipt);
           executed++;
@@ -2363,6 +2451,7 @@ class AppController extends ChangeNotifier {
     _attachmentCancel?.cancel();
     _cancel?.cancel();
     services.screen.endModelSession();
+    services.browser.endModelSession();
   }
 
   bool _hasAnswer(List<ContentBlock> content) => content.any(

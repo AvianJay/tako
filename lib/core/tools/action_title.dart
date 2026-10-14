@@ -28,6 +28,7 @@ String? phoneActionTitle(ToolCallBlock call) {
     'type_text',
     'press_key',
     'open_app',
+    'js_repl',
     'open_url',
     'remote_control',
     'screen_sequence',

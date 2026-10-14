@@ -15,6 +15,7 @@ class ToolContext {
     this.targetIsPassword = false,
     this.target,
     this.targetDetails = const {},
+    this.expectedTargetCheck,
   });
 
   final String conversationId;
@@ -36,6 +37,9 @@ class ToolContext {
   /// Plain-language facts about the target shown in the approval sheet.
   final Map<String, String> targetDetails;
 
+  /// An opaque fingerprint retained by a controlled REPL element reference.
+  final String? expectedTargetCheck;
+
   ToolContext withTarget({
     required Object target,
     String? label,
@@ -50,6 +54,7 @@ class ToolContext {
     targetIsPassword: isPassword,
     target: target,
     targetDetails: Map.unmodifiable(details),
+    expectedTargetCheck: expectedTargetCheck,
   );
 }
 
@@ -59,12 +64,16 @@ class ToolResult {
     this.isError = false,
     this.sideEffects = const [],
     this.attachments = const [],
+    this.data,
   });
 
   final String content;
   final bool isError;
   final List<SideEffect> sideEffects;
   final List<ContentBlock> attachments;
+
+  /// Host-only structured data. Not persisted or replayed as a second tool result.
+  final Map<String, Object?>? data;
 }
 
 abstract class Tool {

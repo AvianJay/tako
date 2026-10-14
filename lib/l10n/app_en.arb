@@ -1,4 +1,11 @@
 {
+  "controlToolMode": "Browser and phone control",
+  "controlToolModeAuto": "Automatic",
+  "controlToolModeBasic": "Basic tools",
+  "controlToolModeRepl": "JavaScript REPL",
+  "controlToolModeHelp": "Automatic uses REPL for remote API models and basic tools for on-device or local-server models. REPL can combine operations with JavaScript; every action still follows tool permissions.",
+  "readSkillTool": "Load control guide",
+  "jsReplTool": "Run JavaScript",
   "toolLoopDetected": "A repeated tool loop was stopped. Review the explanation, then press Continue to try a different approach.",
   "appUpdates": "App updates",
   "appUpdatesHelp": "Check and install Android full updates from GitHub nightly releases.",

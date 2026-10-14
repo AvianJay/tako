@@ -38,6 +38,11 @@ dependencies:
   llamadart: 0.11.1
   crypto: ^3.0.7
   cryptography: ^2.9.0
+  archive: ^4.0.7
+  code_assets: ^1.2.1
+  ffi: ^2.1.4
+  hooks: 2.0.2
+  native_toolchain_c: 0.19.2
 
 dev_dependencies:
   flutter_test:
@@ -57,6 +62,8 @@ flutter:
   generate: true
   assets:
     - assets/prompts/
+    - assets/skills/
+    - assets/licenses/
 
 hooks:
   user_defines:

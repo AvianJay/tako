@@ -19,6 +19,7 @@ import 'package:tako/core/providers/providers.dart';
 import 'package:tako/core/screen/screen_capability.dart';
 import 'package:tako/core/shell/shell_capability.dart';
 import 'package:tako/core/shortcuts/shortcuts_capability.dart';
+import 'package:tako/core/tools/tool_settings.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/app_services.dart';
 import 'package:tako/platform/device_tools_capability.dart';
@@ -143,6 +144,9 @@ Future<AppController> _app(
     if (database == null) await db.close();
   });
   await app.initialize();
+  await app.saveToolSettings(
+    app.toolSettings.copyWith(controlMode: ControlToolMode.basic),
+  );
   await app.saveProvider(
     ProviderConfig(
       id: 'fixture',

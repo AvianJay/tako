@@ -29,7 +29,7 @@ String aicorePrompt(ChatRequest request) {
       'type': 'tool_result',
       'id': block.toolCallId,
       'name': block.toolName,
-      'untrusted': true,
+      'untrusted': block.toolName != 'read_skill',
       'text': block.content,
       'isError': block.isError,
       'attachments': [

@@ -263,6 +263,7 @@ const _runtime = r'''
           try { item.el.setAttribute('data-tako-id', String(id)); } catch (_) {}
           const info = describe(item.el);
           info.id = id;
+          info.check = fingerprint(item.el);
           elements.push(info);
         }
         const root = doc.querySelector('main,[role="main"]') || doc.body ||

@@ -19,6 +19,7 @@ import 'package:tako/core/util/json.dart';
 import 'package:tako/data/audit_repository.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/device_tools_capability.dart';
+import 'package:tako/platform/repl/quickjs_repl.dart';
 
 import 'fake_screen.dart';
 
@@ -169,6 +170,7 @@ class _PagedScreen extends FakeScreen {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late AppDatabase database;
   late FakeScreen screen;
   late PermissionGate gate;
@@ -177,6 +179,7 @@ void main() {
   late ToolExecutor executor;
   var disabled = <String>{};
   var limit = 20;
+  var repl = false;
   final token = CancelToken();
   setUp(() {
     database = AppDatabase(NativeDatabase.memory());
@@ -200,6 +203,7 @@ void main() {
     );
     disabled = {};
     limit = 20;
+    repl = false;
     adapter = _Adapter([
       call('tap', {'title': 'Start', 'id': 1, 'screenshot': true}),
     ]);
@@ -228,6 +232,8 @@ void main() {
       screenshots: () => true,
       disabledTools: () => disabled,
       stepLimit: () => limit,
+      useRepl: (_) => repl,
+      runtimeFactory: QuickJsRepl.new,
     );
     executor = ToolExecutor(
       registry: ToolRegistry(agent.tools),
@@ -270,6 +276,39 @@ void main() {
     screen.dispose();
     await database.close();
   });
+
+  test(
+    'a remote worker uses guided REPL while native verification and budgets stay outside JS',
+    () async {
+      repl = true;
+      adapter = _Adapter([
+        call('read_skill', {'skill': 'phone'}),
+        call('js_repl', {
+          'title': 'Start',
+          'code':
+              'var s = await phone.read(); await phone.tap(s.elements.find(e => e.label === "Start"));',
+        }),
+        [const TextDelta('Done.'), const Done('stop')],
+      ]);
+      build();
+      final result = await run();
+      expect(result.isError, isFalse, reason: result.content);
+      expect(tryDecodeObject(result.content)?['verified'], true);
+      expect(screen.current, 'done');
+      expect(
+        adapter.requests.first.tools.map((tool) => tool.name),
+        containsAll(['read_skill', 'js_repl']),
+      );
+      expect(
+        adapter.requests.first.tools.map((tool) => tool.name),
+        isNot(contains('tap')),
+      );
+      expect(
+        result.sideEffects.where((effect) => effect.kind == 'screen_tapped'),
+        hasLength(1),
+      );
+    },
+  );
 
   test(
     'bad final-text shape is corrected before contacting the worker',

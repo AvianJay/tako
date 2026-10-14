@@ -61,6 +61,10 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - **Device:** status, location, clipboard, calendar, alarms and timers, opening links and apps by name.
   - **Memory:** long-term memory with a pinned profile, a memory screen, personalization and incognito chats.
   - **In-app browser:** the model works in its own tab while you watch, and you can take over at any time.
+  - **Control modes:** remote API models use `read_skill` + `js_repl` for browser/phone control by default. On-device models (including AICore) and local-server connections keep the basic function tools. Override this in **Settings → Tools → Browser and phone control**.
+    - REPL uses a shared, lazy QuickJS-NG runtime. Await, JavaScript variables and data processing are supported; variables live for the current task. Browser/phone guides load only when requested.
+    - Every inner operation still uses the same live-target checks, permissions, audit log and loop/worker budget. Old element references fail. Completed actions remain recorded if code fails or Stop arrives.
+    - No Node/npm, filesystem, network, DOM or timers are exposed by the REPL. Browser pages remain in the existing WebView. JavaScript memory, CPU work, unresolved promises, output and calls are bounded.
 - **Device control** (Android, `full` build):
   - **Screen control** through an accessibility service you turn on yourself:
     - The model reads the screen as `[id] type "text"` elements, with an optional screenshot for vision models.

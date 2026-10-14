@@ -20,6 +20,7 @@ class BrowserElement {
     this.type = '',
     this.flags = const [],
     this.options = const [],
+    this.check = '',
   });
 
   factory BrowserElement.fromJson(JsonMap json) => BrowserElement(
@@ -27,6 +28,7 @@ class BrowserElement {
     tag: _clean(asString(json['tag']), 20),
     type: _clean(asString(json['type']), 20),
     label: _clean(asString(json['label']), 120),
+    check: asString(json['check']) ?? '',
     flags: [
       for (final flag in asList(json['flags']) ?? const [])
         if (flag is String) _clean(flag, 20),
@@ -43,6 +45,7 @@ class BrowserElement {
   final String label;
   final List<String> flags;
   final List<String> options;
+  final String check;
 
   /// `[id] tag "label"`, plus the input type, state flags and select options.
   String describe() {
@@ -94,6 +97,24 @@ class BrowserSnapshot {
   final int scrollY;
   final int scrollHeight;
   final int viewHeight;
+
+  Map<String, Object?> toJson() => {
+    'url': url,
+    'title': title,
+    'text': text,
+    'elements': [
+      for (final element in elements)
+        {
+          'id': element.id,
+          'tag': element.tag,
+          'type': element.type,
+          'label': element.label,
+          'flags': element.flags,
+          'options': element.options,
+          'check': element.check,
+        },
+    ],
+  };
 
   bool get moreBelow => scrollY + viewHeight < scrollHeight - 8;
 
@@ -232,6 +253,14 @@ class BrowserTabInfo {
 /// type crosses this interface; the platform layer supplies the surface.
 /// Page state and the model's actions refer to the tab in front.
 abstract class BrowserCapability extends ChangeNotifier implements Capability {
+  String? _modelActionTitle;
+  String? get modelActionTitle => _modelActionTitle;
+  void setModelActionTitle(String? title) {
+    if (_modelActionTitle == title) return;
+    _modelActionTitle = title;
+    notifyListeners();
+  }
+
   String get url;
   String get title;
   bool get loading;
