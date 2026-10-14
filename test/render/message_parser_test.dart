@@ -145,6 +145,25 @@ void main() {
     },
   );
 
+  test('HTML-style custom tags are tolerated and their closers dropped', () {
+    for (final source in [
+      '<image src="a.png">',
+      '<image src="a.png"></image>',
+      '<image src="a.png" / >',
+      "<Image SRC='a.png'/>",
+    ]) {
+      final parsed = parseMessageMarkup('Look $source here');
+      final tag = parsed.fragments.values.whereType<RenderTag>().single;
+      expect(tag.name, 'image', reason: source);
+      expect(tag.attributes, {'src': 'a.png'}, reason: source);
+      expect(textOf(parsed), isNot(contains('</')), reason: source);
+    }
+    expect(
+      textOf(parseMessageMarkup('<b>bold</b> </span>')),
+      '<b>bold</b> </span>',
+    );
+  });
+
   test(
     'GFM tables, nested lists, strikethrough and autolinks keep their AST',
     () {

@@ -1,5 +1,8 @@
+import 'package:markdown/markdown.dart' as md;
+
 import '../../core/chat/content_block.dart';
 import '../../core/chat/message.dart';
+import '../render/message_parser.dart';
 
 /// A presentation row. Stored messages and their branch identities stay intact.
 final class ChatTimelineEntry {
@@ -136,20 +139,7 @@ List<AssistantSegment> buildAssistantSegments(List<ChatMessage> messages) {
   }
 
   for (final message in messages) {
-    if (message.role == MessageRole.tool) {
-      final images = <ContentBlock>[
-        for (final result in message.content.whereType<ToolResultBlock>())
-          if (result.toolName == 'generate_image' &&
-              identical(results[message.parentId]?[result.toolCallId], result))
-            ...result.attachments.whereType<ImageBlock>(),
-      ];
-      if (images.isNotEmpty) {
-        flushContent();
-        flushRun();
-        segments.add(AssistantContentSegment(message: message, blocks: images));
-      }
-      continue;
-    }
+    if (message.role == MessageRole.tool) continue;
     if (message.role != MessageRole.assistant) {
       flushContent();
       flushRun();
@@ -192,7 +182,106 @@ List<AssistantSegment> buildAssistantSegments(List<ChatMessage> messages) {
     }
   }
   flushRun();
+  // The reply places generated images itself. Any it leaves out follow the
+  // reply, so they never interrupt the tool run that produced them.
+  final generated = _generatedImages(messages, results);
+  if (generated.isNotEmpty) {
+    final all = [for (final (_, images) in generated) ...images];
+    final placed = <String>{
+      for (final message in messages)
+        if (message.role == MessageRole.assistant)
+          for (final source in _imageSources(message))
+            ?placedGeneratedImage(source, all)?.path,
+    };
+    for (final (receipt, images) in generated) {
+      final rest = [
+        for (final image in images)
+          if (!placed.contains(image.path)) image,
+      ];
+      if (rest.isNotEmpty) {
+        segments.add(AssistantContentSegment(message: receipt, blocks: rest));
+      }
+    }
+  }
   return List.unmodifiable(segments);
+}
+
+/// Images that generate_image returned during this turn.
+List<ImageBlock> generatedImages(List<ChatMessage> messages) => [
+  for (final (_, images) in _generatedImages(
+    messages,
+    _visibleReceipts(messages),
+  ))
+    ...images,
+];
+
+List<(ChatMessage, List<ImageBlock>)> _generatedImages(
+  List<ChatMessage> messages,
+  Map<String, Map<String, ToolResultBlock>> results,
+) {
+  final generated = <(ChatMessage, List<ImageBlock>)>[];
+  for (final message in messages) {
+    if (message.role != MessageRole.tool) continue;
+    final images = [
+      for (final result in message.content.whereType<ToolResultBlock>())
+        if (result.toolName == 'generate_image' &&
+            identical(results[message.parentId]?[result.toolCallId], result))
+          ...result.attachments.whereType<ImageBlock>(),
+    ];
+    if (images.isNotEmpty) generated.add((message, images));
+  }
+  return generated;
+}
+
+/// Resolves a reply's image reference to one of [images]. Models vary the
+/// path (./, a leading slash, backslashes, file:, only the file name), so a
+/// unique file name matches too. Remote URLs never do.
+ImageBlock? placedGeneratedImage(String source, List<ImageBlock> images) {
+  String normalize(String path) => path
+      .trim()
+      .replaceAll(r'\', '/')
+      .replaceFirst(RegExp(r'^file:', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'^(?:\.?/)+'), '');
+  final wanted = normalize(source);
+  if (wanted.isEmpty || wanted.contains('://')) return null;
+  for (final image in images) {
+    if (normalize(image.path) == wanted) return image;
+  }
+  final name = wanted.split('/').last;
+  final named = {
+    for (final image in images)
+      if (image.path.split('/').last == name) image.path: image,
+  };
+  return named.length == 1 ? named.values.single : null;
+}
+
+/// Image references exactly as MessageMarkdown renders them, so a tag inside
+/// code, or one still streaming in, does not count as placed.
+Iterable<String> _imageSources(ChatMessage message) sync* {
+  final text = message.content.whereType<TextBlock>().map((b) => b.text).join();
+  if (text.isEmpty) return;
+  final parsed = parseMessageMarkup(
+    text,
+    isStreaming: message.status == MessageStatus.streaming,
+  );
+  for (final fragment in parsed.fragments.values) {
+    if (fragment case RenderTag(name: 'image' || 'file', :final attributes)) {
+      if (attributes['src'] ?? attributes['path'] case final source?) {
+        yield source;
+      }
+    }
+  }
+  Iterable<md.Element> elements(Iterable<md.Node> nodes) sync* {
+    for (final node in nodes) {
+      if (node is! md.Element) continue;
+      yield node;
+      yield* elements(node.children ?? const []);
+    }
+  }
+
+  for (final element in elements(parsed.nodes)) {
+    if (element.tag == 'img') yield element.attributes['src'] ?? '';
+  }
 }
 
 /// A result must be on this visible path and its actual edge must point to the

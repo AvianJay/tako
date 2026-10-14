@@ -35,37 +35,57 @@ ToolResultBlock result(
 }) => ToolResultBlock(toolCallId: id, toolName: name, content: content);
 
 void main() {
-  test(
-    'image generation receipts render images after their matching tool run',
-    () {
-      const image = ImageBlock(
-        path: 'attachments/generated.png',
-        mimeType: 'image/png',
-      );
-      final assistant = node(
-        'a',
-        blocks: [call('image-call', name: 'generate_image')],
-      );
-      final receipt = node(
-        'r',
-        parent: 'a',
-        role: MessageRole.tool,
-        blocks: [
-          const ToolResultBlock(
-            toolCallId: 'image-call',
-            toolName: 'generate_image',
-            content: '{}',
-            attachments: [image],
-          ),
-        ],
-      );
-      final segments = buildAssistantSegments([assistant, receipt]);
-      expect(segments, hasLength(2));
-      expect(segments.first, isA<ToolRunSegment>());
-      expect(
-        (segments.last as AssistantContentSegment).blocks.single,
-        same(image),
-      );
+  group('generated images', () {
+    const image = ImageBlock(
+      path: 'attachments/abc123-generated.png',
+      mimeType: 'image/png',
+    );
+    final assistant = node(
+      'a',
+      blocks: [call('image-call', name: 'generate_image')],
+    );
+    final receipt = node(
+      'r',
+      parent: 'a',
+      role: MessageRole.tool,
+      blocks: [
+        const ToolResultBlock(
+          toolCallId: 'image-call',
+          toolName: 'generate_image',
+          content: '{}',
+          attachments: [image],
+        ),
+      ],
+    );
+    List<AssistantSegment> turn(
+      String reply, {
+      MessageStatus status = MessageStatus.done,
+    }) => buildAssistantSegments([
+      assistant,
+      receipt,
+      node('a2', parent: 'r', status: status, blocks: [TextBlock(reply)]),
+    ]);
+    List<ContentBlock> appended(List<AssistantSegment> segments) => [
+      for (final segment in segments.whereType<AssistantContentSegment>().where(
+        (s) => s.message.id == 'r',
+      ))
+        ...segment.blocks,
+    ];
+
+    test('unplaced images follow the reply, not the tool receipt', () {
+      final segments = turn('Here it is.');
+      expect(segments.map((segment) => segment.runtimeType), [
+        ToolRunSegment,
+        AssistantContentSegment,
+        AssistantContentSegment,
+      ]);
+      expect((segments[1] as AssistantContentSegment).message.id, 'a2');
+      expect((segments.last as AssistantContentSegment).blocks.single, image);
+      expect(generatedImages([assistant, receipt]), [image]);
+      // Before the reply arrives the image still shows, after the run.
+      final waiting = buildAssistantSegments([assistant, receipt]);
+      expect(waiting.first, isA<ToolRunSegment>());
+      expect((waiting.last as AssistantContentSegment).blocks.single, image);
       final unrelated = node(
         'other',
         parent: 'different',
@@ -79,8 +99,77 @@ void main() {
         ]).whereType<AssistantContentSegment>(),
         isEmpty,
       );
-    },
-  );
+    });
+
+    test('a generated image does not split consecutive tool steps', () {
+      final segments = buildAssistantSegments([
+        assistant,
+        receipt,
+        node('a2', parent: 'r', blocks: [call('c2')]),
+      ]);
+      expect(
+        (segments.first as ToolRunSegment).steps.map((step) => step.call.id),
+        ['image-call', 'c2'],
+      );
+      expect(segments.last, isA<AssistantContentSegment>());
+    });
+
+    test('tags, Markdown and path variants place the image inline', () {
+      for (final reply in [
+        '<image src="attachments/abc123-generated.png"/>',
+        '<image src="attachments/abc123-generated.png">',
+        "<IMAGE SRC='attachments/abc123-generated.png'></image>",
+        '<image path="./attachments/abc123-generated.png" alt="Bird"/>',
+        '<file path="attachments/abc123-generated.png"/>',
+        '![Bird](attachments/abc123-generated.png)',
+        r'<image src="\attachments\abc123-generated.png"/>',
+        '<image src="file:///attachments/abc123-generated.png"/>',
+        '<image src="abc123-generated.png"/>',
+        '<image src="workspace/attachments/abc123-generated.png"/>',
+      ]) {
+        expect(appended(turn('Done:\n\n$reply')), isEmpty, reason: reply);
+      }
+    });
+
+    test('code, unfinished, remote and unknown references fall back', () {
+      for (final reply in [
+        '```\n<image src="attachments/abc123-generated.png"/>\n```',
+        '`<image src="attachments/abc123-generated.png"/>`',
+        '<image src="https://example.com/abc123-generated.png"/>',
+        '<image src="attachments/other.png"/>',
+        '<image src="generated.png"/>',
+        '<image src=attachments/abc123-generated.png/>',
+      ]) {
+        expect(appended(turn(reply)), [image], reason: reply);
+      }
+      expect(
+        appended(
+          turn(
+            '<image src="attachments/abc123-generated.png',
+            status: MessageStatus.streaming,
+          ),
+        ),
+        [image],
+      );
+    });
+
+    test('a file name matches only when it is unambiguous', () {
+      const twin = ImageBlock(
+        path: 'other/abc123-generated.png',
+        mimeType: 'image/png',
+      );
+      expect(placedGeneratedImage('abc123-generated.png', [image]), image);
+      expect(
+        placedGeneratedImage('abc123-generated.png', [image, twin]),
+        isNull,
+      );
+      expect(
+        placedGeneratedImage('other/abc123-generated.png', [image, twin]),
+        twin,
+      );
+      expect(placedGeneratedImage('  ', [image]), isNull);
+    });
+  });
 
   test('one assistant turn contains tool rounds and its final answer', () {
     final messages = [

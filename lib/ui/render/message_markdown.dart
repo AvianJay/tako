@@ -24,6 +24,11 @@ export 'message_parser.dart' show RenderTag;
 
 typedef CustomTagBuilder = Widget Function(BuildContext context, RenderTag tag);
 
+/// Returns a widget for an image the host can show locally, or null to keep
+/// the default chip.
+typedef InlineImageBuilder =
+    Widget? Function(BuildContext context, String source, String alt);
+
 /// Local-only rendering. The host supplies every platform action explicitly.
 /// In particular, neither Markdown images nor image tags fetch remote content.
 class MessageMarkdown extends StatefulWidget {
@@ -37,6 +42,7 @@ class MessageMarkdown extends StatefulWidget {
     this.onLink,
     this.onFile,
     this.onImage,
+    this.imageBuilder,
     this.tagBuilders = const {},
     super.key,
   });
@@ -50,6 +56,9 @@ class MessageMarkdown extends StatefulWidget {
   final ValueChanged<Uri>? onLink;
   final ValueChanged<String>? onFile;
   final ValueChanged<String>? onImage;
+
+  /// Like the callbacks, read whenever the content is rendered again.
+  final InlineImageBuilder? imageBuilder;
   final Map<String, CustomTagBuilder> tagBuilders;
 
   @override
@@ -86,6 +95,7 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
         oldWidget.fileLabel != widget.fileLabel ||
         (oldWidget.onCopy == null) != (widget.onCopy == null) ||
         (oldWidget.onImage == null) != (widget.onImage == null) ||
+        (oldWidget.imageBuilder == null) != (widget.imageBuilder == null) ||
         (oldWidget.onFile == null) != (widget.onFile == null) ||
         (oldWidget.onLink == null) != (widget.onLink == null)) {
       _rendered = null;
@@ -397,33 +407,35 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
     if (customBuilder != null) return customBuilder(context, tag);
     switch (tag.name) {
       case 'image':
-        final src = tag.attributes['src'];
+        final src = tag.attributes['src'] ?? tag.attributes['path'];
         return src == null
             ? Text(tag.source)
             : _image(src, tag.attributes['alt'] ?? '');
       case 'file':
-        final path = tag.attributes['path'];
-        return path == null
-            ? Text(tag.source)
-            : _attachment(
-                path,
-                '${widget.fileLabel} · ${path.replaceAll(r'\', '/').split('/').last}',
-                Icons.insert_drive_file_outlined,
-                widget.onFile == null
-                    ? null
-                    : (path) => widget.onFile?.call(path),
-              );
+        final path = tag.attributes['path'] ?? tag.attributes['src'];
+        if (path == null) return Text(tag.source);
+        return widget.imageBuilder?.call(context, path, '') ??
+            _attachment(
+              path,
+              '${widget.fileLabel} · ${path.replaceAll(r'\', '/').split('/').last}',
+              Icons.insert_drive_file_outlined,
+              widget.onFile == null
+                  ? null
+                  : (path) => widget.onFile?.call(path),
+            );
       default:
         return Text(tag.source);
     }
   }
 
-  Widget _image(String source, String alt) => _attachment(
-    source,
-    alt.isEmpty ? widget.imageLabel : alt,
-    Icons.image_outlined,
-    widget.onImage == null ? null : (path) => widget.onImage?.call(path),
-  );
+  Widget _image(String source, String alt) =>
+      widget.imageBuilder?.call(context, source, alt) ??
+      _attachment(
+        source,
+        alt.isEmpty ? widget.imageLabel : alt,
+        Icons.image_outlined,
+        widget.onImage == null ? null : (path) => widget.onImage?.call(path),
+      );
 
   Widget _attachment(
     String source,

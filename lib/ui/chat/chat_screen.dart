@@ -936,6 +936,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     AppController app,
     AppLocalizations l, {
     required String identity,
+    List<ImageBlock> generated = const [],
   }) {
     final children = <Widget>[];
     final thinking = blocks
@@ -973,6 +974,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             failure: l.fileUnavailable,
           ),
           onImage: _image,
+          imageBuilder: generated.isEmpty
+              ? null
+              : (context, source, _) {
+                  final image = placedGeneratedImage(source, generated);
+                  return image == null
+                      ? null
+                      : MessageImage(
+                          image: image,
+                          services: app.services,
+                          onOpen: () => _image(image.path),
+                        );
+                },
         ),
       );
       text = '';
@@ -1175,6 +1188,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ) {
     final last = entry.lastAssistant!;
     final segments = buildAssistantSegments(entry.messages);
+    final generated = generatedImages(entry.messages);
     final color = Theme.of(context).colorScheme;
     return RepaintBoundary(
       key: ValueKey('assistant-turn-${entry.anchor.id}'),
@@ -1227,6 +1241,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   app,
                                   l,
                                   identity: '${segment.message.id}:$index',
+                                  generated: generated,
                                 ),
                               ),
                             ),

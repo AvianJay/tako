@@ -204,10 +204,14 @@ ParsedMessage parseMessageMarkup(
       }
       final source = rest.substring(0, end + 1);
       final tag = _parseTag(source);
+      final closing = RegExp(
+        r'^</([A-Za-z][A-Za-z0-9_-]*)\s*>$',
+      ).firstMatch(source)?[1]?.toLowerCase();
       addFragment(
         tag != null && customTags.contains(tag.name)
             ? tag
-            : RenderLiteral(source),
+            // Models sometimes close a custom tag like HTML; drop the closer.
+            : RenderLiteral(customTags.contains(closing) ? '' : source),
       );
       position += source.length;
       continue;
@@ -267,11 +271,14 @@ int _tagEnd(String source) {
   return -1;
 }
 
+/// Self-closing is canonical, but `<image src="x">` is accepted as well.
 RenderTag? _parseTag(String source) {
   final head = RegExp(r'^<([A-Za-z][A-Za-z0-9_-]*)\b').firstMatch(source);
-  if (head == null || !source.endsWith('/>')) return null;
+  if (head == null) return null;
   final attributes = <String, String>{};
-  final contents = source.substring(head.end, source.length - 2);
+  final contents = source
+      .substring(head.end, source.length - 1)
+      .replaceFirst(RegExp(r'/\s*$'), '');
   final attribute = RegExp(
     r'''\s+([A-Za-z_][A-Za-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')''',
   );
@@ -280,7 +287,7 @@ RenderTag? _parseTag(String source) {
     if (contents.substring(position).trim().isEmpty) break;
     final match = attribute.matchAsPrefix(contents, position);
     if (match == null) return null;
-    attributes[match[1]!] = match[2] ?? match[3]!;
+    attributes[match[1]!.toLowerCase()] = match[2] ?? match[3]!;
     position = match.end;
   }
   return RenderTag(

@@ -29,7 +29,8 @@ class ImageGenerationTool implements Tool, Capability {
   @override
   String get description =>
       'Generate an image, or edit reference images, using a configured image '
-      'model. The result is saved and displayed in the conversation. '
+      'model. Images are saved to the workspace; show each one in your reply '
+      'by writing <image src="PATH"/> where it belongs, with PATH from images. '
       'Use use_attached_images for images in the latest user message, or '
       'reference_images for workspace paths (including earlier generated images). '
       'Omit provider_id/model to use the first compatible image model. '

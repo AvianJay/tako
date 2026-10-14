@@ -133,6 +133,41 @@ void main() {
     },
   );
 
+  testWidgets('image builder replaces chips only for sources it resolves', (
+    tester,
+  ) async {
+    final seen = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MessageMarkdown(
+            data:
+                '<image src="local.png"/>\n\n![Chart](local.png)\n\n'
+                '<file path="local.png"/>\n\n<image src="https://example.com/x.png"/>',
+            copyLabel: 'Copy code',
+            imageLabel: 'Image',
+            fileLabel: 'File',
+            imageBuilder: (_, source, alt) {
+              seen.add('$source|$alt');
+              return source == 'local.png'
+                  ? const SizedBox(key: ValueKey('local'))
+                  : null;
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('local')), findsNWidgets(3));
+    expect(find.byType(ActionChip), findsOneWidget);
+    expect(seen, [
+      'local.png|',
+      'local.png|Chart',
+      'local.png|',
+      'https://example.com/x.png|',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('link callback opens only supported explicit links', (
     tester,
   ) async {
