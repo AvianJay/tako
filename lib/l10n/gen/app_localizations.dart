@@ -2966,6 +2966,132 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。'**
   String get preferSpeedHelp;
+
+  /// No description provided for @visualDrawing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在繪製⋯'**
+  String get visualDrawing;
+
+  /// No description provided for @visualFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法繪製，以下是原始內容。'**
+  String get visualFailed;
+
+  /// No description provided for @visualShowTable.
+  ///
+  /// In zh, this message translates to:
+  /// **'以表格顯示'**
+  String get visualShowTable;
+
+  /// No description provided for @visualShowChart.
+  ///
+  /// In zh, this message translates to:
+  /// **'以圖表顯示'**
+  String get visualShowChart;
+
+  /// No description provided for @visualShowCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'顯示原始碼'**
+  String get visualShowCode;
+
+  /// No description provided for @visualShowDiagram.
+  ///
+  /// In zh, this message translates to:
+  /// **'顯示圖形'**
+  String get visualShowDiagram;
+
+  /// No description provided for @visualFullScreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'全螢幕'**
+  String get visualFullScreen;
+
+  /// No description provided for @visualShareImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享圖片'**
+  String get visualShareImage;
+
+  /// No description provided for @visualShareFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法分享圖片。'**
+  String get visualShareFailed;
+
+  /// No description provided for @visualOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他'**
+  String get visualOther;
+
+  /// No description provided for @visualTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'總計'**
+  String get visualTotal;
+
+  /// No description provided for @visualSourcePrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'資料來源：'**
+  String get visualSourcePrefix;
+
+  /// No description provided for @visualChart.
+  ///
+  /// In zh, this message translates to:
+  /// **'圖表'**
+  String get visualChart;
+
+  /// No description provided for @visualFlowchart.
+  ///
+  /// In zh, this message translates to:
+  /// **'流程圖'**
+  String get visualFlowchart;
+
+  /// No description provided for @visualSequence.
+  ///
+  /// In zh, this message translates to:
+  /// **'循序圖'**
+  String get visualSequence;
+
+  /// No description provided for @visualMindmap.
+  ///
+  /// In zh, this message translates to:
+  /// **'心智圖'**
+  String get visualMindmap;
+
+  /// No description provided for @calloutNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'備註'**
+  String get calloutNote;
+
+  /// No description provided for @calloutTip.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示'**
+  String get calloutTip;
+
+  /// No description provided for @calloutImportant.
+  ///
+  /// In zh, this message translates to:
+  /// **'重要'**
+  String get calloutImportant;
+
+  /// No description provided for @calloutWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'警告'**
+  String get calloutWarning;
+
+  /// No description provided for @calloutCaution.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意'**
+  String get calloutCaution;
 }
 
 class _AppLocalizationsDelegate

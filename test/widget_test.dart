@@ -23,6 +23,8 @@ import 'package:tako/platform/media_attachment_capability.dart';
 import 'package:tako/platform/services.dart';
 import 'package:tako/ui/chat/tool_run_widgets.dart';
 import 'package:tako/ui/chat/tool_widgets.dart';
+import 'package:tako/ui/render/visuals/cards.dart';
+import 'package:tako/ui/render/visuals/visual_block.dart';
 import 'package:tako/ui/settings/provider_editor.dart';
 import 'package:tako/ui/settings/tool_settings_screen.dart';
 
@@ -322,6 +324,151 @@ Future<void> seedConversation(AppController controller) async {
   await controller.openConversation('visual');
 }
 
+const visualReply = r'''
+## 文字以外，我還能怎麼呈現？
+
+```cards
+[
+  {"icon": "dashboard", "title": "① 卡片式介面", "subtitle": "適合：專案介紹、功能清單、資訊儀表板", "text": "把不同資訊拆成獨立區塊，有標題、圖示、摘要與操作，不必在一大坨文字裡考古。"},
+  {"icon": "bar_chart", "title": "② 資料圖表", "subtitle": "適合：統計、效能監控、數據比較", "text": "可以呈現**長條圖**、折線圖、圓餅圖等，並搭配資料解讀。"},
+  {"icon": "🧭", "title": "③ 流程圖與架構圖", "subtitle": "適合：步驟說明、系統架構", "text": "用 Mermaid 畫出流程、循序互動或心智圖。"}
+]
+```
+
+```chart
+{"type": "bar", "title": "範例：每月請求數", "labels": ["1 月", "2 月", "3 月", "4 月"], "series": [{"name": "請求數", "data": [120, 210, 170, 320]}], "unit": "次"}
+```
+
+```chart
+{"type": "line", "title": "每週活躍使用者", "labels": ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"], "series": [{"name": "Android", "data": [820, 932, 901, 934, 1290, 1330, 1320, 1452]}, {"name": "iOS", "data": [620, 732, 701, 734, 1090, 1130, 1120, 1210]}]}
+```
+
+```chart
+{"type": "donut", "title": "流量來源", "labels": ["自然搜尋", "社群", "直接造訪", "推薦連結", "電子報", "廣告", "其他管道"], "series": [{"data": [42, 23, 15, 8, 5, 4, 3]}], "unit": "%"}
+```
+
+```chart
+{"type": "bar", "title": "最常用的裝置", "labels": ["智慧型手機", "筆記型電腦", "平板電腦", "智慧手錶", "無線耳機", "電子書閱讀器"], "series": [{"data": [86, 64, 38, 22, 51, 9]}], "unit": "%", "source": "範例資料"}
+```
+
+```mermaid
+flowchart TD
+    A([開始]) --> B{已登入？}
+    B -- 是 --> C[讀取個人資料]
+    B -- 否 --> D[顯示登入頁]
+    D --> E[/輸入帳號密碼/]
+    E --> F{驗證成功？}
+    F -->|是| C
+    F -->|否| D
+    C --> G[(資料庫)]
+    C --> H([完成])
+```
+
+```mermaid
+flowchart LR
+    subgraph phone [手機]
+        App[Tako App] --> Engine[llama.cpp]
+    end
+    subgraph cloud [雲端]
+        API[OpenAI 相容 API]
+    end
+    App -->|HTTPS| API
+    App --> DB[(SQLite)]
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 使用者
+    participant T as Tako
+    participant M as 模型
+    U->>T: 幫我畫一張圖表
+    T->>M: 傳送對話與工具
+    alt 需要即時資料
+        M->>T: 呼叫 web_search
+        T-->>M: 搜尋結果
+    else 已有資料
+        M-->>T: 直接回覆
+    end
+    Note over T,M: 回覆內含 chart 區塊
+    T-->>U: 顯示圖表
+```
+
+```mermaid
+mindmap
+  root((Tako 顯示方式))
+    圖表
+      長條圖
+      折線圖
+      圓餅圖
+    圖
+      流程圖
+      循序圖
+      心智圖
+    卡片
+      清單
+      數據卡
+    提示框
+```
+
+```cards
+[{"title": "本月請求", "value": "320", "delta": "+88%", "icon": "trending_up"}, {"title": "平均回應時間", "value": "1.8 秒", "delta": "-0.4 秒"}, {"title": "錯誤率", "value": "0.6%", "delta": "-0.2%"}, {"title": "活躍裝置", "value": "1,284"}]
+```
+
+> [!TIP]
+> 點一下圖表可以看數值，點表格圖示可以切換成表格。
+
+> [!WARNING] 注意資料來源
+> 圖表只用模型手上真的有的資料。
+''';
+
+/// A reply that uses every visual block, for layout checks and screenshots.
+Future<void> seedVisualReply(AppController controller) async {
+  final now = DateTime.utc(2026, 10, 15, 9, 30);
+  await controller.saveProvider(
+    ProviderConfig(
+      id: 'local',
+      displayName: 'Local model',
+      apiType: ApiType.chatCompletions,
+      baseUrl: 'http://127.0.0.1:8080',
+      model: 'llama-server',
+    ),
+  );
+  await controller.chats.createConversation(
+    Conversation(
+      id: 'visuals',
+      title: '顯示方式',
+      createdAt: now,
+      updatedAt: now,
+      systemPrompt: 'You are Tako.',
+      providerId: 'local',
+      model: 'llama-server',
+    ),
+  );
+  await controller.chats.saveMessage(
+    ChatMessage(
+      id: 'ask',
+      conversationId: 'visuals',
+      role: MessageRole.user,
+      content: const [TextBlock('文字以外，你還能怎麼呈現？')],
+      createdAt: now,
+      timezoneOffsetMinutes: 480,
+    ),
+  );
+  await controller.chats.saveMessage(
+    ChatMessage(
+      id: 'reply',
+      conversationId: 'visuals',
+      parentId: 'ask',
+      role: MessageRole.assistant,
+      content: const [TextBlock(visualReply)],
+      createdAt: now.add(const Duration(seconds: 1)),
+      timezoneOffsetMinutes: 480,
+    ),
+  );
+  await controller.openConversation('visuals');
+}
+
 final _toolTimelineTime = DateTime.utc(2026, 10, 10, 10, 30);
 
 ChatMessage _toolMessage(
@@ -504,26 +651,29 @@ Future<void> screenshot(WidgetTester tester, String name) async {
 void main() {
   setUpAll(() async {
     if (!captureUi) return;
-    // Capture-only fonts: never packaged with the app or required by CI.
-    for (final entry in {
-      'Roboto':
-          'D:/flutter/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
-      'MaterialIcons':
-          'D:/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
-      'monospace': 'C:/Windows/Fonts/consola.ttf',
-    }.entries) {
-      final file = File(entry.value);
+    // Capture-only fonts: never packaged with the app or required by CI. The
+    // test engine has no glyph fallback and uses the first font registered
+    // for a family and weight, so Microsoft JhengHei (which also has Latin
+    // glyphs) goes first: Chinese text then renders instead of boxes.
+    for (final (family, path) in [
+      ('Roboto', 'C:/Windows/Fonts/msjh.ttc'),
+      ('Roboto', 'C:/Windows/Fonts/msjhbd.ttc'),
+      (
+        'Roboto',
+        'D:/flutter/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
+      ),
+      (
+        'MaterialIcons',
+        'D:/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+      ),
+      ('monospace', 'C:/Windows/Fonts/consola.ttf'),
+    ]) {
+      final file = File(path);
       if (await file.exists()) {
         await (FontLoader(
-          entry.key,
+          family,
         )..addFont(file.readAsBytes().then(ByteData.sublistView))).load();
       }
-    }
-    final cjk = File('C:/Windows/Fonts/msjh.ttc');
-    if (await cjk.exists()) {
-      await (FontLoader(
-        'Roboto',
-      )..addFont(cjk.readAsBytes().then(ByteData.sublistView))).load();
     }
     final fontManifest =
         jsonDecode(await rootBundle.loadString('FontManifest.json'))
@@ -626,6 +776,30 @@ void main() {
       expect(find.text('2/2'), findsOneWidget);
       expect(find.byType(Table), findsOneWidget);
       await screenshot(tester, '${entry.key}-conversation-en');
+      expect(tester.takeException(), isNull);
+    });
+  }
+  for (final (name, size, theme, scale) in [
+    ('visuals-mobile', const Size(390, 6400), ThemeMode.light, 1.0),
+    ('visuals-narrow-dark', const Size(320, 7200), ThemeMode.dark, 1.0),
+    ('visuals-large-text', const Size(390, 8400), ThemeMode.light, 1.4),
+  ]) {
+    testWidgets('$name renders every visual block without overflow', (
+      tester,
+    ) async {
+      final controller = await boot(
+        tester,
+        locale: const Locale('zh', 'TW'),
+        size: size,
+        theme: theme,
+        scale: scale,
+      );
+      await tester.runAsync(() => seedVisualReply(controller));
+      await tester.pumpAndSettle();
+      expect(find.byType(VisualBlock), findsNWidgets(8));
+      expect(find.byType(CardsView), findsNWidgets(2));
+      expect(find.text('注意資料來源'), findsOneWidget);
+      await screenshot(tester, name);
       expect(tester.takeException(), isNull);
     });
   }

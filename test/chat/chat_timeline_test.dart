@@ -134,6 +134,10 @@ void main() {
     test('code, unfinished, remote and unknown references fall back', () {
       for (final reply in [
         '```\n<image src="attachments/abc123-generated.png"/>\n```',
+        // Cards draw their text without tags, so the image still follows.
+        '```cards\n[{"title": "Bird", "text": '
+            r'"<image src=\"attachments/abc123-generated.png\"/>"}]'
+            '\n```',
         '`<image src="attachments/abc123-generated.png"/>`',
         '<image src="https://example.com/abc123-generated.png"/>',
         '<image src="attachments/other.png"/>',

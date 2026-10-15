@@ -25,6 +25,7 @@ final class PromptBuilder {
       'memory_profile': '',
       'shell_env': '',
       'markdown': true,
+      'visuals': true,
       'on_device': false,
       'small_model': false,
       'memory': false,

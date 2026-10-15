@@ -2,25 +2,19 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:re_highlight/languages/bash.dart';
-import 'package:re_highlight/languages/css.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/languages/java.dart';
-import 'package:re_highlight/languages/javascript.dart';
-import 'package:re_highlight/languages/json.dart';
-import 'package:re_highlight/languages/kotlin.dart';
-import 'package:re_highlight/languages/python.dart';
-import 'package:re_highlight/languages/sql.dart';
-import 'package:re_highlight/languages/swift.dart';
-import 'package:re_highlight/languages/typescript.dart';
-import 'package:re_highlight/languages/xml.dart';
-import 'package:re_highlight/languages/yaml.dart';
-import 'package:re_highlight/re_highlight.dart';
 
+import 'code_block.dart';
 import 'message_parser.dart';
 import 'revealing_text.dart';
+import 'visuals/cards.dart';
+import 'visuals/visual_block.dart';
+import 'visuals/visual_image.dart';
+import 'visuals/visual_labels.dart';
+import 'visuals/visual_palette.dart';
 
 export 'message_parser.dart' show RenderTag;
+export 'visuals/visual_image.dart' show VisualImage;
+export 'visuals/visual_labels.dart' show VisualLabels;
 
 typedef CustomTagBuilder = Widget Function(BuildContext context, RenderTag tag);
 
@@ -30,18 +24,22 @@ typedef InlineImageBuilder =
     Widget? Function(BuildContext context, String source, String alt);
 
 /// Local-only rendering. The host supplies every platform action explicitly.
-/// In particular, neither Markdown images nor image tags fetch remote content.
+/// In particular, neither Markdown images nor image tags fetch remote content,
+/// and charts, diagrams and cards are drawn from their source alone.
 class MessageMarkdown extends StatefulWidget {
   const MessageMarkdown({
     required this.data,
     required this.copyLabel,
     required this.imageLabel,
     required this.fileLabel,
+    this.visualLabels = const VisualLabels(),
     this.isStreaming = false,
+    this.visuals = true,
     this.onCopy,
     this.onLink,
     this.onFile,
     this.onImage,
+    this.onShareImage,
     this.imageBuilder,
     this.tagBuilders = const {},
     super.key,
@@ -49,13 +47,21 @@ class MessageMarkdown extends StatefulWidget {
 
   final String data;
   final bool isStreaming;
+
+  /// Draws ` ```chart `, ` ```mermaid ` and ` ```cards ` blocks. When false
+  /// they stay code, as in the user's own messages.
+  final bool visuals;
   final String copyLabel;
   final String imageLabel;
   final String fileLabel;
+  final VisualLabels visualLabels;
   final ValueChanged<String>? onCopy;
   final ValueChanged<Uri>? onLink;
   final ValueChanged<String>? onFile;
   final ValueChanged<String>? onImage;
+
+  /// Offered on charts and diagrams; hidden when null.
+  final ValueChanged<VisualImage>? onShareImage;
 
   /// Like the callbacks, read whenever the content is rendered again.
   final InlineImageBuilder? imageBuilder;
@@ -93,8 +99,11 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
     if (oldWidget.copyLabel != widget.copyLabel ||
         oldWidget.imageLabel != widget.imageLabel ||
         oldWidget.fileLabel != widget.fileLabel ||
+        oldWidget.visualLabels != widget.visualLabels ||
+        oldWidget.visuals != widget.visuals ||
         (oldWidget.onCopy == null) != (widget.onCopy == null) ||
         (oldWidget.onImage == null) != (widget.onImage == null) ||
+        (oldWidget.onShareImage == null) != (widget.onShareImage == null) ||
         (oldWidget.imageBuilder == null) != (widget.imageBuilder == null) ||
         (oldWidget.onFile == null) != (widget.onFile == null) ||
         (oldWidget.onLink == null) != (widget.onLink == null)) {
@@ -128,10 +137,17 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
   Widget build(BuildContext context) {
     if (_rendered case final rendered?) return rendered;
     _disposeRecognizers();
+    final pending = widget.visuals && widget.isStreaming
+        ? pendingVisualLanguage(_parsed.buffered)
+        : null;
     return _rendered = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: _parsed.nodes.map(_block).toList(),
+      children: [
+        ..._parsed.nodes.map(_block),
+        if (pending != null)
+          VisualPlaceholder(label: widget.visualLabels.drawing),
+      ],
     );
   }
 
@@ -158,15 +174,38 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
       case 'pre':
         final code = children.isNotEmpty ? children.first : node;
         final language = code is md.Element
-            ? (code.attributes['class'] ?? '').replaceFirst('language-', '')
+            ? (code.attributes['class'] ?? '')
+                  .replaceFirst('language-', '')
+                  .toLowerCase()
             : '';
-        return _CodeBlock(
-          code: _parsed.restoreLiteralTokens(code.textContent),
+        final source = _parsed.restoreLiteralTokens(code.textContent);
+        final onCopy = widget.onCopy == null
+            ? null
+            : (String text) => widget.onCopy?.call(text);
+        if (widget.visuals && visualLanguages.contains(language)) {
+          return VisualBlock(
+            language: language,
+            source: source,
+            labels: widget.visualLabels,
+            copyLabel: widget.copyLabel,
+            streaming: widget.isStreaming,
+            onCopy: onCopy,
+            onShareImage: widget.onShareImage == null
+                ? null
+                : (image) => widget.onShareImage?.call(image),
+          );
+        }
+        if (widget.visuals && language == 'cards') {
+          if (_cards(source) case final cards?) return cards;
+        }
+        return CodeBlock(
+          code: source,
           language: language,
           copyLabel: widget.copyLabel,
-          onCopy: widget.onCopy == null
-              ? null
-              : (text) => widget.onCopy?.call(text),
+          onCopy: onCopy,
+          note: widget.visuals && language == 'cards'
+              ? widget.visualLabels.failed
+              : null,
         );
       case 'ul':
       case 'ol':
@@ -209,6 +248,8 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
           ),
           child: _flow(children),
         );
+      case 'tako-callout':
+        return _callout(node);
       case 'hr':
         return const Divider();
       case 'table':
@@ -230,10 +271,18 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
       if (node is md.Element &&
           const {
             'p',
+            'h1',
+            'h2',
+            'h3',
+            'h4',
+            'h5',
+            'h6',
             'ul',
             'ol',
             'pre',
             'blockquote',
+            'tako-callout',
+            'hr',
             'table',
           }.contains(node.tag)) {
         flush();
@@ -248,6 +297,125 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
       mainAxisSize: MainAxisSize.min,
       children: blocks,
     );
+  }
+
+  Widget _callout(md.Element node) {
+    final kind =
+        CalloutKind.values.asNameMap()[node.attributes['type']] ??
+        CalloutKind.note;
+    final color = VisualPalette.of(context).callouts[kind]!;
+    final labels = widget.visualLabels;
+    final (icon, title) = switch (kind) {
+      CalloutKind.note => (Icons.info_outline, labels.note),
+      CalloutKind.tip => (Icons.lightbulb_outline, labels.tip),
+      CalloutKind.important => (Icons.feedback_outlined, labels.important),
+      CalloutKind.warning => (Icons.warning_amber_rounded, labels.warning),
+      CalloutKind.caution => (Icons.report_outlined, labels.caution),
+    };
+    var children = node.children ?? const <md.Node>[];
+    md.Element? custom;
+    if (children.firstOrNull case final md.Element first
+        when first.tag == 'tako-callout-title') {
+      custom = first;
+      children = children.sublist(1);
+    }
+    final style = Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(color: color, fontWeight: FontWeight.w600);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.fromLTRB(12, 8, 8, children.isEmpty ? 8 : 0),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .06),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
+              Flexible(
+                child: custom == null
+                    ? Text(title, style: style)
+                    : Text.rich(
+                        TextSpan(
+                          children: (custom.children ?? const <md.Node>[])
+                              .map(_inline)
+                              .toList(),
+                        ),
+                        style: style,
+                      ),
+              ),
+            ],
+          ),
+          if (children.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _flow(children),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Cards, or null when [source] is not a cards specification.
+  Widget? _cards(String source) {
+    final CardsSpec spec;
+    try {
+      spec = CardsSpec.parse(source);
+    } on Object {
+      return null;
+    }
+    InlineSpan? span(String? text) => text == null ? null : _inlineText(text);
+    return CardsView(
+      layout: spec.layout,
+      items: [
+        for (final item in spec.items)
+          CardContent(
+            icon: item.icon,
+            title: span(item.title),
+            subtitle: span(item.subtitle),
+            text: span(item.text),
+            value: item.value,
+            delta: item.delta,
+          ),
+      ],
+    );
+  }
+
+  /// Inline Markdown for a card field. Tags stay text, so a generated image
+  /// is never shown inside a card as well as after the reply.
+  InlineSpan _inlineText(String text) {
+    final parsed = parseMessageMarkup(text, customTags: const {});
+    final spans = <InlineSpan>[];
+    void inlineAll(Iterable<md.Node> nodes) {
+      for (final node in nodes) {
+        if (node is md.Element && node.tag == 'p') {
+          inlineAll(node.children ?? const []);
+        } else {
+          spans.add(_inline(node, parsed: parsed));
+        }
+      }
+    }
+
+    for (final (index, node) in parsed.nodes.indexed) {
+      if (index > 0) spans.add(const TextSpan(text: '\n'));
+      if (node is md.Element && (node.tag == 'ul' || node.tag == 'ol')) {
+        for (final (i, item) in (node.children ?? const <md.Node>[]).indexed) {
+          if (i > 0) spans.add(const TextSpan(text: '\n'));
+          spans.add(TextSpan(text: node.tag == 'ol' ? '${i + 1}. ' : '• '));
+          inlineAll(item is md.Element ? item.children ?? const [] : [item]);
+        }
+      } else if (node is md.Element &&
+          (node.tag == 'p' || RegExp(r'^h[1-6]$').hasMatch(node.tag))) {
+        inlineAll(node.children ?? const []);
+      } else {
+        spans.add(_inline(node, parsed: parsed));
+      }
+    }
+    return TextSpan(children: spans);
   }
 
   Widget _paragraph(List<md.Node> nodes, {TextStyle? style}) {
@@ -266,7 +434,7 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
     }
 
     for (final node in nodes) {
-      final fragment = _fragment(node);
+      final fragment = _fragment(node, _parsed);
       if (fragment is RenderMath && fragment.display) {
         flush();
         blocks.add(
@@ -293,20 +461,25 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
     );
   }
 
-  MarkupFragment? _fragment(md.Node node) =>
+  MarkupFragment? _fragment(md.Node node, ParsedMessage parsed) =>
       node is md.Element && node.tag == 'tako-fragment'
-      ? _parsed.fragments[node.attributes['marker']]
+      ? parsed.fragments[node.attributes['marker']]
       : null;
 
-  InlineSpan _inline(md.Node node, {TapGestureRecognizer? linkRecognizer}) {
+  InlineSpan _inline(
+    md.Node node, {
+    TapGestureRecognizer? linkRecognizer,
+    ParsedMessage? parsed,
+  }) {
+    final source = parsed ?? _parsed;
     if (node is md.Text) {
       return TextSpan(
-        text: _parsed.restoreLiteralTokens(node.text),
+        text: source.restoreLiteralTokens(node.text),
         recognizer: linkRecognizer,
       );
     }
     if (node is! md.Element) return TextSpan(text: node.textContent);
-    final fragment = _fragment(node);
+    final fragment = _fragment(node, source);
     if (fragment != null) {
       return WidgetSpan(
         alignment: PlaceholderAlignment.middle,
@@ -322,7 +495,10 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
     }
     final children = node.children ?? const <md.Node>[];
     List<InlineSpan> renderChildren() => children
-        .map((child) => _inline(child, linkRecognizer: linkRecognizer))
+        .map(
+          (child) =>
+              _inline(child, linkRecognizer: linkRecognizer, parsed: source),
+        )
         .toList();
     final scheme = Theme.of(context).colorScheme;
     switch (node.tag) {
@@ -330,7 +506,7 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
         return const TextSpan(text: '\n');
       case 'code':
         return TextSpan(
-          text: _parsed.restoreLiteralTokens(node.textContent),
+          text: source.restoreLiteralTokens(node.textContent),
           recognizer: linkRecognizer,
           style: TextStyle(
             fontFamily: 'monospace',
@@ -358,7 +534,10 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
         }
         return TextSpan(
           children: children
-              .map((child) => _inline(child, linkRecognizer: recognizer))
+              .map(
+                (child) =>
+                    _inline(child, linkRecognizer: recognizer, parsed: source),
+              )
               .toList(),
           style: TextStyle(
             color: scheme.primary,
@@ -506,107 +685,6 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-final _highlighter = Highlight()
-  ..registerLanguages({
-    'bash': langBash,
-    'css': langCss,
-    'dart': langDart,
-    'java': langJava,
-    'javascript': langJavascript,
-    'json': langJson,
-    'kotlin': langKotlin,
-    'python': langPython,
-    'sql': langSql,
-    'swift': langSwift,
-    'typescript': langTypescript,
-    'xml': langXml,
-    'yaml': langYaml,
-  });
-
-class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({
-    required this.code,
-    required this.language,
-    required this.copyLabel,
-    this.onCopy,
-  });
-
-  final String code;
-  final String language;
-  final String copyLabel;
-  final ValueChanged<String>? onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final style = TextStyle(
-      fontFamily: 'monospace',
-      color: scheme.onSurface,
-      fontSize: 13,
-    );
-    var span = TextSpan(text: code, style: style);
-    if (code.length <= 100000 && _highlighter.getLanguage(language) != null) {
-      try {
-        final renderer = TextSpanRenderer(style, {
-          'keyword': TextStyle(color: scheme.primary),
-          'built_in': TextStyle(color: scheme.primary),
-          'string': TextStyle(color: scheme.tertiary),
-          'number': TextStyle(color: scheme.secondary),
-          'comment': TextStyle(
-            color: scheme.onSurfaceVariant,
-            fontStyle: FontStyle.italic,
-          ),
-          'title': TextStyle(
-            color: scheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-          'attr': TextStyle(color: scheme.secondary),
-        });
-        _highlighter.highlight(code: code, language: language).render(renderer);
-        span = renderer.span ?? span;
-      } on Object {
-        // Invalid or pathological syntax remains readable as plain code.
-      }
-    }
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 12, right: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    language,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  tooltip: copyLabel,
-                  onPressed: onCopy == null ? null : () => onCopy!(code),
-                  icon: const Icon(Icons.copy_outlined, size: 18),
-                ),
-              ],
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Text.rich(span),
-          ),
-        ],
       ),
     );
   }

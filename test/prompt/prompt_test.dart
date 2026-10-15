@@ -121,6 +121,24 @@ void main() {
     },
   );
 
+  test('visual formats are explained unless the engine is built in', () async {
+    final template = await rootBundle.loadString(
+      'assets/prompts/system_prompt.md',
+    );
+    final builder = PromptBuilder(template);
+    final visuals = builder.render({});
+    expect(visuals, contains('```chart'));
+    expect(visuals, contains('```mermaid'));
+    expect(visuals, contains('```cards'));
+    expect(visuals, contains('> [!NOTE]'));
+    expect(visuals, isNot(contains('{{')));
+    final plain = builder.render({'visuals': false});
+    expect(plain, contains('## Formatting'));
+    expect(plain, isNot(contains('```chart')));
+    expect(plain, isNot(contains('[!NOTE]')));
+    expect(builder.render({'markdown': false}), isNot(contains('```chart')));
+  });
+
   test(
     'empty strings hide their sections, as the template table says',
     () async {

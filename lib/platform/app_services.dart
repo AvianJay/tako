@@ -58,4 +58,7 @@ abstract interface class AppServices implements Capability {
 
   /// Shares [text] as a temporary file outside the workspace.
   Future<void> shareTextFile(String name, String text);
+
+  /// Shares a PNG [image] as a temporary file outside the workspace.
+  Future<void> shareImageFile(String name, Uint8List image);
 }

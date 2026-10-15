@@ -18,6 +18,10 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - Automatic conversation titles after the first reply, with manual renaming.
     Incognito chats do not request titles.
   - Markdown and LaTeX rendering.
+  - Charts (bar, line, area, pie and donut), Mermaid flowcharts, sequence
+    diagrams and mind maps, cards, stat tiles and callouts, all drawn natively
+    on the device without a web view. Charts open as a table; diagrams open
+    full screen; both can be shared as images.
   - Image, PDF and text attachments.
   - Several models per provider, switched from the chat title.
   - Automatic model discovery with cached, searchable friendly names. Enable

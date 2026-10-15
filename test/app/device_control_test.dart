@@ -136,6 +136,9 @@ class _Services implements AppServices {
   Future<String?> pickTextFile({required int maxBytes}) async => null;
   @override
   Future<void> shareTextFile(String name, String text) async {}
+
+  @override
+  Future<void> shareImageFile(String name, Uint8List image) async {}
 }
 
 typedef _Turn = List<ProviderEvent> Function(ChatRequest request);

@@ -208,15 +208,31 @@ class PlatformServices implements AppServices {
   }
 
   @override
-  Future<void> shareTextFile(String name, String text) async {
+  Future<void> shareTextFile(String name, String text) =>
+      _shareExport(name, (file) => file.writeAsString(text, flush: true));
+
+  @override
+  Future<void> shareImageFile(String name, Uint8List image) => _shareExport(
+    name,
+    (file) => file.writeAsBytes(image, flush: true),
+    mimeType: 'image/png',
+  );
+
+  Future<void> _shareExport(
+    String name,
+    Future<void> Function(File file) write, {
+    String? mimeType,
+  }) async {
     // A cache file, never the workspace: exports must not become model input.
     final directory = Directory(
       p.join((await getTemporaryDirectory()).path, 'exports'),
     );
     await directory.create(recursive: true);
     final file = File(p.join(directory.path, p.basename(name)));
-    await file.writeAsString(text, flush: true);
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+    await write(file);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path, mimeType: mimeType)]),
+    );
   }
 
   @override

@@ -930,6 +930,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  VisualLabels _visualLabels(AppLocalizations l) => VisualLabels(
+    localeName: l.localeName,
+    drawing: l.visualDrawing,
+    failed: l.visualFailed,
+    showTable: l.visualShowTable,
+    showChart: l.visualShowChart,
+    showCode: l.visualShowCode,
+    showDiagram: l.visualShowDiagram,
+    fullScreen: l.visualFullScreen,
+    shareImage: l.visualShareImage,
+    other: l.visualOther,
+    total: l.visualTotal,
+    sourcePrefix: l.visualSourcePrefix,
+    chart: l.visualChart,
+    flowchart: l.visualFlowchart,
+    sequence: l.visualSequence,
+    mindmap: l.visualMindmap,
+    note: l.calloutNote,
+    tip: l.calloutTip,
+    important: l.calloutImportant,
+    warning: l.calloutWarning,
+    caution: l.calloutCaution,
+  );
+
   Widget _messageContent(
     ChatMessage message,
     List<ContentBlock> blocks,
@@ -964,10 +988,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           key: ValueKey('message-text-$identity-${part++}'),
           data: text,
           isStreaming: message.status == MessageStatus.streaming,
+          // Mermaid pasted by the user stays the text they wrote.
+          visuals: message.role != MessageRole.user,
           copyLabel: l.copy,
           imageLabel: l.image,
           fileLabel: l.file,
+          visualLabels: _visualLabels(l),
           onCopy: (value) => _run(() => _copy(value)),
+          onShareImage: (image) => _run(
+            () async => app.services.shareImageFile(
+              image.fileName,
+              await image.toPng(),
+            ),
+            failure: l.visualShareFailed,
+          ),
           onLink: (uri) => _openLink(app, uri),
           onFile: (path) => _run(
             () => app.services.shareWorkspaceFile(path),

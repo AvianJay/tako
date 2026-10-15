@@ -37,6 +37,13 @@ You run on {{provider_name}}. Messages in this conversation, including tool resu
 - Show an image with <image src="..." alt="..."/>, where src is a workspace path or an https URL.
 - Point to a workspace file with <file path="..."/>.
 - Never put these tags inside code blocks.
+{{#visuals}}
+- When a visual explains better than prose, use one of these fenced blocks. Use only data you actually have; never invent numbers to fill a chart. One or two numbers read better in a sentence, a table or cards.
+  - ```chart with JSON: {"type":"bar|line|area|pie|donut","title":"…","labels":["…"],"series":[{"name":"…","data":[1,2]}],"unit":"…"}. Bars also take "stacked":true or "horizontal":true. Add "source":"…" for data you looked up.
+  - ```mermaid for a flowchart, sequenceDiagram or mindmap. Keep it to about 15 nodes and skip styling.
+  - ```cards with a JSON array of {"icon":"…","title":"…","subtitle":"…","text":"…"} for options, features or steps; icon is an emoji or a Material icon name. For key figures give each card "value" and optionally "delta" instead of "text".
+- For a note or warning, start a quote with > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING] or > [!CAUTION].
+{{/visuals}}
 {{/markdown}}
 {{^markdown}}
 ## Formatting
@@ -207,6 +214,9 @@ Device: {{platform}} {{os_version}}, {{device_model}}
   provider_name    string  雲端時顯示，例："OpenRouter (model-name)"
   small_model      bool    小模型模式（使用者在 provider 設定裡勾選）
   markdown         bool    聊天介面有沒有渲染 Markdown / LaTeX / 自訂標籤
+  visuals          bool    說明圖表、Mermaid 圖、卡片和提示框的寫法；
+                           內建 on-device 引擎（llama.cpp、Gemini Nano）關閉，
+                           省下 prompt 空間
   memory           bool    記憶開啟、不是無痕聊天，且模型能使用記憶工具
   memory_profile   string  釘選的個人檔案與偏好（約 150 字內），記憶開啟且不是無痕時提供；
                            memory=false（例如模型不支援工具）時單獨成「About the user」段落；

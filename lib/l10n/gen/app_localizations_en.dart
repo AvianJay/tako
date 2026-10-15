@@ -1620,4 +1620,67 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get preferSpeedHelp =>
       'Uses more processor cores: faster answers, but the phone may stutter. When off, one core is left for the system so the phone stays smooth.';
+
+  @override
+  String get visualDrawing => 'Drawing…';
+
+  @override
+  String get visualFailed => 'Couldn\'t draw this. Showing the source.';
+
+  @override
+  String get visualShowTable => 'Show as table';
+
+  @override
+  String get visualShowChart => 'Show chart';
+
+  @override
+  String get visualShowCode => 'Show code';
+
+  @override
+  String get visualShowDiagram => 'Show diagram';
+
+  @override
+  String get visualFullScreen => 'Full screen';
+
+  @override
+  String get visualShareImage => 'Share image';
+
+  @override
+  String get visualShareFailed => 'Couldn\'t share the image.';
+
+  @override
+  String get visualOther => 'Other';
+
+  @override
+  String get visualTotal => 'Total';
+
+  @override
+  String get visualSourcePrefix => 'Source: ';
+
+  @override
+  String get visualChart => 'Chart';
+
+  @override
+  String get visualFlowchart => 'Flowchart';
+
+  @override
+  String get visualSequence => 'Sequence diagram';
+
+  @override
+  String get visualMindmap => 'Mind map';
+
+  @override
+  String get calloutNote => 'Note';
+
+  @override
+  String get calloutTip => 'Tip';
+
+  @override
+  String get calloutImportant => 'Important';
+
+  @override
+  String get calloutWarning => 'Warning';
+
+  @override
+  String get calloutCaution => 'Caution';
 }

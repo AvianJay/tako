@@ -1000,6 +1000,9 @@ class AppController extends ChangeNotifier {
       'on_device': provider.isLocal,
       'small_model': false,
       'markdown': true,
+      // Built-in engines have little room for prompt; their replies still
+      // render any chart or diagram they write.
+      'visuals': provider.apiType != ApiType.onDevice,
       'memory': memory,
       'memory_profile': profile,
       'web_search':

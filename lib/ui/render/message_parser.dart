@@ -79,6 +79,22 @@ ParsedMessage parseMessageMarkup(
     }
     final rest = data.substring(position);
     if (atLineStart) {
+      // `\[!NOTE\]` is valid on GitHub; unescape it before `\[` becomes math.
+      final escapedCallout = RegExp(
+        r'^((?:[ \t]*>)+[ \t]*)\\\[!([A-Za-z]+)\\\]',
+      ).firstMatch(rest);
+      if (escapedCallout != null) {
+        output.write('${escapedCallout[1]}[!${escapedCallout[2]}]');
+        position += escapedCallout[0]!.length;
+        continue;
+      }
+      // A callout marker split between network chunks would otherwise show
+      // as a plain quote for a moment.
+      if (isStreaming &&
+          RegExp(r'^(?:[ \t]*>)+[ \t]*\\?\[(?:!\w*)?$').hasMatch(rest)) {
+        buffered = rest;
+        break;
+      }
       final fence = RegExp(
         r'^(?:[ \t]*>[ \t]?)*[ \t]*(?:(?:[-+*]|\d+[.)])[ \t]+)?(`{3,}|~{3,})([^\n]*)',
       ).firstMatch(rest);
@@ -224,6 +240,7 @@ ParsedMessage parseMessageMarkup(
   final document = md.Document(
     extensionSet: md.ExtensionSet.gitHubFlavored,
     encodeHtml: false,
+    blockSyntaxes: const [_CalloutSyntax()],
     inlineSyntaxes: [_FragmentSyntax(prefix, fragments)],
   );
   return ParsedMessage(
@@ -295,6 +312,62 @@ RenderTag? _parseTag(String source) {
     name: head[1]!.toLowerCase(),
     attributes: Map.unmodifiable(attributes),
   );
+}
+
+/// Callout types and the aliases models borrow from other Markdown flavours.
+const calloutTypes = {
+  'note': 'note',
+  'info': 'note',
+  'todo': 'note',
+  'abstract': 'note',
+  'summary': 'note',
+  'tip': 'tip',
+  'hint': 'tip',
+  'success': 'tip',
+  'check': 'tip',
+  'done': 'tip',
+  'important': 'important',
+  'question': 'important',
+  'warning': 'warning',
+  'warn': 'warning',
+  'attention': 'warning',
+  'caution': 'caution',
+  'danger': 'caution',
+  'error': 'caution',
+  'failure': 'caution',
+  'bug': 'caution',
+};
+
+/// `> [!NOTE] Optional title` quotes, parsed as `tako-callout` elements with
+/// an optional `tako-callout-title` first child. Built on the blockquote
+/// syntax, so nested lists, code and the end of the quote behave as in any
+/// other quote.
+class _CalloutSyntax extends md.BlockquoteSyntax {
+  const _CalloutSyntax();
+
+  static final _marker = RegExp(r'^ {0,3}>[ \t]*\[!([A-Za-z]+)\][ \t]*(.*)$');
+
+  @override
+  bool canParse(md.BlockParser parser) {
+    final match = _marker.firstMatch(parser.current.content);
+    return match != null && calloutTypes.containsKey(match[1]!.toLowerCase());
+  }
+
+  @override
+  List<md.Line> parseChildLines(md.BlockParser parser) =>
+      super.parseChildLines(parser).sublist(1);
+
+  @override
+  md.Node parse(md.BlockParser parser) {
+    final match = _marker.firstMatch(parser.current.content)!;
+    final quote = super.parse(parser) as md.Element;
+    final title = match[2]!.trim();
+    return md.Element('tako-callout', [
+      if (title.isNotEmpty)
+        md.Element('tako-callout-title', [md.UnparsedContent(title)]),
+      ...?quote.children,
+    ])..attributes['type'] = calloutTypes[match[1]!.toLowerCase()]!;
+  }
 }
 
 class _FragmentSyntax extends md.InlineSyntax {

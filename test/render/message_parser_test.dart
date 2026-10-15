@@ -200,4 +200,73 @@ void main() {
     const source = '\uE000tako0\uE001';
     expect(textOf(parseMessageMarkup('$source \$x\$')), contains(source));
   });
+
+  group('callouts', () {
+    md.Element callout(String source) => elements(
+      parseMessageMarkup(source).nodes,
+    ).firstWhere((e) => e.tag == 'tako-callout');
+
+    test('types, aliases and an optional title', () {
+      expect(callout('> [!NOTE]\n> Body').attributes['type'], 'note');
+      expect(callout('> [!info]\n> Body').attributes['type'], 'note');
+      expect(callout('> [!DANGER]\n> Body').attributes['type'], 'caution');
+      final titled = callout('> [!TIP] Try *this*\n> Body');
+      expect(titled.attributes['type'], 'tip');
+      final title = titled.children!.first as md.Element;
+      expect(title.tag, 'tako-callout-title');
+      expect(title.textContent, 'Try this');
+      expect(titled.children!.last.textContent, 'Body');
+      // Unknown types stay ordinary quotes.
+      expect(
+        elements(
+          parseMessageMarkup('> [!FOO]\n> Body').nodes,
+        ).map((e) => e.tag),
+        contains('blockquote'),
+      );
+    });
+
+    test('nested blocks keep their indentation, and the quote ends', () {
+      final node = callout(
+        '> [!WARNING]\n> - one\n>   - two\n>\n> ```dart\n>   indented();\n> ```\n'
+        '# After',
+      );
+      final inner = elements(node.children!).map((e) => e.tag).toList();
+      expect(inner, containsAll(['ul', 'li', 'pre']));
+      expect(
+        elements(node.children!).where((e) => e.tag == 'ul'),
+        hasLength(2),
+      );
+      expect(node.textContent, contains('  indented();'));
+      final parsed = parseMessageMarkup('> [!WARNING]\n> Careful\n# After');
+      expect(parsed.nodes.last, isA<md.Element>());
+      expect((parsed.nodes.last as md.Element).tag, 'h1');
+    });
+
+    test('an escaped marker is a callout, not math', () {
+      final parsed = parseMessageMarkup(
+        r'> \[!NOTE\]'
+        '\n> Body',
+      );
+      expect(mathOf(parsed), isEmpty);
+      expect(
+        elements(parsed.nodes).map((e) => e.tag),
+        contains('tako-callout'),
+      );
+    });
+
+    test('a half-arrived marker is held back while streaming', () {
+      for (final partial in ['> [', '> [!', '> [!NO', r'> \[!NO']) {
+        final parsed = parseMessageMarkup(
+          'Before\n\n$partial',
+          isStreaming: true,
+        );
+        expect(parsed.buffered, partial, reason: partial);
+      }
+      // A link in a quote is released as soon as it is not a marker.
+      expect(
+        parseMessageMarkup('> [link', isStreaming: true).buffered,
+        isEmpty,
+      );
+    });
+  });
 }

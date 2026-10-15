@@ -1532,6 +1532,69 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get preferSpeedHelp => '使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。';
+
+  @override
+  String get visualDrawing => '正在繪製⋯';
+
+  @override
+  String get visualFailed => '無法繪製，以下是原始內容。';
+
+  @override
+  String get visualShowTable => '以表格顯示';
+
+  @override
+  String get visualShowChart => '以圖表顯示';
+
+  @override
+  String get visualShowCode => '顯示原始碼';
+
+  @override
+  String get visualShowDiagram => '顯示圖形';
+
+  @override
+  String get visualFullScreen => '全螢幕';
+
+  @override
+  String get visualShareImage => '分享圖片';
+
+  @override
+  String get visualShareFailed => '無法分享圖片。';
+
+  @override
+  String get visualOther => '其他';
+
+  @override
+  String get visualTotal => '總計';
+
+  @override
+  String get visualSourcePrefix => '資料來源：';
+
+  @override
+  String get visualChart => '圖表';
+
+  @override
+  String get visualFlowchart => '流程圖';
+
+  @override
+  String get visualSequence => '循序圖';
+
+  @override
+  String get visualMindmap => '心智圖';
+
+  @override
+  String get calloutNote => '備註';
+
+  @override
+  String get calloutTip => '提示';
+
+  @override
+  String get calloutImportant => '重要';
+
+  @override
+  String get calloutWarning => '警告';
+
+  @override
+  String get calloutCaution => '注意';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3062,4 +3125,67 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get preferSpeedHelp => '使用更多處理器核心，回答較快，但手機可能會卡頓。關閉時會留一個核心給系統，讓手機保持流暢。';
+
+  @override
+  String get visualDrawing => '正在繪製⋯';
+
+  @override
+  String get visualFailed => '無法繪製，以下是原始內容。';
+
+  @override
+  String get visualShowTable => '以表格顯示';
+
+  @override
+  String get visualShowChart => '以圖表顯示';
+
+  @override
+  String get visualShowCode => '顯示原始碼';
+
+  @override
+  String get visualShowDiagram => '顯示圖形';
+
+  @override
+  String get visualFullScreen => '全螢幕';
+
+  @override
+  String get visualShareImage => '分享圖片';
+
+  @override
+  String get visualShareFailed => '無法分享圖片。';
+
+  @override
+  String get visualOther => '其他';
+
+  @override
+  String get visualTotal => '總計';
+
+  @override
+  String get visualSourcePrefix => '資料來源：';
+
+  @override
+  String get visualChart => '圖表';
+
+  @override
+  String get visualFlowchart => '流程圖';
+
+  @override
+  String get visualSequence => '循序圖';
+
+  @override
+  String get visualMindmap => '心智圖';
+
+  @override
+  String get calloutNote => '備註';
+
+  @override
+  String get calloutTip => '提示';
+
+  @override
+  String get calloutImportant => '重要';
+
+  @override
+  String get calloutWarning => '警告';
+
+  @override
+  String get calloutCaution => '注意';
 }
