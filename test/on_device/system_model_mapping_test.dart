@@ -1,8 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tako/core/providers/providers.dart';
-import 'package:tako/platform/android/aicore_mapping.dart';
+import 'package:tako/platform/on_device/system_model_mapping.dart';
 
 const tools = [ToolDefinition(name: 'test', description: '', schema: {})];
+
+List<ProviderEvent> agentEvents(
+  Map<Object?, Object?> reply,
+  List<ToolDefinition> tools,
+) => systemModelAgentEvents(reply, tools, invalidCode: 'apple_invalid_tools');
 
 void main() {
   for (final arguments in ['[]', 'null', '42', '"text"', '{', '{} trailing']) {
@@ -10,7 +15,7 @@ void main() {
       'rejects tool arguments $arguments as an incomplete or non-object response',
       () {
         expect(
-          () => aicoreAgentEvents({
+          () => agentEvents({
             'kind': 'tool_calls',
             'text': '',
             'calls': [
@@ -24,7 +29,7 @@ void main() {
   }
   test('validates every call before publishing text or any tool event', () {
     expect(
-      () => aicoreAgentEvents({
+      () => agentEvents({
         'kind': 'tool_calls',
         'text': 'intro',
         'calls': [
@@ -32,7 +37,13 @@ void main() {
           {'name': 'test', 'arguments': '[]'},
         ],
       }, tools),
-      throwsA(isA<ProviderError>()),
+      throwsA(
+        isA<ProviderError>().having(
+          (e) => e.code,
+          'code',
+          'apple_invalid_tools',
+        ),
+      ),
     );
   });
   test(
@@ -42,15 +53,12 @@ void main() {
         {'name': 'test', 'arguments': '{}'},
       ];
       expect(
-        () => aicoreAgentEvents({
-          'kind': 'tool_calls',
-          'text': '',
-          'calls': calls,
-        }, []),
+        () =>
+            agentEvents({'kind': 'tool_calls', 'text': '', 'calls': calls}, []),
         throwsA(isA<ProviderError>()),
       );
       expect(
-        () => aicoreAgentEvents({
+        () => agentEvents({
           'kind': 'answer',
           'text': 'answer',
           'calls': calls,
@@ -69,17 +77,11 @@ void main() {
           {'name': 'test', 'arguments': '{}'},
         ],
       };
-      final one = aicoreAgentEvents(
-        reply,
-        tools,
-      ).whereType<ToolCallStart>().single;
-      final two = aicoreAgentEvents(
-        reply,
-        tools,
-      ).whereType<ToolCallStart>().single;
+      final one = agentEvents(reply, tools).whereType<ToolCallStart>().single;
+      final two = agentEvents(reply, tools).whereType<ToolCallStart>().single;
       expect(one.id, isNot(two.id));
       expect(
-        () => aicoreAgentEvents({
+        () => agentEvents({
           'kind': 'tool_calls',
           'text': '',
           'calls': List.filled(9, const {'name': 'test', 'arguments': '{}'}),

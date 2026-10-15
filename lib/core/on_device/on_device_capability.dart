@@ -91,6 +91,40 @@ const aicorePreviewModel = LocalModel.system(
 bool isAicoreModel(String id) =>
     id == aicoreModel.id || id == aicorePreviewModel.id;
 
+/// Apple's on-device foundation model. Instructions, prompt and reply share
+/// its documented 4,096-token context.
+const appleModel = LocalModel.system(
+  id: 'apple:foundation-model',
+  name: 'Apple Foundation Model',
+  profile: ModelProfile(
+    id: 'apple:foundation-model',
+    autoDetect: true,
+    capabilities: ProviderCapabilities(tools: true, contextWindow: 4096),
+    maxOutputTokens: 1024,
+  ),
+);
+
+/// Image Playground, which takes a prompt and at most one reference image.
+const appleImageModel = LocalModel.system(
+  id: 'apple:image-playground',
+  name: 'Image Playground',
+  profile: ModelProfile(
+    id: 'apple:image-playground',
+    autoDetect: true,
+    capabilities: ProviderCapabilities(
+      contextWindow: 4096,
+      imageGeneration: ImageGenerationMode.onDevice,
+      imageReferenceInput: true,
+    ),
+    maxOutputTokens: 1024,
+  ),
+);
+
+bool isAppleModel(String id) => id == appleModel.id || id == appleImageModel.id;
+
+/// Models that the system stores and runs, so there is no file to delete.
+bool isSystemModel(String id) => isAicoreModel(id) || isAppleModel(id);
+
 enum SystemModelState { unavailable, available, preparing, ready, failed }
 
 class SystemModelStatus {
@@ -148,8 +182,9 @@ class OnDeviceException implements Exception {
 /// Runs local models and manages files owned by the app.
 /// Models live outside the workspace, so file tools never see them.
 abstract class OnDeviceCapability extends ChangeNotifier implements Capability {
-  /// Null on platforms without an AICore integration. Checking availability
-  /// never downloads a model; preparation is explicitly started by the user.
+  /// Null on platforms without system models (AICore or Apple Intelligence).
+  /// Checking availability never downloads a model; preparation is
+  /// explicitly started by the user.
   SystemModelStatus? get systemModelStatus => null;
   List<SystemModelStatus> get systemModelStatuses => [?systemModelStatus];
   Future<void> prepareSystemModel({

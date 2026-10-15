@@ -4,6 +4,7 @@ A local-first AI assistant for Android, built with Flutter. Bring your own model
 
 - run a GGUF model on the phone itself with llama.cpp;
 - use Gemini Nano through Android AICore on compatible devices;
+- on iOS, use Apple's on-device model and Image Playground through Apple Intelligence;
 - use a local server such as llama-server in Termux;
 - or use any OpenAI-compatible, OpenAI Responses or Anthropic Messages endpoint.
 
@@ -29,9 +30,10 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     Messages, GPT to Responses and other recognized families to Chat Completions.
     Model settings and main/worker selections survive refresh; offline failures
     keep the saved list. Custom model APIs can be set individually.
-  - Image generation through compatible Images APIs, chat image output, or the
-    Responses image tool. Configure the output mode and reference-image support
-    for each model in **Settings → Providers**. Switch to an image model for
+  - Image generation through compatible Images APIs, chat image output, the
+    Responses image tool, or Image Playground on iOS. Configure the output mode
+    and reference-image support for each model in **Settings → Providers**
+    (Image Playground needs no setup there). Switch to an image model for
     direct generation, or let a tool-capable chat model call `generate_image`
     using the configured image models. Reference images can come from message
     attachments or workspace files. Generated originals are saved locally and
@@ -59,13 +61,30 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     interface. Image input and thinking are not enabled by this integration.
     See [ML Kit Prompt API](https://developers.google.com/ml-kit/genai/prompt/android/get-started)
     and [structured output](https://developers.google.com/ml-kit/genai/prompt/android/structured-output).
+  - **Apple Intelligence (iOS 26):** Apple's on-device model appears in
+    **On-device models** once Apple Intelligence is turned on and its models
+    have downloaded in iOS Settings. Tako cannot download it, so the card says
+    what is missing and offers **Check again**. Uses the
+    [Foundation Models](https://developer.apple.com/documentation/foundationmodels)
+    framework and its 4,096-token context. The system prompt, tool definitions
+    and reply format go into the session instructions, which the model follows
+    over the prompt; the transcript and tool results go into the prompt. Tools
+    use the same app-level protocol as AICore, through guided generation with a
+    schema that only allows the offered tool names. Tako validates the complete
+    reply before anything runs. Image input and thinking are not enabled.
+  - **Image Playground (iOS 18.4):** an on-device image model. Select it to
+    generate images directly, or let a chat model call it through
+    `generate_image`. It takes the newest prompt and at most one reference
+    image, and draws in the Animation style (Illustration or Sketch where
+    Animation is unavailable). Tako must stay in the foreground while it
+    draws. The `ImageCreator` API it uses is deprecated in the iOS 27 SDK.
 - **Tools**, with a permission gate and an audit log:
   - **Web:** search through SearXNG, Tavily, Brave, Serper or DDGS, or the provider's built-in search, plus page fetching.
   - **Files:** a workspace whose earlier versions are kept when a file is replaced.
   - **Device:** status, location, clipboard, calendar, alarms and timers, opening links and apps by name.
   - **Memory:** long-term memory with a pinned profile, a memory screen, personalization and incognito chats.
   - **In-app browser:** the model works in its own tab while you watch, and you can take over at any time.
-  - **Control modes:** remote API models use `read_skill` + `js_repl` for browser/phone control by default. On-device models (including AICore) and local-server connections keep the basic function tools. Override this in **Settings → Tools → Browser and phone control**.
+  - **Control modes:** remote API models use `read_skill` + `js_repl` for browser/phone control by default. On-device models (including AICore and Apple Intelligence) and local-server connections keep the basic function tools. Override this in **Settings → Tools → Browser and phone control**.
     - REPL uses a shared, lazy QuickJS-NG runtime. Await, JavaScript variables and data processing are supported; variables live for the current task. Browser/phone guides load only when requested.
     - Every inner operation still uses the same live-target checks, permissions, audit log and loop/worker budget. Old element references fail. Completed actions remain recorded if code fails or Stop arrives.
     - No Node/npm, filesystem, network, DOM or timers are exposed by the REPL. Browser pages remain in the existing WebView. JavaScript memory, CPU work, unresolved promises, output and calls are bounded.
@@ -237,6 +256,7 @@ The iOS app shares everything above except what iOS does not allow:
 | Feature | On iOS |
 | --- | --- |
 | Chat, providers, on-device models, memory, files, browser | Same as Android. On-device models use Metal. |
+| System models | Apple Intelligence instead of AICore: Apple's on-device model (iOS 26) and Image Playground (iOS 18.4), on devices that support Apple Intelligence. The frameworks are weakly linked, so the app still runs on iOS 16.4. |
 | Device tools | Status, location, clipboard, calendar and opening links. Paired iCTRL also opens apps by name or bundle ID. No alarms or timers. |
 | `run_shell` | A built-in mini shell over the workspace: `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `find`, `echo`, `pwd`, `date`, `mkdir`, `touch`, `cp`, `mv`, `rm`, with pipes. |
 | Shortcuts | `list_shortcuts` and `run_shortcut` run the Shortcuts you name under **Settings → Shortcuts**, through the Shortcuts app's x-callback-url. Every run asks first. |
@@ -252,14 +272,14 @@ CI builds it with `flutter build ios --release --no-codesign` and packages `Tako
 | `lib/app` | Bootstrap, theme and the chat controller with the agent loop. |
 | `lib/core` | Messages, the conversation tree, prompt assembly, provider adapters, tools, permissions, memory, on-device models, and the browser, screen, shell, notification and Shortcuts contracts. |
 | `lib/data` | The drift schema and repositories, including the memory store and its FTS5 index. |
-| `lib/platform` | Native and plugin implementations: the WebView browser, llama.cpp and model files (`on_device`), the device tools shared by Android and iOS (`native`), Android device control (`android`), iOS Shortcuts (`ios`), and the workspace with its built-in shell (`workspace`). |
+| `lib/platform` | Native and plugin implementations: the WebView browser, llama.cpp, model files and the channel protocol shared by AICore and Apple Intelligence (`on_device`), the device tools shared by Android and iOS (`native`), Android device control and AICore (`android`), iOS Shortcuts and Apple Intelligence (`ios`), and the workspace with its built-in shell (`workspace`). |
 | `lib/ui` | Chat, browser, memory, files and settings screens, the renderer, and the Tako mark. |
 | `lib/l10n` | Localizations: Traditional Chinese and English. |
 | `pigeons` | Typed definitions of the native APIs. |
 | `assets/prompts/system_prompt.md` | The system prompt template (Mustache). |
 | `assets/branding` | The app icon. The launcher, status bar and launch screen drawables, the iOS app icons (square, without transparency), and `lib/ui/brand/tako_mark.dart` use the same geometry; change them together. |
 | `android/app/src/full` | The accessibility service and the approval prompt drawn over other apps. The `play` flavor leaves these out. |
-| `ios/Runner` | The iOS host app: device tools, backup exclusion for model files and Shortcuts callbacks (`TakoNative.swift`, `IosDeviceApi.swift`). The `full` Xcode scheme matches the default flavor. |
+| `ios/Runner` | The iOS host app: device tools, backup exclusion for model files and Shortcuts callbacks (`TakoNative.swift`, `IosDeviceApi.swift`), and Foundation Models and Image Playground (`AppleIntelligenceHost.swift`). The `full` Xcode scheme matches the default flavor. |
 | `test` | Unit, agent-loop and widget tests. |
 | `integration_test` | On-device checks of screen control, Termux, notifications and the browser. |
 | `tool/browser_runtime_check` | A jsdom check of the browser's injected page script. It needs Node.js and runs in CI. |

@@ -1,7 +1,8 @@
 import '../util/json.dart';
 import 'model_names.dart' as names;
 
-/// [onDevice] runs a local model through llama.cpp or AICore, without a URL.
+/// [onDevice] runs a local model through llama.cpp, AICore or Apple
+/// Intelligence, without a URL.
 enum ApiType { chatCompletions, responses, messages, onDevice }
 
 /// Conventional routes for a multi-API proxy. Fixed connections keep their API.
@@ -20,7 +21,14 @@ ApiType modelApiType(String id, {required ApiType fallback}) {
 enum ReasoningMode { off, enabled, adaptive }
 
 /// The wire format used to request image output from an individual model.
-enum ImageGenerationMode { none, imagesApi, chatOutput, responsesTool }
+/// [onDevice] is an image generator of the system, such as Image Playground.
+enum ImageGenerationMode {
+  none,
+  imagesApi,
+  chatOutput,
+  responsesTool,
+  onDevice,
+}
 
 class ProviderCapabilities {
   const ProviderCapabilities({
@@ -65,6 +73,12 @@ class ProviderCapabilities {
   bool get acceptsImageInput => imageGeneration == ImageGenerationMode.none
       ? vision
       : imageReferenceInput;
+
+  /// A dedicated image model: it turns the newest prompt into images, without
+  /// tools or the rest of the conversation.
+  bool get imagesOnly =>
+      imageGeneration == ImageGenerationMode.imagesApi ||
+      imageGeneration == ImageGenerationMode.onDevice;
 
   ProviderCapabilities copyWith({
     bool? tools,
@@ -233,6 +247,7 @@ class ProviderConfig {
       apiType == ApiType.chatCompletions || apiType == ApiType.responses,
     ImageGenerationMode.chatOutput => apiType == ApiType.chatCompletions,
     ImageGenerationMode.responsesTool => apiType == ApiType.responses,
+    ImageGenerationMode.onDevice => apiType == ApiType.onDevice,
   };
 
   List<ModelProfile> get models =>

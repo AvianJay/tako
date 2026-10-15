@@ -230,11 +230,15 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
     );
   }
 
+  /// AICore downloads its model on setup. Apple Intelligence is turned on and
+  /// downloaded in the system settings, so Tako only checks again.
   Widget _systemModel(SystemModelStatus status, AppLocalizations l) {
+    final id = status.model.id;
+    final apple = isAppleModel(id);
     final preparing = status.state == SystemModelState.preparing;
     final unavailable = status.state == SystemModelState.unavailable;
     return Card(
-      key: ValueKey('aicore-model-${status.model.id}'),
+      key: ValueKey('${apple ? 'apple' : 'aicore'}-model-$id'),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -245,16 +249,26 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text(l.aicoreHelp),
-            if (status.model.id == aicorePreviewModel.id) ...[
+            Text(
+              id == appleImageModel.id
+                  ? l.appleImageHelp
+                  : apple
+                  ? l.appleHelp
+                  : l.aicoreHelp,
+            ),
+            if (id == aicorePreviewModel.id) ...[
               const SizedBox(height: 8),
               Text(l.aicorePreviewHelp),
             ],
             const SizedBox(height: 8),
             if (unavailable)
-              Text(l.aicoreUnavailable)
+              Text(
+                apple
+                    ? onDeviceErrorText(status.error ?? 'apple_unavailable', l)
+                    : l.aicoreUnavailable,
+              )
             else if (preparing) ...[
-              Text(l.aicorePreparing),
+              Text(apple ? l.appleChecking : l.aicorePreparing),
               const SizedBox(height: 8),
               const LinearProgressIndicator(),
             ] else ...[
@@ -262,15 +276,16 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
                 Text(onDeviceErrorText(error, l)),
               FilledButton.icon(
                 key: ValueKey(
-                  status.model.id == aicoreModel.id
+                  apple
+                      ? 'prepare-$id'
+                      : id == aicoreModel.id
                       ? 'prepare-aicore'
                       : 'prepare-aicore-preview',
                 ),
-                onPressed: () => _run(
-                  () => _models.prepareSystemModel(modelId: status.model.id),
-                ),
-                icon: const Icon(Icons.download_outlined),
-                label: Text(l.aicorePrepare),
+                onPressed: () =>
+                    _run(() => _models.prepareSystemModel(modelId: id)),
+                icon: Icon(apple ? Icons.refresh : Icons.download_outlined),
+                label: Text(apple ? l.appleCheckAgain : l.aicorePrepare),
               ),
             ],
           ],
@@ -291,9 +306,10 @@ class _OnDeviceModelsScreenState extends ConsumerState<OnDeviceModelsScreen> {
           [
             model.id,
             if (model.isSystem)
-              l.aicoreManaged
+              isAppleModel(model.id) ? l.appleManaged : l.aicoreManaged
             else
               formatBytes(model.sizeBytes),
+            if (model.profile().capabilities.imagesOnly) l.imageGeneration,
             if (model.profile().capabilities.tools) l.toolsCapability,
             if (model.profile().capabilities.reasoning) l.reasoningCapability,
             if (model.projector != null) l.visionCapability,
@@ -532,6 +548,18 @@ String onDeviceErrorText(String code, AppLocalizations l) => switch (code) {
   'aicore_tools_unavailable' => l.aicoreToolsUnavailable,
   'aicore_invalid_tools' => l.aicoreInvalidTools,
   'aicore_background' => l.aicoreBackground,
+  'apple_unavailable' => l.appleUnavailable,
+  'apple_update' => l.appleUpdate,
+  'apple_disabled' => l.appleDisabled,
+  'apple_not_ready' => l.appleNotReady,
+  'apple_request_too_large' => l.appleRequestTooLarge,
+  'apple_busy' => l.appleBusy,
+  'apple_background' => l.appleBackground,
+  'apple_guardrail' => l.appleGuardrail,
+  'apple_language' => l.appleLanguage,
+  'apple_image_input' => l.appleImageInput,
+  'apple_invalid_tools' => l.aicoreInvalidTools,
+  'apple_failed' => l.appleFailed,
   'not_gguf' => l.modelErrorNotGguf,
   'is_projector' => l.modelErrorIsProjector,
   'not_projector' => l.modelErrorNotProjector,

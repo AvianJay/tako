@@ -317,6 +317,98 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Apple Intelligence explains how to turn it on and lists Image Playground',
+    (tester) async {
+      final onDevice = _OnDevice()
+        ..systemModelStatus = const SystemModelStatus(
+          SystemModelState.available,
+          model: appleModel,
+          error: 'apple_disabled',
+        )
+        ..models = [appleImageModel, _qwen];
+      final app = await _boot(
+        tester,
+        onDevice,
+        home: const OnDeviceModelsScreen(),
+      );
+      expect(find.textContaining('Turn on Apple Intelligence'), findsOne);
+      expect(find.byKey(const ValueKey('prepare-aicore')), findsNothing);
+      await tester.tap(find.byKey(ValueKey('prepare-${appleModel.id}')));
+      await tester.pumpAndSettle();
+      expect(onDevice.preparations, 1);
+      final image = find.byKey(ValueKey('local-model-${appleImageModel.id}'));
+      await tester.scrollUntilVisible(image, 100);
+      expect(
+        find.descendant(
+          of: image,
+          matching: find.textContaining('Managed by Apple Intelligence'),
+        ),
+        findsOne,
+      );
+      expect(
+        find.descendant(
+          of: image,
+          matching: find.textContaining('Image generation'),
+        ),
+        findsOne,
+      );
+      await tester.tap(image);
+      await _waitFor(tester, () => app.providers.isNotEmpty);
+      final provider = app.selectedProvider!;
+      expect(provider.model, appleImageModel.id);
+      expect(provider.generatesImages, isTrue);
+      expect(app.imageModels.single.model, appleImageModel.id);
+    },
+  );
+
+  testWidgets('editing the on-device provider keeps Image Playground', (
+    tester,
+  ) async {
+    final onDevice = _OnDevice()..models = [appleImageModel, _qwen];
+    final app = await _boot(tester, onDevice);
+    // The editor opens the first model, so Image Playground is in the form.
+    await tester.runAsync(() async {
+      await app.useOnDeviceModel(appleImageModel, providerName: 'Phone');
+      await app.useOnDeviceModel(_qwen, providerName: 'Phone');
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appControllerProvider.overrideWith((ref) => app)],
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ProviderEditor(provider: app.providers.single),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Tool calling'), findsNothing, reason: 'an image model');
+    await tester.enterText(find.byType(TextFormField).first, 'Phone models');
+    await tester.scrollUntilVisible(
+      find.text('Save'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.text('Save'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await _waitFor(
+      tester,
+      () => app.providers.single.displayName == 'Phone models',
+    );
+    final saved = app.providers.single;
+    final image = saved.forModel(appleImageModel.id);
+    expect(image.capabilities.imageGeneration, ImageGenerationMode.onDevice);
+    expect(image.capabilities.imageReferenceInput, isTrue);
+    expect(image.generatesImages, isTrue);
+    expect(
+      saved.forModel(_qwen.id).capabilities.imageGeneration,
+      ImageGenerationMode.none,
+    );
+  });
+
   testWidgets('a recommended model downloads with its projector, checked', (
     tester,
   ) async {
@@ -453,7 +545,9 @@ void main() {
     await tester.enterText(find.byType(TextFormField).first, 'Phone');
     await tester.tap(find.text('OpenAI Chat Completions'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('On-device (llama.cpp / AICore)').last);
+    await tester.tap(
+      find.text('On-device (llama.cpp / AICore / Apple Intelligence)').last,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Base URL'), findsNothing);
     expect(find.text('API key'), findsNothing);

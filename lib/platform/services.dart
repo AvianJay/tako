@@ -22,6 +22,7 @@ import 'android/device_control.dart';
 import 'app_services.dart';
 import 'browser/webview_browser.dart';
 import 'device_tools_capability.dart';
+import 'ios/apple_intelligence_on_device.dart';
 import 'ios/ictrl_client.dart';
 import 'ios/ictrl_device_tools.dart';
 import 'ios/ictrl_screen.dart';
@@ -100,6 +101,11 @@ class PlatformServices implements AppServices {
   @override
   late final OnDeviceCapability onDevice = Platform.isAndroid
       ? CombinedOnDevice(files: _fileModels, system: AicoreOnDevice())
+      : Platform.isIOS
+      ? CombinedOnDevice(
+          files: _fileModels,
+          system: AppleIntelligenceOnDevice(),
+        )
       : _fileModels;
   late final _fileModels = LlamaOnDevice(
     directory: () async {

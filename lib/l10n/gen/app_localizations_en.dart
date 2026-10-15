@@ -584,6 +584,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageGenerationResponsesTool => 'Responses image tool';
 
   @override
+  String get imageGenerationOnDevice => 'On this device';
+
+  @override
   String get imageGenerationHelp =>
       'Choose the image format supported by this model. You can select it for image generation or let a chat model call it through the image generation tool.';
 
@@ -1359,7 +1362,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onDeviceModelsHelp => 'Run local models on this phone';
 
   @override
-  String get onDeviceApi => 'On-device (llama.cpp / AICore)';
+  String get onDeviceApi =>
+      'On-device (llama.cpp / AICore / Apple Intelligence)';
 
   @override
   String get aicoreHelp =>
@@ -1409,6 +1413,67 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aicoreFailed =>
       'AICore couldn\'t prepare or run this model. Update Android AICore, check device support, then try again.';
+
+  @override
+  String get appleHelp =>
+      'Chat with Apple\'s on-device model through Apple Intelligence, without a network connection. Needs an Apple Intelligence device with iOS 26 or later. It can use Tako\'s tools with the usual permission checks.';
+
+  @override
+  String get appleImageHelp =>
+      'Create images on this device with Image Playground. Select it to generate images directly, or let a chat model call it through the image generation tool. It takes one reference image. Needs iOS 18.4 or later with Apple Intelligence turned on.';
+
+  @override
+  String get appleManaged => 'Managed by Apple Intelligence';
+
+  @override
+  String get appleCheckAgain => 'Check again';
+
+  @override
+  String get appleChecking => 'Checking Apple Intelligence…';
+
+  @override
+  String get appleUnavailable =>
+      'This device doesn\'t support Apple Intelligence. It needs an iPhone 15 Pro or later, or an iPad or Mac with an M-series or A17 Pro chip.';
+
+  @override
+  String get appleUpdate =>
+      'Update iOS to use this model. Apple\'s on-device model needs iOS 26 or later; Image Playground needs iOS 18.4 or later.';
+
+  @override
+  String get appleDisabled =>
+      'Turn on Apple Intelligence in Settings > Apple Intelligence & Siri, wait for its models to download, then check again.';
+
+  @override
+  String get appleNotReady =>
+      'Apple Intelligence is still downloading or preparing its models. Stay on Wi-Fi with the device charging, then check again.';
+
+  @override
+  String get appleRequestTooLarge =>
+      'This conversation is too long for Apple\'s on-device model. Start a new chat or shorten the system prompt.';
+
+  @override
+  String get appleBusy =>
+      'Apple Intelligence can\'t take more requests right now. Keep Tako open, wait a moment and try again.';
+
+  @override
+  String get appleBackground =>
+      'Keep Tako in the foreground while Apple Intelligence generates.';
+
+  @override
+  String get appleGuardrail =>
+      'Apple Intelligence\'s safety checks declined this request. Rephrase it, or use another model.';
+
+  @override
+  String get appleLanguage =>
+      'Apple Intelligence doesn\'t support the language of this request yet. Use a supported language, or another model.';
+
+  @override
+  String get appleImageInput =>
+      'Image Playground couldn\'t use this prompt or reference image. Attach at most one clear photo, or describe the image differently.';
+
+  @override
+  String get appleFailed =>
+      'Apple Intelligence couldn\'t complete this request. Try again later.';
 
   @override
   String get onDeviceProviderHelp =>

@@ -604,7 +604,7 @@ class AppController extends ChangeNotifier {
   bool _canRouteReferenceImages(ProviderConfig provider) =>
       toolSettings.enabled &&
       provider.capabilities.tools &&
-      provider.capabilities.imageGeneration != ImageGenerationMode.imagesApi &&
+      !provider.capabilities.imagesOnly &&
       !toolSettings.disabled.contains('generate_image') &&
       services.workspace.isAvailable &&
       imageModels.any((model) => model.capabilities.imageReferenceInput);
@@ -616,8 +616,7 @@ class AppController extends ChangeNotifier {
   }) {
     if (!toolSettings.enabled ||
         !provider.capabilities.tools ||
-        provider.capabilities.imageGeneration ==
-            ImageGenerationMode.imagesApi) {
+        provider.capabilities.imagesOnly) {
       return const {};
     }
     final offered = _modelRegistry(
@@ -1767,7 +1766,7 @@ class AppController extends ChangeNotifier {
     final allowed =
         toolSettings.enabled &&
         provider.capabilities.tools &&
-        provider.capabilities.imageGeneration != ImageGenerationMode.imagesApi;
+        !provider.capabilities.imagesOnly;
     final wantsHostedSearch =
         allowed &&
         provider.capabilities.builtInWebSearch &&
@@ -2239,8 +2238,7 @@ class AppController extends ChangeNotifier {
         ? limitRemoteScreenImages(path)
         : (messages: path, changed: false);
     historyChanged |= screenHistory.changed;
-    final imagesOnly =
-        provider.capabilities.imageGeneration == ImageGenerationMode.imagesApi;
+    final imagesOnly = provider.capabilities.imagesOnly;
     final budget = imagesOnly
         ? ContextBudgetResult(
             messages: [
@@ -2371,6 +2369,18 @@ class AppController extends ChangeNotifier {
               'aicore_background' => 'aicoreBackground',
               'no_space' when isAicoreModel(provider.model) =>
                 'modelErrorNoSpace',
+              'apple_unavailable' => 'appleUnavailable',
+              'apple_update' => 'appleUpdate',
+              'apple_disabled' => 'appleDisabled',
+              'apple_not_ready' => 'appleNotReady',
+              'apple_request_too_large' => 'appleRequestTooLarge',
+              'apple_busy' => 'appleBusy',
+              'apple_background' => 'appleBackground',
+              'apple_guardrail' => 'appleGuardrail',
+              'apple_language' => 'appleLanguage',
+              'apple_image_input' => 'appleImageInput',
+              'apple_invalid_tools' => 'aicoreInvalidTools',
+              'apple_failed' => 'appleFailed',
               _ => event.toString(),
             };
             status = MessageStatus.error;

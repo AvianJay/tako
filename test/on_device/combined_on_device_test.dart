@@ -128,6 +128,25 @@ void main() {
   );
 
   test(
+    'Apple Intelligence models route to the system engine and are not files',
+    () async {
+      for (final model in [appleModel, appleImageModel]) {
+        await combined
+            .generate(config(model.id), request, cancel: CancelToken())
+            .toList();
+        await expectLater(
+          combined.delete(model.id),
+          throwsA(isA<OnDeviceException>()),
+        );
+      }
+      expect(trace, [
+        'system:apple:foundation-model',
+        'system:apple:image-playground',
+      ]);
+    },
+  );
+
+  test(
     'queued system generation waits for file cancellation and releases the queue',
     () async {
       files.held = Completer<void>();

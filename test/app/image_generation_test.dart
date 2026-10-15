@@ -282,6 +282,60 @@ void main() {
     expect(images.requests, isEmpty);
   });
 
+  ProviderConfig onDeviceImages() => ProviderConfig(
+    id: 'images',
+    displayName: 'On-device models',
+    apiType: ApiType.onDevice,
+    baseUrl: '',
+    model: 'apple:image-playground',
+    capabilities: const ProviderCapabilities(
+      contextWindow: 4096,
+      imageGeneration: ImageGenerationMode.onDevice,
+      imageReferenceInput: true,
+    ),
+  );
+
+  test(
+    'an on-device image model generates from the newest prompt, without tools',
+    () async {
+      await app.saveProvider(onDeviceImages());
+      await app.send('Draw a bird');
+      expect(app.errorCode, isNull);
+      expect(images.requests.single.tools, isEmpty);
+      expect(images.requests.single.messages, hasLength(1));
+      final image = app.messages.last.content.whereType<ImageBlock>().single;
+      expect(await workspace.readBytes(image.path), png);
+    },
+  );
+
+  test(
+    'a chat model reaches the on-device image model through generate_image',
+    () async {
+      await app.saveProvider(
+        _provider('chat', const ProviderCapabilities(tools: true)),
+      );
+      await app.saveProvider(onDeviceImages());
+      expect(app.imageModels.single.model, 'apple:image-playground');
+      app.draftAttachments = [
+        await workspace.importBytes('reference.png', png),
+      ];
+      await app.send('Make this bird blue');
+      expect(app.errorCode, isNull);
+      expect(
+        chat.requests.first.tools.map((tool) => tool.name),
+        contains('generate_image'),
+      );
+      expect(
+        images.requests.single.messages.last.content
+            .whereType<ImageBlock>()
+            .single
+            .data,
+        isNotEmpty,
+      );
+      expect(app.messages.last.text, 'Here is your image.');
+    },
+  );
+
   test(
     'model image settings survive JSON and old settings default to disabled',
     () {

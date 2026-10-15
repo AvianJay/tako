@@ -2,16 +2,19 @@ import Flutter
 import UIKit
 
 /// Tako's own platform code on iOS: the device tools, keeping model files out
-/// of backups, and Shortcuts, which call back through `tako://shortcut/…`.
+/// of backups, Apple Intelligence, and Shortcuts, which call back through
+/// `tako://shortcut/…`.
 final class TakoNative: NSObject, IosApi, FlutterSceneLifeCycleDelegate {
   private static var shared: TakoNative?
   private let deviceApi = IosDeviceApi()
   private let events: IosEvents
   private let remoteSession: RemoteSessionController
+  private let appleIntelligence: AppleIntelligenceHost
 
   private init(messenger: FlutterBinaryMessenger) {
     events = IosEvents(binaryMessenger: messenger)
     remoteSession = RemoteSessionController(messenger: messenger)
+    appleIntelligence = AppleIntelligenceHost(messenger: messenger)
     super.init()
   }
 

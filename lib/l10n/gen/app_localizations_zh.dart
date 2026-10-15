@@ -547,6 +547,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageGenerationResponsesTool => 'Responses 生图工具';
 
   @override
+  String get imageGenerationOnDevice => '在这台设备上';
+
+  @override
   String get imageGenerationHelp =>
       '选择此模型支持的生图格式。你可以直接选择它生成图片，也可以让聊天模型通过生图工具调用它。';
 
@@ -1288,7 +1291,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onDeviceModelsHelp => '在這支手機上直接執行本地模型';
 
   @override
-  String get onDeviceApi => '裝置上（llama.cpp / AICore）';
+  String get onDeviceApi => '裝置上（llama.cpp / AICore / Apple Intelligence）';
 
   @override
   String get aicoreHelp =>
@@ -1333,6 +1336,62 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aicoreFailed => 'AICore 無法準備或執行這個模型。請更新 Android AICore、確認裝置支援後再試。';
+
+  @override
+  String get appleHelp =>
+      '透過 Apple Intelligence 與 Apple 的裝置端模型聊天，不需要網路連線。需要支援 Apple Intelligence 的裝置與 iOS 26 以上版本。可使用 Tako 的工具，並沿用原有的權限檢查。';
+
+  @override
+  String get appleImageHelp =>
+      '用 Image Playground 在這台裝置上生成圖片。可以直接選它來生圖，也可以讓聊天模型透過生圖工具呼叫它，並可附上一張參考圖片。需要 iOS 18.4 以上版本，並開啟 Apple Intelligence。';
+
+  @override
+  String get appleManaged => '由 Apple Intelligence 管理';
+
+  @override
+  String get appleCheckAgain => '重新檢查';
+
+  @override
+  String get appleChecking => '正在檢查 Apple Intelligence…';
+
+  @override
+  String get appleUnavailable =>
+      '這台裝置不支援 Apple Intelligence。需要 iPhone 15 Pro 或更新的機型，或搭載 M 系列、A17 Pro 晶片的 iPad 或 Mac。';
+
+  @override
+  String get appleUpdate =>
+      '請更新 iOS 才能使用這個模型。Apple 裝置端模型需要 iOS 26 以上，Image Playground 需要 iOS 18.4 以上。';
+
+  @override
+  String get appleDisabled =>
+      '請到「設定」>「Apple Intelligence 與 Siri」開啟 Apple Intelligence，等模型下載完成後再重新檢查。';
+
+  @override
+  String get appleNotReady =>
+      'Apple Intelligence 仍在下載或準備模型。請保持 Wi-Fi 連線並接上電源，稍後再重新檢查。';
+
+  @override
+  String get appleRequestTooLarge => '這段對話超過 Apple 裝置端模型可處理的長度。請開啟新對話或縮短系統提示詞。';
+
+  @override
+  String get appleBusy => 'Apple Intelligence 暫時無法處理更多請求。請讓 Tako 保持開啟，稍候再試。';
+
+  @override
+  String get appleBackground => '請讓 Tako 保持在前景，Apple Intelligence 才能繼續生成。';
+
+  @override
+  String get appleGuardrail => 'Apple Intelligence 的安全檢查拒絕了這個請求。請換個說法，或改用其他模型。';
+
+  @override
+  String get appleLanguage =>
+      'Apple Intelligence 目前不支援這個請求的語言。請改用支援的語言，或改用其他模型。';
+
+  @override
+  String get appleImageInput =>
+      'Image Playground 無法使用這個提示或參考圖片。請最多附上一張清楚的照片，或換個方式描述。';
+
+  @override
+  String get appleFailed => 'Apple Intelligence 無法完成這個請求，請稍後再試。';
 
   @override
   String get onDeviceProviderHelp => '使用已放在這支手機上的模型。不需要網址或金鑰。';
@@ -2140,6 +2199,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get imageGenerationResponsesTool => 'Responses 生圖工具';
 
   @override
+  String get imageGenerationOnDevice => '在這台裝置上';
+
+  @override
   String get imageGenerationHelp =>
       '選擇此模型支援的生圖格式。你可以直接選擇它生成圖片，也可以讓聊天模型透過生圖工具呼叫它。';
 
@@ -2881,7 +2943,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get onDeviceModelsHelp => '在這支手機上直接執行本地模型';
 
   @override
-  String get onDeviceApi => '裝置上（llama.cpp / AICore）';
+  String get onDeviceApi => '裝置上（llama.cpp / AICore / Apple Intelligence）';
 
   @override
   String get aicoreHelp =>
@@ -2926,6 +2988,62 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get aicoreFailed => 'AICore 無法準備或執行這個模型。請更新 Android AICore、確認裝置支援後再試。';
+
+  @override
+  String get appleHelp =>
+      '透過 Apple Intelligence 與 Apple 的裝置端模型聊天，不需要網路連線。需要支援 Apple Intelligence 的裝置與 iOS 26 以上版本。可使用 Tako 的工具，並沿用原有的權限檢查。';
+
+  @override
+  String get appleImageHelp =>
+      '用 Image Playground 在這台裝置上生成圖片。可以直接選它來生圖，也可以讓聊天模型透過生圖工具呼叫它，並可附上一張參考圖片。需要 iOS 18.4 以上版本，並開啟 Apple Intelligence。';
+
+  @override
+  String get appleManaged => '由 Apple Intelligence 管理';
+
+  @override
+  String get appleCheckAgain => '重新檢查';
+
+  @override
+  String get appleChecking => '正在檢查 Apple Intelligence…';
+
+  @override
+  String get appleUnavailable =>
+      '這台裝置不支援 Apple Intelligence。需要 iPhone 15 Pro 或更新的機型，或搭載 M 系列、A17 Pro 晶片的 iPad 或 Mac。';
+
+  @override
+  String get appleUpdate =>
+      '請更新 iOS 才能使用這個模型。Apple 裝置端模型需要 iOS 26 以上，Image Playground 需要 iOS 18.4 以上。';
+
+  @override
+  String get appleDisabled =>
+      '請到「設定」>「Apple Intelligence 與 Siri」開啟 Apple Intelligence，等模型下載完成後再重新檢查。';
+
+  @override
+  String get appleNotReady =>
+      'Apple Intelligence 仍在下載或準備模型。請保持 Wi-Fi 連線並接上電源，稍後再重新檢查。';
+
+  @override
+  String get appleRequestTooLarge => '這段對話超過 Apple 裝置端模型可處理的長度。請開啟新對話或縮短系統提示詞。';
+
+  @override
+  String get appleBusy => 'Apple Intelligence 暫時無法處理更多請求。請讓 Tako 保持開啟，稍候再試。';
+
+  @override
+  String get appleBackground => '請讓 Tako 保持在前景，Apple Intelligence 才能繼續生成。';
+
+  @override
+  String get appleGuardrail => 'Apple Intelligence 的安全檢查拒絕了這個請求。請換個說法，或改用其他模型。';
+
+  @override
+  String get appleLanguage =>
+      'Apple Intelligence 目前不支援這個請求的語言。請改用支援的語言，或改用其他模型。';
+
+  @override
+  String get appleImageInput =>
+      'Image Playground 無法使用這個提示或參考圖片。請最多附上一張清楚的照片，或換個方式描述。';
+
+  @override
+  String get appleFailed => 'Apple Intelligence 無法完成這個請求，請稍後再試。';
 
   @override
   String get onDeviceProviderHelp => '使用已放在這支手機上的模型。不需要網址或金鑰。';

@@ -113,8 +113,12 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       ? _modelApiOverride ?? modelApiType(_model.text, fallback: _type)
       : _type;
 
-  bool get _imagesOnly => _imageGeneration == ImageGenerationMode.imagesApi;
+  bool get _imagesOnly =>
+      _imageGeneration == ImageGenerationMode.imagesApi ||
+      _imageGeneration == ImageGenerationMode.onDevice;
 
+  /// On-device image generation belongs to a system model; it is detected,
+  /// never chosen.
   bool _supportsImageMode(ImageGenerationMode mode) => switch (mode) {
     ImageGenerationMode.none => true,
     ImageGenerationMode.imagesApi =>
@@ -122,9 +126,11 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
           _effectiveApi == ApiType.responses,
     ImageGenerationMode.chatOutput => _effectiveApi == ApiType.chatCompletions,
     ImageGenerationMode.responsesTool => _effectiveApi == ApiType.responses,
+    ImageGenerationMode.onDevice => _onDevice,
   };
 
-  /// Specs of a model: for on-device models, read from the GGUF file.
+  /// Specs of a model: for on-device models, read from the GGUF file or
+  /// reported by the system.
   ModelSpec? _spec(String id) {
     if (!_onDevice) return ModelCatalog.detect(id);
     final model = ref
@@ -142,6 +148,8 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       tools: profile.capabilities.tools,
       vision: profile.capabilities.vision,
       reasoning: profile.capabilities.reasoning,
+      imageGeneration: profile.capabilities.imageGeneration,
+      imageReferenceInput: profile.capabilities.imageReferenceInput,
     );
   }
 
@@ -304,6 +312,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
         api == ApiType.responses || api == ApiType.chatCompletions,
       ImageGenerationMode.chatOutput => api == ApiType.chatCompletions,
       ImageGenerationMode.responsesTool => api == ApiType.responses,
+      ImageGenerationMode.onDevice => api == ApiType.onDevice,
     };
     if (compatible) return model;
     return ModelProfile(
@@ -1136,6 +1145,8 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                                 l.imageGenerationChatOutput,
                               ImageGenerationMode.responsesTool =>
                                 l.imageGenerationResponsesTool,
+                              ImageGenerationMode.onDevice =>
+                                l.imageGenerationOnDevice,
                             }),
                           ),
                     ],

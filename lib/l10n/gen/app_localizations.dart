@@ -1161,6 +1161,12 @@ abstract class AppLocalizations {
   /// **'Responses 生图工具'**
   String get imageGenerationResponsesTool;
 
+  /// No description provided for @imageGenerationOnDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'在这台设备上'**
+  String get imageGenerationOnDevice;
+
   /// No description provided for @imageGenerationHelp.
   ///
   /// In zh, this message translates to:
@@ -2526,7 +2532,7 @@ abstract class AppLocalizations {
   /// No description provided for @onDeviceApi.
   ///
   /// In zh, this message translates to:
-  /// **'裝置上（llama.cpp / AICore）'**
+  /// **'裝置上（llama.cpp / AICore / Apple Intelligence）'**
   String get onDeviceApi;
 
   /// No description provided for @aicoreHelp.
@@ -2606,6 +2612,102 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'AICore 無法準備或執行這個模型。請更新 Android AICore、確認裝置支援後再試。'**
   String get aicoreFailed;
+
+  /// No description provided for @appleHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'透過 Apple Intelligence 與 Apple 的裝置端模型聊天，不需要網路連線。需要支援 Apple Intelligence 的裝置與 iOS 26 以上版本。可使用 Tako 的工具，並沿用原有的權限檢查。'**
+  String get appleHelp;
+
+  /// No description provided for @appleImageHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 Image Playground 在這台裝置上生成圖片。可以直接選它來生圖，也可以讓聊天模型透過生圖工具呼叫它，並可附上一張參考圖片。需要 iOS 18.4 以上版本，並開啟 Apple Intelligence。'**
+  String get appleImageHelp;
+
+  /// No description provided for @appleManaged.
+  ///
+  /// In zh, this message translates to:
+  /// **'由 Apple Intelligence 管理'**
+  String get appleManaged;
+
+  /// No description provided for @appleCheckAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新檢查'**
+  String get appleCheckAgain;
+
+  /// No description provided for @appleChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在檢查 Apple Intelligence…'**
+  String get appleChecking;
+
+  /// No description provided for @appleUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'這台裝置不支援 Apple Intelligence。需要 iPhone 15 Pro 或更新的機型，或搭載 M 系列、A17 Pro 晶片的 iPad 或 Mac。'**
+  String get appleUnavailable;
+
+  /// No description provided for @appleUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'請更新 iOS 才能使用這個模型。Apple 裝置端模型需要 iOS 26 以上，Image Playground 需要 iOS 18.4 以上。'**
+  String get appleUpdate;
+
+  /// No description provided for @appleDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'請到「設定」>「Apple Intelligence 與 Siri」開啟 Apple Intelligence，等模型下載完成後再重新檢查。'**
+  String get appleDisabled;
+
+  /// No description provided for @appleNotReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'Apple Intelligence 仍在下載或準備模型。請保持 Wi-Fi 連線並接上電源，稍後再重新檢查。'**
+  String get appleNotReady;
+
+  /// No description provided for @appleRequestTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'這段對話超過 Apple 裝置端模型可處理的長度。請開啟新對話或縮短系統提示詞。'**
+  String get appleRequestTooLarge;
+
+  /// No description provided for @appleBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'Apple Intelligence 暫時無法處理更多請求。請讓 Tako 保持開啟，稍候再試。'**
+  String get appleBusy;
+
+  /// No description provided for @appleBackground.
+  ///
+  /// In zh, this message translates to:
+  /// **'請讓 Tako 保持在前景，Apple Intelligence 才能繼續生成。'**
+  String get appleBackground;
+
+  /// No description provided for @appleGuardrail.
+  ///
+  /// In zh, this message translates to:
+  /// **'Apple Intelligence 的安全檢查拒絕了這個請求。請換個說法，或改用其他模型。'**
+  String get appleGuardrail;
+
+  /// No description provided for @appleLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'Apple Intelligence 目前不支援這個請求的語言。請改用支援的語言，或改用其他模型。'**
+  String get appleLanguage;
+
+  /// No description provided for @appleImageInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'Image Playground 無法使用這個提示或參考圖片。請最多附上一張清楚的照片，或換個方式描述。'**
+  String get appleImageInput;
+
+  /// No description provided for @appleFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'Apple Intelligence 無法完成這個請求，請稍後再試。'**
+  String get appleFailed;
 
   /// No description provided for @onDeviceProviderHelp.
   ///

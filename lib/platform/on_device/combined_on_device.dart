@@ -3,8 +3,9 @@ import 'dart:async';
 import '../../core/on_device/on_device_capability.dart';
 import '../../core/providers/providers.dart';
 
-/// Keeps file models and the Android system model behind the same provider.
-/// Serializes responses and releases the other engine before switching.
+/// Keeps file models and the system models (AICore or Apple Intelligence)
+/// behind the same provider. Serializes responses and releases the other
+/// engine before switching.
 class CombinedOnDevice extends OnDeviceCapability {
   CombinedOnDevice({required this.files, required this.system}) {
     files.addListener(notifyListeners);
@@ -84,7 +85,7 @@ class CombinedOnDevice extends OnDeviceCapability {
   Future<void> removeDownload(String id) => files.removeDownload(id);
   @override
   Future<void> delete(String modelId) async {
-    if (isAicoreModel(modelId)) {
+    if (isSystemModel(modelId)) {
       throw const OnDeviceException('system_model');
     }
     await files.delete(modelId);
@@ -108,7 +109,7 @@ class CombinedOnDevice extends OnDeviceCapability {
     final release = await _acquire();
     try {
       if (cancel.isCancelled) return;
-      final useSystem = isAicoreModel(config.model);
+      final useSystem = isSystemModel(config.model);
       final engine = useSystem ? system : files;
       final other = useSystem ? files : system;
       if (other.loadedModel != null) await other.unload();
