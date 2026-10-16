@@ -68,4 +68,37 @@ void main() {
     await session.progress('tap', 1);
     await session.setActive(false);
   });
+
+  test(
+    'return to app finishes before releasing native background time',
+    () async {
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+      final session = IosRemoteSession(
+        onStop: () {},
+        onReturnToApp: () async => calls.add('return'),
+      );
+      await session.setActive(true);
+      await session.setActive(false);
+      expect(calls, ['start', 'diagnostics', 'return', 'end', 'diagnostics']);
+    },
+  );
+
+  test('a failed return still releases native resources', () async {
+    final calls = <String>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call.method);
+      return null;
+    });
+    final session = IosRemoteSession(
+      onStop: () {},
+      onReturnToApp: () async => throw StateError('offline'),
+    );
+    await session.setActive(true);
+    await session.setActive(false);
+    expect(calls, ['start', 'diagnostics', 'end', 'diagnostics']);
+  });
 }

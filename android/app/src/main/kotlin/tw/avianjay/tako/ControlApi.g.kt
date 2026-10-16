@@ -1196,6 +1196,9 @@ interface ScreenApi {
   fun status(): ScreenStatusData
   fun openSettings()
   fun openAppInfo()
+  /** Holds device wakefulness for one model response, including thinking. */
+  fun beginControlSession(sessionId: String)
+  fun endControlSession(sessionId: String, returnToApp: Boolean)
   fun snapshot(screenshot: Boolean, maxNodes: Long, callback: (Result<ScreenSnapshotData>) -> Unit)
   fun resolveNode(token: Long, node: Long, callback: (Result<ScreenTargetData>) -> Unit)
   fun resolvePoint(x: Double, y: Double, callback: (Result<ScreenTargetData>) -> Unit)
@@ -1254,6 +1257,43 @@ interface ScreenApi {
           channel.setMessageHandler { _, reply ->
             val wrapped: List<Any?> = try {
               api.openAppInfo()
+              listOf(null)
+            } catch (exception: Throwable) {
+              ControlApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.tako.ScreenApi.beginControlSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as String
+            val wrapped: List<Any?> = try {
+              api.beginControlSession(sessionIdArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              ControlApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.tako.ScreenApi.endControlSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as String
+            val returnToAppArg = args[1] as Boolean
+            val wrapped: List<Any?> = try {
+              api.endControlSession(sessionIdArg, returnToAppArg)
               listOf(null)
             } catch (exception: Throwable) {
               ControlApiPigeonUtils.wrapError(exception)

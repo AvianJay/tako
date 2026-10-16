@@ -387,8 +387,8 @@ void main() {
   }
 
   test('per-tool deny policy is honored and audited', () async {
-    app.permissionGate.policy = const PermissionPolicy(
-      overrides: {'web_search': ToolPermission.deny},
+    await app.savePermissionPolicy(
+      const PermissionPolicy(overrides: {'web_search': ToolPermission.deny}),
     );
     final result = await app.probeHostedSearch(
       _config(),
@@ -400,8 +400,8 @@ void main() {
   });
 
   test('ask policy waits, and timeout starts only after approval', () async {
-    app.permissionGate.policy = const PermissionPolicy(
-      overrides: {'web_search': ToolPermission.ask},
+    await app.savePermissionPolicy(
+      const PermissionPolicy(overrides: {'web_search': ToolPermission.ask}),
     );
     final cancel = CancelToken();
     final pending = app.probeHostedSearch(
@@ -427,8 +427,8 @@ void main() {
   });
 
   test('user can deny or stop pending approval', () async {
-    app.permissionGate.policy = const PermissionPolicy(
-      overrides: {'web_search': ToolPermission.ask},
+    await app.savePermissionPolicy(
+      const PermissionPolicy(overrides: {'web_search': ToolPermission.ask}),
     );
     var pending = app.probeHostedSearch(_config(), cancel: CancelToken());
     await _approval(app);

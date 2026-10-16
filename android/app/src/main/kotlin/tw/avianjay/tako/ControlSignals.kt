@@ -24,6 +24,7 @@ object ControlSignals {
     var listener: Listener? = null
 
     fun stopRequested() {
+        AutomationBroker.stopBackground()
         main.post { listener?.stopRequested() }
     }
 
@@ -40,7 +41,7 @@ class ControlActionReceiver : BroadcastReceiver() {
 }
 
 /** Runtime permissions requested from setup screens, one dialog at a time. */
-class PermissionBroker(private val activity: Activity) {
+class PermissionBroker(private val activity: Context) {
     private var nextCode = 7000
     private val pending = mutableMapOf<Int, (Boolean) -> Unit>()
 
@@ -56,6 +57,7 @@ class PermissionBroker(private val activity: Activity) {
             callback(false)
             return
         }
+        if (activity !is Activity) { callback(false); return }
         val code = nextCode++
         pending[code] = callback
         try {

@@ -244,7 +244,7 @@ class _DeviceControlBridgeState extends ConsumerState<DeviceControlBridge>
     // Ignore a stale answer: only the request still pending may be decided.
     if (choice == null || !identical(_app.pendingApproval, request)) return;
     for (final value in PermissionChoice.values) {
-      if (value.name == choice) _app.permissionGate.decide(value);
+      if (value.name == choice) _app.decideApproval(value);
     }
   }
 

@@ -99,6 +99,7 @@ class TakoAccessibilityService : AccessibilityService() {
  * an approval is on screen.
  */
 internal class ScreenReader(private val service: TakoAccessibilityService) : ScreenBackend {
+    private val session = ScreenControlSession(service)
     private companion object {
         const val MAX_DEPTH = 80
         const val SUBTREE_LIMIT = 200
@@ -141,6 +142,7 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
     }
 
     fun dispose() {
+        session.end("", returnToApp = false)
         overlay.hide()
         controlOverlay.hide("", true)
         worker.shutdownNow()
@@ -874,6 +876,22 @@ internal class ScreenReader(private val service: TakoAccessibilityService) : Scr
     }
 
     override fun hideApproval() = overlay.hide()
+
+    override fun beginControlSession(sessionId: String) = session.begin(sessionId)
+
+    override fun endControlSession(sessionId: String, returnToApp: Boolean) {
+        if (!returnToApp) {
+            session.end(sessionId, false)
+            return
+        }
+        try {
+            // A gesture already dispatched is committed: finish it before
+            // bringing Tako in front of its final touch event.
+            worker.execute { session.end(sessionId, true) }
+        } catch (_: RejectedExecutionException) {
+            session.end(sessionId, false)
+        }
+    }
 
     override fun showControlOverlay(data: ControlOverlayData) = controlOverlay.show(data)
 

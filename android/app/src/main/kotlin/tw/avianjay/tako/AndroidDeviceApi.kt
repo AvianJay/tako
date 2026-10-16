@@ -32,7 +32,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** No private information is read at construction or capability discovery. */
-class AndroidDeviceApi(private val activity: Activity) : DeviceApi {
+class AndroidDeviceApi(private val activity: Context) : DeviceApi {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val operations = mutableMapOf<String, Pending<*>>()
@@ -96,6 +96,7 @@ class AndroidDeviceApi(private val activity: Activity) : DeviceApi {
             try { action() } catch (cause: Throwable) { finish(pending, Result.failure(sanitized(cause))) }
             return
         }
+        if (activity !is Activity) { finish(pending, Result.failure(error("foreground_required"))); return }
         // Android supports one foreground permission dialog at a time.
         if (activePermissionCode != null) {
             finish(pending, Result.failure(error("permission_request_busy")))
@@ -208,7 +209,7 @@ class AndroidDeviceApi(private val activity: Activity) : DeviceApi {
     }
 
     override fun clipboardRead(): String? = safe {
-        if (!activity.hasWindowFocus()) throw error("foreground_required")
+        if ((activity as? Activity)?.hasWindowFocus() != true) throw error("foreground_required")
         val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = clipboard.primaryClip ?: return@safe null
         if (clip.itemCount == 0) return@safe null
@@ -306,6 +307,7 @@ class AndroidDeviceApi(private val activity: Activity) : DeviceApi {
     }
 
     private fun launch(intent: Intent): DeviceLaunchResult = safe {
+        if (activity !is Activity) throw error("foreground_required")
         activity.startActivity(intent)
         // Launching does not prove the user completed the external action.
         DeviceLaunchResult(true)

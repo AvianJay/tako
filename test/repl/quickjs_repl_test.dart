@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tako/core/chat/agent_suspended.dart';
 import 'package:tako/core/providers/cancel_token.dart';
 import 'package:tako/platform/repl/quickjs_repl.dart';
 
@@ -8,6 +9,31 @@ void main() {
   late QuickJsRepl runtime;
   setUp(() => runtime = QuickJsRepl());
   tearDown(() => runtime.close());
+
+  test(
+    'a suspended host operation escapes JavaScript catch and stops later actions',
+    () async {
+      final calls = <String>[];
+      await expectLater(
+        runtime.evaluate(
+          'try { await browser.read(); } catch (_) {} await browser.scroll({direction:"down"});',
+          invoke: (method, _) async {
+            calls.add(method);
+            throw const AgentSuspended('approval');
+          },
+          cancel: CancelToken(),
+        ),
+        throwsA(isA<AgentSuspended>()),
+      );
+      expect(calls, ['browser.read']);
+      final reset = await runtime.evaluate(
+        '1 + 1',
+        invoke: (_, _) async => {},
+        cancel: CancelToken(),
+      );
+      expect(reset.value, 2);
+    },
+  );
 
   test(
     'top-level await, persistent var bindings and captured output',

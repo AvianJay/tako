@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tako/core/chat/agent_suspended.dart';
 import 'package:tako/core/chat/content_block.dart';
 import 'package:tako/core/files/workspace.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
@@ -275,6 +276,18 @@ void main() {
   tearDown(() async {
     screen.dispose();
     await database.close();
+  });
+
+  test('an automation approval suspension escapes the remote worker', () async {
+    gate.policy = const PermissionPolicy(
+      fullPermissions: true,
+      overrides: {'tap': ToolPermission.ask},
+    );
+    gate.pauseOnAsk = true;
+    build();
+    await expectLater(run(), throwsA(isA<AgentSuspended>()));
+    expect(screen.current, 'start');
+    expect(screen.actions, isEmpty);
   });
 
   test(

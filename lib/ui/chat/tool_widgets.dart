@@ -8,6 +8,11 @@ import '../../core/permissions/permission_gate.dart';
 import '../../l10n/gen/app_localizations.dart';
 
 String toolLabel(String name, AppLocalizations l) => switch (name) {
+  'automation_list' => l.automationListTool,
+  'automation_get' => l.automationGetTool,
+  'automation_save' => l.automationSaveTool,
+  'automation_delete' => l.automationDeleteTool,
+  'automation_run' => l.automationRunTool,
   'read_skill' => l.readSkillTool,
   'js_repl' => l.jsReplTool,
   'get_device_status' => l.deviceStatusTool,
@@ -31,6 +36,7 @@ String toolLabel(String name, AppLocalizations l) => switch (name) {
   'memory_save' => l.memorySaveTool,
   'memory_update' => l.memoryUpdateTool,
   'memory_delete' => l.memoryDeleteTool,
+  'browser_start_session' => l.browserStartSessionTool,
   'browser_open' => l.browserOpenTool,
   'browser_read' => l.browserReadTool,
   'browser_click' => l.browserClickTool,
@@ -253,11 +259,11 @@ class ToolApprovalSheet extends StatelessWidget {
                   for (final choice in request.choices)
                     choice == PermissionChoice.deny
                         ? OutlinedButton(
-                            onPressed: () => app.permissionGate.decide(choice),
+                            onPressed: () => app.decideApproval(choice),
                             child: Text(l.deny),
                           )
                         : FilledButton.tonal(
-                            onPressed: () => app.permissionGate.decide(choice),
+                            onPressed: () => app.decideApproval(choice),
                             child: Text(choiceLabel(choice, l)),
                           ),
                 ],

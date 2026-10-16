@@ -14,6 +14,7 @@ final class Conversation {
     this.incognito = false,
     this.memoryProfile,
     this.userNotes,
+    this.automationRuleId,
   }) : createdAt = createdAt.toUtc(),
        updatedAt = updatedAt.toUtc();
 
@@ -30,6 +31,7 @@ final class Conversation {
     incognito: asBool(json['incognito']) ?? false,
     memoryProfile: asString(json['memoryProfile']),
     userNotes: asString(json['userNotes']),
+    automationRuleId: asString(json['automationRuleId']),
   );
 
   final String id;
@@ -53,6 +55,7 @@ final class Conversation {
   /// Null for chats created before these snapshots existed.
   final String? memoryProfile;
   final String? userNotes;
+  final String? automationRuleId;
 
   Conversation copyWith({
     String? title,
@@ -78,6 +81,7 @@ final class Conversation {
     incognito: incognito,
     memoryProfile: memoryProfile ?? this.memoryProfile,
     userNotes: userNotes ?? this.userNotes,
+    automationRuleId: automationRuleId,
   );
 
   JsonMap toJson() => {
@@ -93,5 +97,6 @@ final class Conversation {
     if (incognito) 'incognito': true,
     if (memoryProfile != null) 'memoryProfile': memoryProfile,
     if (userNotes != null) 'userNotes': userNotes,
+    if (automationRuleId != null) 'automationRuleId': automationRuleId,
   };
 }

@@ -5,6 +5,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>tw.avianjay.tako.remote.*</string>
+		<string>tw.avianjay.tako.automation.processing</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../chat/agent_suspended.dart';
 import '../tools/tool.dart';
 import 'permission_policy.dart';
 import 'risk_classifier.dart';
@@ -60,18 +61,33 @@ class PermissionDecision {
 class PermissionGate {
   PermissionGate({
     PermissionPolicy? policy,
-    this.onPolicyChanged,
+    PermissionPolicyState? sharedPolicy,
+    this.loadPolicy,
+    this.onAlwaysAllow,
     this.onPendingChanged,
-  }) : policy = policy ?? const PermissionPolicy();
+  }) : _state =
+           sharedPolicy ??
+           PermissionPolicyState(policy ?? const PermissionPolicy());
 
-  PermissionPolicy policy;
-  final Future<void> Function(PermissionPolicy)? onPolicyChanged;
+  final PermissionPolicyState _state;
+  PermissionPolicy get policy => _state.value;
+  set policy(PermissionPolicy value) => _state.value = value;
+  bool pauseOnAsk = false;
+  bool suspendOnUnavailable = false;
+  void Function(AgentSuspended)? onSuspended;
+  Future<void> Function(PermissionRequest)? onWaiting;
+  final Future<PermissionPolicy> Function()? loadPolicy;
+  final Future<PermissionPolicy> Function(String toolName)? onAlwaysAllow;
   final void Function(PermissionRequest?)? onPendingChanged;
   final _chatApprovals = <String, Set<String>>{};
   PermissionRequest? _pending;
   Completer<PermissionChoice>? _answer;
 
   PermissionRequest? get pendingApproval => _pending;
+
+  Future<void> refreshPolicy() async {
+    if (loadPolicy case final load?) policy = await load();
+  }
 
   void decide(PermissionChoice choice) {
     final answer = _answer;
@@ -108,6 +124,7 @@ class PermissionGate {
     required RiskLevel risk,
     required ToolContext context,
   }) async {
+    if (loadPolicy != null) await refreshPolicy();
     context.cancel.throwIfCancelled();
     if (RiskClassifier.isPasswordEntry(toolName, args, context)) {
       return const PermissionDecision(false, 'password_entry_blocked');
@@ -136,6 +153,16 @@ class PermissionGate {
       // accidentally resolving an approval belonging to a different call.
       return const PermissionDecision(false, 'approval_busy');
     }
+    if (pauseOnAsk) {
+      final pause = AgentSuspended('approval', {
+        'tool': toolName,
+        'arguments': args,
+        'risk': risk.name,
+        'details': context.targetDetails,
+      });
+      onSuspended?.call(pause);
+      throw pause;
+    }
     final answer = Completer<PermissionChoice>();
     _answer = answer;
     _pending = PermissionRequest(
@@ -148,20 +175,33 @@ class PermissionGate {
       target: context.target,
     );
     try {
+      await onWaiting?.call(_pending!);
+      context.cancel.throwIfCancelled();
       onPendingChanged?.call(_pending);
       final choice = await context.cancel.bind(answer.future);
       context.cancel.throwIfCancelled();
       if (choice == PermissionChoice.deny) {
         return const PermissionDecision(false, 'denied_by_user');
       }
+      if (loadPolicy != null) await refreshPolicy();
+      context.cancel.throwIfCancelled();
+      if (policy.overrides[toolName] == ToolPermission.deny) {
+        return const PermissionDecision(false, 'denied_by_policy');
+      }
       if (risk != RiskLevel.high) {
         if (choice == PermissionChoice.alwaysAllow) {
-          final updated = policy.copyWith(
-            overrides: {...policy.overrides, toolName: ToolPermission.allow},
-          );
-          await onPolicyChanged?.call(updated);
+          policy = onAlwaysAllow != null
+              ? await onAlwaysAllow!(toolName)
+              : policy.copyWith(
+                  overrides: {
+                    ...policy.overrides,
+                    toolName: ToolPermission.allow,
+                  },
+                );
           context.cancel.throwIfCancelled();
-          policy = updated;
+          if (policy.overrides[toolName] == ToolPermission.deny) {
+            return const PermissionDecision(false, 'denied_by_policy');
+          }
         } else if (choice == PermissionChoice.allowInChat ||
             (risk == RiskLevel.action && override != ToolPermission.ask)) {
           _chatApprovals

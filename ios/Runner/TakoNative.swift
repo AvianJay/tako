@@ -10,11 +10,13 @@ final class TakoNative: NSObject, IosApi, FlutterSceneLifeCycleDelegate {
   private let events: IosEvents
   private let remoteSession: RemoteSessionController
   private let appleIntelligence: AppleIntelligenceHost
+  let automation: AutomationHost
 
-  private init(messenger: FlutterBinaryMessenger) {
+  private init(messenger: FlutterBinaryMessenger, background: Bool = false) {
     events = IosEvents(binaryMessenger: messenger)
     remoteSession = RemoteSessionController(messenger: messenger)
     appleIntelligence = AppleIntelligenceHost(messenger: messenger)
+    automation = AutomationHost(messenger: messenger, foreground: !background)
     super.init()
   }
 
@@ -27,6 +29,13 @@ final class TakoNative: NSObject, IosApi, FlutterSceneLifeCycleDelegate {
     registrar.addSceneDelegate(native)
   }
 
+  static func registerBackground(messenger: FlutterBinaryMessenger) -> TakoNative {
+    let native = TakoNative(messenger: messenger, background: true)
+    DeviceApiSetup.setUp(binaryMessenger: messenger, api: native.deviceApi)
+    IosApiSetup.setUp(binaryMessenger: messenger, api: native)
+    return native
+  }
+
   func excludeFromBackup(path: String) throws {
     var url = URL(fileURLWithPath: path, isDirectory: true)
     var values = URLResourceValues()
@@ -35,6 +44,10 @@ final class TakoNative: NSObject, IosApi, FlutterSceneLifeCycleDelegate {
   }
 
   func openUrl(url: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+    guard UIApplication.shared.applicationState == .active else {
+      completion(.failure(IosApiError(code: "foreground_required", message: nil, details: nil)))
+      return
+    }
     guard let target = URL(string: url) else {
       completion(.success(false))
       return

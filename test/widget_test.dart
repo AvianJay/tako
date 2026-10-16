@@ -1792,8 +1792,10 @@ void main() {
     );
     expect(find.textContaining('"files": ['), findsNothing);
 
-    app.permissionGate.policy = const PermissionPolicy(
-      overrides: {'file_list': ToolPermission.ask},
+    await tester.runAsync(
+      () => app.savePermissionPolicy(
+        const PermissionPolicy(overrides: {'file_list': ToolPermission.ask}),
+      ),
     );
     final approval = app.permissionGate.authorize(
       toolName: 'file_list',

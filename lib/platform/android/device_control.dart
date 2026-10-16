@@ -144,10 +144,32 @@ class AndroidScreen extends ScreenCapability {
   }
 
   @override
-  void endModelSession() {
+  void beginModelSession() {
+    if (!isAvailable || modelActive) return;
+    super.beginModelSession();
+    final id = modelSession!.id;
+    unawaited(_api.beginControlSession(id).catchError((Object _) {}));
+  }
+
+  @override
+  void endModelSession({bool returnToApp = true}) {
     final id = modelSession?.id;
-    super.endModelSession();
-    if (id != null) hideControlOverlay(sessionId: id, endSession: true);
+    super.endModelSession(returnToApp: returnToApp);
+    if (id == null) return;
+    hideControlOverlay(sessionId: id, endSession: true);
+    unawaited(
+      _api.endControlSession(id, returnToApp).catchError((Object _) {}),
+    );
+  }
+
+  @override
+  void dispose() {
+    final id = modelSession?.id;
+    if (id != null) {
+      hideControlOverlay(sessionId: id, endSession: true);
+      unawaited(_api.endControlSession(id, false).catchError((Object _) {}));
+    }
+    super.dispose();
   }
 
   @override

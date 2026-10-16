@@ -7,6 +7,8 @@ import '../../core/browser/browser_settings.dart';
 import '../../core/providers/provider_config.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../platform/android/app_updater.dart';
+import '../../platform/app_services.dart';
+import '../automation/automation_screen.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
 import '../files/files_screen.dart';
@@ -46,6 +48,20 @@ class SettingsScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              if (app.services.automation.isAvailable)
+                ListTile(
+                  key: const ValueKey('settings-automations'),
+                  title: Text(l.automations),
+                  subtitle: Text(l.automationHelp),
+                  leading: const Icon(Icons.schedule),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AutomationsScreen(),
+                    ),
+                  ),
+                ),
               ListTile(
                 title: Text(l.toolsSettings),
                 leading: const Icon(Icons.build_outlined),

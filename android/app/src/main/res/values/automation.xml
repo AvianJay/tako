@@ -1,0 +1,4 @@
+<resources>
+<string name="automation_channel">Automations</string>
+<string name="automation_running">Running an automation</string>
+</resources>

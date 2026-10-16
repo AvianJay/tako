@@ -162,6 +162,37 @@ void main() {
       requests.clear();
     }
 
+    test(
+      'silent sessions keep page permissions and reset after the response',
+      () async {
+        final session = await run('browser_start_session', {'silent': true});
+        expect(session.isError, false);
+        expect(
+          (jsonDecode(session.content) as Map<String, dynamic>)['silent'],
+          true,
+        );
+        expect(requests, isEmpty);
+        await run('browser_open', {'url': 'https://shop.example.com/'});
+        await run('browser_read', {});
+        expect(browser.openRequests, 0);
+        expect(requests.map((r) => r.toolName), [
+          'browser_open',
+          'browser_read',
+        ]);
+
+        browser.endModelSession();
+        await run('browser_open', {'url': 'https://shop.example.com/'});
+        expect(browser.openRequests, 1);
+        expect(browser.silent, false);
+      },
+    );
+
+    test('session mode is validated before starting a browser', () async {
+      final result = await run('browser_start_session', {'silent': 'true'});
+      expect(result.isError, true);
+      expect(browser.modelActive, false);
+    });
+
     test('open, read, type and click complete a search task', () async {
       final opened = await run('browser_open', {
         'url': 'https://shop.example.com/',

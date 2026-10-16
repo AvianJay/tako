@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../core/chat/agent_suspended.dart';
 import '../../core/providers/cancel_token.dart';
 import '../../core/repl/repl_runtime.dart';
 import 'quickjs_bindings.dart';
@@ -71,6 +72,8 @@ class QuickJsRepl implements ReplRuntime {
               packet['method'] as String,
               (packet['args'] as List).cast<Object?>(),
             );
+          } on AgentSuspended {
+            rethrow;
           } catch (_) {
             response = const {'error': 'operation_failed'};
           }
@@ -111,6 +114,9 @@ class QuickJsRepl implements ReplRuntime {
         status = jsonDecode(engine.poll()) as Map<String, dynamic>;
         cpu.stop();
       }
+    } on AgentSuspended {
+      close();
+      rethrow;
     } on RequestCancelled {
       close();
       return ReplEvaluation(
@@ -169,7 +175,7 @@ const _bootstrap = r'''
   const api = (group, methods) => Object.freeze(Object.fromEntries(
     methods.map(method => [method, (...args) => call(group + '.' + method, args)])));
   Object.defineProperty(globalThis, 'browser', {value: api('browser',
-    ['open', 'read', 'click', 'type', 'scroll', 'back'])});
+    ['startSession', 'open', 'read', 'click', 'type', 'scroll', 'back'])});
   Object.defineProperty(globalThis, 'phone', {value: api('phone',
     ['openApp', 'read', 'tap', 'longPress', 'type', 'scroll', 'swipe', 'pressKey',
      'drag', 'openUrl', 'resolveApp', 'sequence', 'workflow', 'replay'])});

@@ -116,7 +116,8 @@ From the user's saved memory, which they can view and edit:
 {{^control_repl}}
 {{#browser}}
 ## Built-in browser
-- browser_open loads a page in the app's browser, which the user can see. browser_read returns the page title, URL, main text, and interactive elements as `[id] tag "label"`.
+- browser_start_session chooses the browsing mode for this response: silent=true runs in a background WebView; false shows the browser so the user can watch. Choose before opening a page. Without it, browsing is visible. Silent mode keeps the same permissions and audit log; the user can inspect the tab or take over at any time.
+- browser_open loads a page in the session's own tab. browser_read returns the page title, URL, main text, and interactive elements as `[id] tag "label"`.
 - Act with browser_click, browser_type, browser_scroll, and browser_back, using ids from the latest browser_read. Read again after each action; ids change after the page changes.
 {{#web_search}}
 - To simply look something up, prefer web_search and fetch_page. Use the browser when a page needs interaction, such as forms, logins, or dynamic content.

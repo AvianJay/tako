@@ -1385,6 +1385,47 @@ class ScreenApi {
     );
   }
 
+  /// Holds device wakefulness for one model response, including thinking.
+  Future<void> beginControlSession(String sessionId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.tako.ScreenApi.beginControlSession$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[sessionId],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<void> endControlSession(String sessionId, bool returnToApp) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.tako.ScreenApi.endControlSession$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[sessionId, returnToApp],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
   Future<ScreenSnapshotData> snapshot(bool screenshot, int maxNodes) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.tako.ScreenApi.snapshot$pigeonVar_messageChannelSuffix';

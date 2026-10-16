@@ -285,8 +285,8 @@ abstract class BrowserCapability extends ChangeNotifier implements Capability {
   /// Whether a browser surface is currently in the widget tree.
   bool get viewMounted;
 
-  /// Set by the UI: show the browser so the user can watch the model act.
-  /// Called only while no surface is mounted.
+  /// Set by the UI: show a visible session so the user can watch the model act.
+  /// Silent sessions do not request a screen. Called with no surface mounted.
   VoidCallback? onRequestOpen;
 
   /// Set by the app: stop the response when the user takes over.
@@ -312,6 +312,12 @@ abstract class BrowserCapability extends ChangeNotifier implements Capability {
   void endModelSession();
   Future<void> clearBrowsingData();
 
+  /// Chooses whether this response's browser work opens the browser screen.
+  /// Silent sessions use a background WebView with the same permission checks.
+  Future<JsonMap> startSession({
+    required bool silent,
+    required CancelToken cancel,
+  });
   Future<JsonMap> open(String url, CancelToken cancel);
   Future<BrowserSnapshot> read(CancelToken cancel);
   Future<BrowserTarget> resolve(int id, CancelToken cancel);
@@ -373,6 +379,11 @@ class UnavailableBrowser extends BrowserCapability {
   @override
   Future<void> clearBrowsingData() async {}
   static Never _unavailable() => throw const BrowserException('unavailable');
+  @override
+  Future<JsonMap> startSession({
+    required bool silent,
+    required CancelToken cancel,
+  }) async => _unavailable();
   @override
   Future<JsonMap> open(String url, CancelToken cancel) async => _unavailable();
   @override

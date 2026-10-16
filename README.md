@@ -83,7 +83,9 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - **Files:** a workspace whose earlier versions are kept when a file is replaced.
   - **Device:** status, location, clipboard, calendar, alarms and timers, opening links and apps by name.
   - **Memory:** long-term memory with a pinned profile, a memory screen, personalization and incognito chats.
-  - **In-app browser:** the model works in its own tab while you watch, and you can take over at any time.
+  - **In-app browser:** the model works in its own tab. It can start a visible
+    session so you can watch, or choose `silent: true` to work in a background
+    WebView. Open the browser to inspect the same page or take over at any time.
   - **Control modes:** remote API models use `read_skill` + `js_repl` for browser/phone control by default. On-device models (including AICore and Apple Intelligence) and local-server connections keep the basic function tools. Override this in **Settings → Tools → Browser and phone control**.
     - REPL uses a shared, lazy QuickJS-NG runtime. Await, JavaScript variables and data processing are supported; variables live for the current task. Browser/phone guides load only when requested.
     - Every inner operation still uses the same live-target checks, permissions, audit log and loop/worker budget. Old element references fail. Completed actions remain recorded if code fails or Stop arrives.
@@ -94,6 +96,9 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     - It can tap, type, scroll, swipe and press system keys.
     - Each action returns the screen after it, so a task takes fewer tool calls.
     - A thin green-to-teal gradient frame and a status pill show when Tako is using your phone, with the current operation title and **Stop**. The indicator stays through model thinking and is cleared when the response ends or you take over.
+    - Screen-control sessions hold a wake lock and keep the screen on, including
+      while the model thinks in another app. Completion or Stop releases the
+      lock and returns to Tako. A 30-minute timeout also stops the session.
     - Screen tools and `open_app` require a short `title`, also shown in the chat's tool history. The indicator is excluded from screenshots and cannot receive model gestures.
   - **`run_shell`** through Termux.
   - **`notifications_list`** to read current notifications.
@@ -107,6 +112,8 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - Start the iCTRL runner on the phone. Tako detects `127.0.0.1:8200`, requests pairing once, and stores the approved key in secure storage.
   - **Settings → Device control** also accepts LAN and Tailscale endpoints. Enable iCTRL Remote Access for another device.
   - Compact accessibility reads, live element references, OCR recovery, optional screenshots, and actions without settling keep agent calls short. Stable sequences can skip intermediate observations.
+  - Local iCTRL tasks return to Tako when the response ends or you press Stop,
+    before releasing the native session's background time.
   - A Live Activity shows progress on the Lock Screen and Dynamic Island, with a link to stop. iOS grants finite background time; expiration stops the agent. Reopen Tako to continue.
 
 ## Safety
@@ -283,3 +290,10 @@ CI builds it with `flutter build ios --release --no-codesign` and packages `Tako
 | `test` | Unit, agent-loop and widget tests. |
 | `integration_test` | On-device checks of screen control, Termux, notifications and the browser. |
 | `tool/browser_runtime_check` | A jsdom check of the browser's injected page script. It needs Node.js and runs in CI. |
+- **Automations** in **Settings → Automations**:
+  - Scheduled AI tasks, Android notification filters, collection windows and scheduled digests.
+  - Basic filters or safe expressions such as `package == "jp.naver.line" and "班群" in title`.
+  - Normal tools and permissions; tasks pause for approval and preserve completed operations.
+  - Final `[SILENT]` replies finish without a result notification.
+  - iOS best-effort background schedules and a **Queue Tako Automation** Shortcuts action.
+  - See [automation setup and recovery](AUTOMATIONS.md).

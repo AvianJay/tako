@@ -134,7 +134,8 @@ void main() {
   test('always persists explicit per-tool allowance', () async {
     PermissionPolicy? saved;
     final gate = PermissionGate(
-      onPolicyChanged: (policy) async => saved = policy,
+      onAlwaysAllow: (tool) async =>
+          saved = PermissionPolicy(overrides: {tool: ToolPermission.allow}),
     );
     final future = authorize(gate, RiskLevel.sensitive);
     gate.decide(PermissionChoice.alwaysAllow);

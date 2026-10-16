@@ -13,6 +13,7 @@ import '../../core/chat/content_block.dart';
 import '../../core/chat/message.dart';
 import '../../core/on_device/on_device_capability.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../automation/automation_screen.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
 import '../render/message_markdown.dart';
@@ -46,7 +47,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // The model acts only on a visible browser, so the user can watch it.
+    // Visible model sessions request the browser screen so the user can watch.
     _browser.onRequestOpen = _showBrowserForModel;
   }
 
@@ -1383,6 +1384,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
     final app = ref.watch(appControllerProvider);
     final l = AppLocalizations.of(context);
+    final openRun = app.automation.pendingOpenRunId;
+    if (openRun != null) {
+      app.automation.pendingOpenRunId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AutomationRunScreen(runId: openRun),
+            ),
+          );
+        }
+      });
+    }
     final visible = app.visibleMessages;
     final timeline = buildChatTimeline(visible);
     final stamp = '${app.conversation?.id}:${visible.length}:${app.revision}';

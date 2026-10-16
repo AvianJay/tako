@@ -23,6 +23,11 @@ class _Tab {
   InAppWebViewKeepAlive keepAlive = InAppWebViewKeepAlive();
   int generation = 0;
   InAppWebViewController? controller;
+  HeadlessInAppWebView? headless;
+  Future<void>? starting;
+  int mountedViews = 0;
+  bool get mounted => mountedViews > 0;
+  bool closed = false;
   Completer<void>? attached;
   String? pendingUrl;
   ({String token, int revision})? snapshot;
@@ -38,10 +43,9 @@ class _Tab {
   bool get blank => url.isEmpty && pendingUrl == null && !loading;
 }
 
-/// Android WebViews kept alive per tab and shared by the user and the model.
-/// The native views survive leaving the browser screen; the model acts only
-/// on the tab in front while a surface is mounted, so it requests the screen
-/// and the user can watch.
+/// Mobile WebViews kept alive per tab and shared by the user and the model.
+/// A silent model session runs without opening a browser screen. Its native
+/// WebView can be attached to the screen later without reloading the page.
 class WebViewBrowser extends BrowserCapability {
   WebViewBrowser({
     required this.workspace,
@@ -62,6 +66,7 @@ class WebViewBrowser extends BrowserCapability {
   String _secret = _newSecret();
   bool _disposed = false;
   bool _modelActive = false;
+  bool _silent = false;
 
   _Tab get _active => _tabs.active;
 
@@ -136,15 +141,35 @@ class WebViewBrowser extends BrowserCapability {
     isInspectable: kDebugMode,
   );
 
-  void _mount() => _mountedViews++;
+  void _mount(_Tab tab) {
+    _mountedViews++;
+    tab.mountedViews++;
+  }
 
   /// Called while the tree is being finalized: no listeners are notified.
   void _unmount(_Tab tab, InAppWebViewController? controller) {
     _mountedViews--;
-    if (identical(tab.controller, controller)) tab.controller = null;
+    tab.mountedViews--;
+    if (!identical(tab.controller, controller)) return;
+    tab.controller = null;
+    if (!_silent || tab.closed || _disposed || controller == null) return;
+    // The widget preserves its native view but disposes the Dart channel.
+    // Rebind to that same native view so silent work can continue unchanged.
+    tab.controller = InAppWebViewController.fromPlatformCreationParams(
+      params: PlatformInAppWebViewControllerCreationParams(
+        id: controller.getViewId(),
+        webviewParams: controller.platform.webviewParams,
+      ),
+    );
   }
 
-  void _onCreated(_Tab tab, InAppWebViewController controller) {
+  void _onCreated(
+    _Tab tab,
+    InAppWebViewController controller, {
+    bool visible = false,
+  }) {
+    if (tab.closed || _disposed) return;
+    if (visible) tab.headless = null; // The plugin transferred the native view.
     tab.controller = controller;
     tab.attached?.complete();
     tab.attached = null;
@@ -233,7 +258,43 @@ class WebViewBrowser extends BrowserCapability {
     };
   }
 
-  /// The tab in front and its view, opening the browser screen if needed.
+  Future<void> _startHeadless(_Tab tab) async {
+    final headless = HeadlessInAppWebView(
+      initialSettings: _settings,
+      onWebViewCreated: (controller) => _onCreated(tab, controller),
+      onLoadStart: (_, url) => _onLoadStart(tab, url),
+      onLoadStop: (controller, url) => _onLoadStop(tab, controller, url),
+      onReceivedError: (_, request, error) => _onLoadError(tab, request, error),
+      onProgressChanged: (_, progress) => _onProgress(tab, progress),
+      onTitleChanged: (_, title) => _onTitle(tab, title),
+      onUpdateVisitedHistory: (controller, url, _) =>
+          _onHistory(tab, controller, url),
+      shouldOverrideUrlLoading: _shouldLoad,
+      onCreateWindow: _onCreateWindow,
+      onDownloadStartRequest: (_, request) => unawaited(_onDownload(request)),
+      onPermissionRequest: _denyPermissions,
+      onGeolocationPermissionsShowPrompt: _denyGeolocation,
+      onRenderProcessGone: (_, _) => unawaited(_recreate(tab)),
+      onWebContentProcessDidTerminate: (_) => unawaited(_recreate(tab)),
+    );
+    tab.headless = headless;
+    try {
+      await headless.run();
+      if (tab.closed || _disposed) {
+        await headless.dispose();
+        throw const BrowserException('browser_closed');
+      }
+    } catch (_) {
+      if (identical(tab.headless, headless)) {
+        tab.headless = null;
+        tab.controller = null;
+        tab.starting = null;
+      }
+      rethrow;
+    }
+  }
+
+  /// The session's view, opening the browser screen for visible sessions.
   /// [expected] fails the call when the user switched tabs meanwhile.
   Future<(_Tab, InAppWebViewController)> _surface(
     CancelToken cancel, {
@@ -244,11 +305,33 @@ class WebViewBrowser extends BrowserCapability {
     if (!identical(tab, _active)) {
       throw const BrowserException('tab_changed_read_again');
     }
-    if (tab.controller case final controller?) return (tab, controller);
+    if (_silent && !tab.mounted && tab.controller == null) {
+      try {
+        await cancel.bind(
+          (tab.starting ??= _startHeadless(
+            tab,
+          )).timeout(const Duration(seconds: 15)),
+        );
+      } on TimeoutException {
+        throw const BrowserException('browser_unavailable');
+      }
+    }
+    cancel.throwIfCancelled();
+    if (tab.closed || _disposed) {
+      throw const BrowserException('browser_closed');
+    }
+    if (!identical(tab, _active)) {
+      throw const BrowserException('tab_changed_read_again');
+    }
+    if (tab.controller case final controller?) {
+      if (_silent || tab.mounted && tab.headless == null) {
+        return (tab, controller);
+      }
+    }
     final ready = tab.attached ??= Completer<void>();
     // At most one widget may use a keep-alive token: never request a second
     // surface while one is still mounted, even during a closing animation.
-    if (_mountedViews == 0) {
+    if (!_silent && _mountedViews == 0) {
       final open = onRequestOpen;
       if (open == null) throw const BrowserException('browser_unavailable');
       open();
@@ -260,6 +343,9 @@ class WebViewBrowser extends BrowserCapability {
     }
     if (!identical(tab, _active)) {
       throw const BrowserException('tab_changed_read_again');
+    }
+    if (tab.closed || _disposed) {
+      throw const BrowserException('browser_closed');
     }
     return (
       tab,
@@ -357,7 +443,10 @@ class WebViewBrowser extends BrowserCapability {
   void _release(List<_Tab> tabs) {
     if (tabs.isEmpty) return;
     for (final tab in tabs) {
+      tab.closed = true;
       tab.controller = null;
+      tab.attached?.complete();
+      tab.attached = null;
       tab.snapshot = null;
       _completeLoads(tab, 'browser_closed');
     }
@@ -365,6 +454,8 @@ class WebViewBrowser extends BrowserCapability {
       await WidgetsBinding.instance.endOfFrame;
       for (final tab in tabs) {
         try {
+          await tab.starting;
+          await tab.headless?.dispose();
           await InAppWebViewController.disposeKeepAlive(tab.keepAlive);
         } catch (_) {
           // Already released, or never created natively.
@@ -382,6 +473,7 @@ class WebViewBrowser extends BrowserCapability {
 
   @override
   void takeOver() {
+    _silent = false;
     setModelActionTitle(null);
     _modelActive = false;
     _tabs.endResponse();
@@ -391,6 +483,7 @@ class WebViewBrowser extends BrowserCapability {
 
   @override
   void endModelSession() {
+    _silent = false;
     setModelActionTitle(null);
     _tabs.endResponse();
     if (!_modelActive) return;
@@ -415,6 +508,10 @@ class WebViewBrowser extends BrowserCapability {
 
   /// Replaces a tab's native view after its renderer process died.
   Future<void> _recreate(_Tab tab) async {
+    if (tab.closed || _disposed) return;
+    final headless = tab.headless;
+    tab.headless = null;
+    tab.starting = null;
     final previous = tab.keepAlive;
     tab.keepAlive = InAppWebViewKeepAlive();
     tab.generation++;
@@ -426,10 +523,26 @@ class WebViewBrowser extends BrowserCapability {
     // the old native view only after it has left the tree.
     await WidgetsBinding.instance.endOfFrame;
     try {
+      await headless?.dispose();
       await InAppWebViewController.disposeKeepAlive(previous);
     } catch (_) {
       // Already released, or never created natively.
     }
+  }
+
+  @override
+  Future<JsonMap> startSession({
+    required bool silent,
+    required CancelToken cancel,
+  }) async {
+    cancel.throwIfCancelled();
+    _silent = silent;
+    final opened = _tabs.openForModel();
+    _release(opened.removed);
+    _markModel();
+    _changed();
+    await _surface(cancel, expected: opened.tab);
+    return {'started': true, 'silent': silent, 'tab_id': opened.tab.id};
   }
 
   @override
@@ -536,6 +649,47 @@ class WebViewBrowser extends BrowserCapability {
   }
 
   // WebView callbacks, per tab.
+
+  void _onProgress(_Tab tab, int progress) {
+    tab.progress = progress / 100;
+    _changed();
+  }
+
+  void _onTitle(_Tab tab, String? title) {
+    tab.title = title ?? '';
+    _changed();
+  }
+
+  void _onHistory(_Tab tab, InAppWebViewController controller, WebUri? url) {
+    tab.url = url?.toString() ?? tab.url;
+    unawaited(_refresh(tab, controller));
+  }
+
+  Future<bool> _onCreateWindow(
+    InAppWebViewController controller,
+    CreateWindowAction action,
+  ) async {
+    final url = action.request.url?.toString();
+    if (url != null && isBrowserUrl(url)) unawaited(_load(controller, url));
+    return false;
+  }
+
+  Future<PermissionResponse> _denyPermissions(
+    InAppWebViewController controller,
+    PermissionRequest request,
+  ) async => PermissionResponse(
+    resources: request.resources,
+    action: PermissionResponseAction.DENY,
+  );
+
+  Future<GeolocationPermissionShowPromptResponse> _denyGeolocation(
+    InAppWebViewController controller,
+    String origin,
+  ) async => GeolocationPermissionShowPromptResponse(
+    origin: origin,
+    allow: false,
+    retain: false,
+  );
 
   void _onLoadStart(_Tab tab, WebUri? url) {
     tab.loadSerial++;
@@ -684,12 +838,19 @@ class WebViewBrowser extends BrowserCapability {
     for (final id in _tabs.ids) {
       final tab = _tabs[id];
       if (tab == null) continue;
+      tab.closed = true;
+      tab.attached?.complete();
+      tab.attached = null;
       _completeLoads(tab, 'browser_closed');
-      unawaited(
-        InAppWebViewController.disposeKeepAlive(
-          tab.keepAlive,
-        ).catchError((Object _) {}),
-      );
+      unawaited(() async {
+        try {
+          await tab.starting;
+          await tab.headless?.dispose();
+          await InAppWebViewController.disposeKeepAlive(tab.keepAlive);
+        } catch (_) {
+          // Already released, or never created natively.
+        }
+      }());
     }
     super.dispose();
   }
@@ -709,7 +870,7 @@ class _BrowserSurfaceState extends State<_BrowserSurface> {
   @override
   void initState() {
     super.initState();
-    widget.browser._mount();
+    widget.browser._mount(widget.tab);
   }
 
   @override
@@ -722,51 +883,43 @@ class _BrowserSurfaceState extends State<_BrowserSurface> {
   Widget build(BuildContext context) {
     final browser = widget.browser;
     final tab = widget.tab;
+    return FutureBuilder<void>(
+      future: tab.starting,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        return _buildView(browser, tab);
+      },
+    );
+  }
+
+  Widget _buildView(WebViewBrowser browser, _Tab tab) {
     return InAppWebView(
       keepAlive: tab.keepAlive,
+      headlessWebView: tab.headless,
       initialSettings: browser._settings,
       onWebViewCreated: (controller) {
         _controller = controller;
-        browser._onCreated(tab, controller);
+        browser._onCreated(tab, controller, visible: true);
       },
       onLoadStart: (_, url) => browser._onLoadStart(tab, url),
       onLoadStop: (controller, url) =>
           browser._onLoadStop(tab, controller, url),
       onReceivedError: (_, request, error) =>
           browser._onLoadError(tab, request, error),
-      onProgressChanged: (_, progress) {
-        tab.progress = progress / 100;
-        browser._changed();
-      },
-      onTitleChanged: (_, title) {
-        tab.title = title ?? '';
-        browser._changed();
-      },
-      onUpdateVisitedHistory: (controller, url, _) {
-        tab.url = url?.toString() ?? tab.url;
-        unawaited(browser._refresh(tab, controller));
-      },
+      onProgressChanged: (_, progress) => browser._onProgress(tab, progress),
+      onTitleChanged: (_, title) => browser._onTitle(tab, title),
+      onUpdateVisitedHistory: (controller, url, _) =>
+          browser._onHistory(tab, controller, url),
       shouldOverrideUrlLoading: browser._shouldLoad,
-      onCreateWindow: (controller, action) async {
-        final url = action.request.url?.toString();
-        if (url != null && isBrowserUrl(url)) {
-          unawaited(browser._load(controller, url));
-        }
-        return false;
-      },
+      onCreateWindow: browser._onCreateWindow,
       onDownloadStartRequest: (_, request) =>
           unawaited(browser._onDownload(request)),
-      onPermissionRequest: (_, request) async => PermissionResponse(
-        resources: request.resources,
-        action: PermissionResponseAction.DENY,
-      ),
-      onGeolocationPermissionsShowPrompt: (_, origin) async =>
-          GeolocationPermissionShowPromptResponse(
-            origin: origin,
-            allow: false,
-            retain: false,
-          ),
+      onPermissionRequest: browser._denyPermissions,
+      onGeolocationPermissionsShowPrompt: browser._denyGeolocation,
       onRenderProcessGone: (_, _) => unawaited(browser._recreate(tab)),
+      onWebContentProcessDidTerminate: (_) => unawaited(browser._recreate(tab)),
     );
   }
 }

@@ -26,6 +26,11 @@
 		08C8B573AE77F350BA7903DC /* RemoteActivityAttributes.swift in widget */ = {isa = PBXBuildFile; fileRef = 97848026A1E0A87AB42A0181; };
 		51D71E0907BDD9420D789758 /* TakoRemoteActivity.swift in widget */ = {isa = PBXBuildFile; fileRef = E1448BE3C26B908C433FA5F7; };
 		8C12923085E9A317ABD26C39 /* TakoRemoteActivity.appex in embed */ = {isa = PBXBuildFile; fileRef = A4C14DC76EFD89911D37B26C; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };};
+		ABAE02000000000000000000 /* AutomationApi.g.swift */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000000; };
+		ABAE02000000000000000001 /* AutomationHost.swift */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000001; };
+		ABAE02000000000000000002 /* AutomationIntents.swift */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000002; };
+		ABAE02000000000000000003 /* Localizable.xcstrings */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000003; };
+		ABAE02000000000000000004 /* AppShortcuts.xcstrings */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000004; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +87,11 @@
 		12E756D76FF09E33D81FCF90 /* RemoteActivityInfo */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9334F84B322814AAC9B4B638 /* RemoteConfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		A4C14DC76EFD89911D37B26C /* TakoRemoteActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = TakoRemoteActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABAE01000000000000000000 /* AutomationApi.g.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationApi.g.swift; sourceTree = "<group>"; };
+		ABAE01000000000000000001 /* AutomationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationHost.swift; sourceTree = "<group>"; };
+		ABAE01000000000000000002 /* AutomationIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationIntents.swift; sourceTree = "<group>"; };
+		ABAE01000000000000000003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		ABAE01000000000000000004 /* AppShortcuts.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = AppShortcuts.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +160,11 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				F1A701080000000000000000 /* PrivacyInfo.xcprivacy */,
 				F1A701060000000000000000 /* TakoNative.swift */,
+				ABAE01000000000000000004 /* AppShortcuts.xcstrings */,
+				ABAE01000000000000000003 /* Localizable.xcstrings */,
+				ABAE01000000000000000002 /* AutomationIntents.swift */,
+				ABAE01000000000000000001 /* AutomationHost.swift */,
+				ABAE01000000000000000000 /* AutomationApi.g.swift */,
 				F1A7010A0000000000000000 /* AppleIntelligenceHost.swift */,
 				F1A701040000000000000000 /* IosDeviceApi.swift */,
 				F1A701020000000000000000 /* IosApi.g.swift */,
@@ -230,6 +245,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hant",
 				Base,
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
@@ -256,6 +272,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABAE02000000000000000004 /* AppShortcuts.xcstrings */,
+				ABAE02000000000000000003 /* Localizable.xcstrings */,
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
@@ -314,6 +332,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABAE02000000000000000002 /* AutomationIntents.swift */,
+				ABAE02000000000000000001 /* AutomationHost.swift */,
+				ABAE02000000000000000000 /* AutomationApi.g.swift */,
 				7A829EA611DA9A1E1B904757 /* RemoteSessionController.swift in Sources */,
 				0864A6886E3D7F0229D3292C /* RemoteActivityAttributes.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,

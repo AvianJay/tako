@@ -160,6 +160,25 @@ void main() {
       expect((await run('read_skill', {'skill': name})).isError, isFalse);
 
   test(
+    'REPL can choose silent sessions through the audited host tool',
+    () async {
+      await load('browser');
+      final result = await run('js_repl', {
+        'title': 'Read quietly',
+        'code':
+            'console.log(await browser.startSession({silent:true})); '
+            'await browser.open({url:"https://example.com/"}); '
+            'console.log(await browser.read());',
+      });
+      expect(result.isError, false);
+      expect(browser.silent, true);
+      expect(browser.openRequests, 0);
+      expect(result.content, contains('browser_start_session'));
+      expect(result.content, contains('Page text'));
+    },
+  );
+
+  test(
     'skill must be loaded and the model sees REPL rather than raw controls',
     () async {
       final names = executor.registry.definitions.map(

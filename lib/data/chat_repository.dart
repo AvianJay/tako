@@ -15,12 +15,22 @@ final class ChatRepository {
 
   /// Incognito chats never appear in history.
   Future<List<Conversation>> listConversations() async {
-    final rows = await (database.select(
-      database.conversationRecords,
-    )..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])).get();
+    final rows = await database
+        .customSelect(
+          '''
+      SELECT data FROM conversation_records
+      WHERE json_extract(data, '\$.incognito') IS NOT 1
+        AND json_extract(data, '\$.automationRuleId') IS NULL
+      ORDER BY updated_at DESC
+    ''',
+          readsFrom: {database.conversationRecords},
+        )
+        .get();
     return rows
-        .map((r) => Conversation.fromJson(tryDecodeObject(r.data)!))
-        .where((conversation) => !conversation.incognito)
+        .map(
+          (r) =>
+              Conversation.fromJson(tryDecodeObject(r.read<String>('data'))!),
+        )
         .toList();
   }
 
@@ -28,12 +38,15 @@ final class ChatRepository {
   /// behind by a process death is removed before anything can display it.
   /// Returns the deleted messages.
   Future<List<ChatMessage>> deleteIncognitoConversations() async {
-    final rows = await database.select(database.conversationRecords).get();
+    final rows = await database
+        .customSelect(
+          "SELECT id FROM conversation_records WHERE json_extract(data, '\$.incognito') = 1",
+          readsFrom: {database.conversationRecords},
+        )
+        .get();
     final deleted = <ChatMessage>[];
     for (final row in rows) {
-      final conversation = Conversation.fromJson(tryDecodeObject(row.data)!);
-      if (!conversation.incognito) continue;
-      deleted.addAll(await deleteConversation(conversation.id));
+      deleted.addAll(await deleteConversation(row.read<String>('id')));
     }
     return deleted;
   }

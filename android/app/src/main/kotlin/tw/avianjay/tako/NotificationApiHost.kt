@@ -17,10 +17,13 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import java.util.concurrent.Executors
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
 
 /**
- * Bound by the system once the user grants notification access. It keeps no
- * history: notifications_list reads the active notifications on request.
+ * Bound after the user grants access. notifications_list reads active items;
+ * enabled automations enqueue new events until Drift acknowledges them.
  */
 class TakoNotificationListener : NotificationListenerService() {
     companion object {
@@ -38,11 +41,60 @@ class TakoNotificationListener : NotificationListenerService() {
         if (instance === this) instance = null
         ControlSignals.statusChanged()
     }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (sbn.packageName == packageName) return
+        val store = AutomationStore.get(this)
+        val rules=store.rules().filter {
+            it.optBoolean("enabled") && it.optString("trigger") == "notification" &&
+                (it.optJSONObject("notificationFilter")?.optString("package").orEmpty().let { pkg -> pkg.isEmpty() || pkg == sbn.packageName })
+        }
+        if (rules.isEmpty()) return
+        val notification=sbn.notification
+        if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        val extras=notification.extras ?: Bundle.EMPTY
+        fun text(key:String)=extras.getCharSequence(key)?.toString()?.take(4000).orEmpty()
+        val lines=JSONArray()
+        @Suppress("DEPRECATION")
+        val messages=extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+        var hasMessages=false
+        messages?.forEach { item ->
+            val message=item as? Bundle ?: return@forEach
+            val body=message.getCharSequence("text")?.toString().orEmpty().take(4000)
+            val sender=message.getCharSequence("sender")?.toString().orEmpty().take(200)
+            if(body.isNotEmpty()) {
+                hasMessages=true
+                val identity="message:${sbn.key}:${message.getLong("time")}:$sender:$body"
+                if(store.changed(identity,body)) lines.put(if(sender.isEmpty()) body else "$sender: $body")
+            }
+        }
+        if(hasMessages && lines.length()==0) return
+        if(!hasMessages) extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.takeLast(20)?.forEach {lines.put(it.toString().take(1000))}
+        val label=try {packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName,0)).toString()}catch(_:Exception){sbn.packageName}
+        val body=text(Notification.EXTRA_BIG_TEXT).ifEmpty {text(Notification.EXTRA_TEXT)}
+        val data=JSONObject().put("package",sbn.packageName).put("appLabel",label.take(100))
+            .put("title",text(Notification.EXTRA_TITLE_BIG).ifEmpty {text(Notification.EXTRA_TITLE)})
+            .put("text",if(hasMessages) (0 until lines.length()).joinToString("\n") {lines.getString(it)} else body)
+            .put("lines",lines).put("category",notification.category ?: "").put("ongoing",sbn.isOngoing)
+        if(!hasMessages && !store.changed("notification:${sbn.key}",data.toString())) return
+        data.put("notificationKey",sbn.key).put("postedAt",sbn.postTime)
+        val matching = rules.filter { rule ->
+            val filter = rule.optJSONObject("notificationFilter")
+            filter == null || listOf("title", "text").all { field ->
+                !filter.has(field) || data.optString(field).contains(filter.getString(field))
+            }
+        }
+        if (matching.isEmpty()) return
+        val revisions=JSONObject().apply {matching.forEach {put(it.getString("id"),it.optInt("revision"))}}
+        store.put(JSONObject().put("id",UUID.randomUUID().toString()).put("kind","notification").put("receivedAt",System.currentTimeMillis()).put("ruleRevisions",revisions).put("data",data))
+        AutomationScheduling.ingress(this)
+        AutomationBroker.changed()
+    }
 }
 
 /** No notification is read at construction or while checking status. */
 class NotificationApiHost(
-    private val activity: Activity,
+    private val activity: Context,
     private val permissions: PermissionBroker,
 ) : NotificationApi {
     private val main = Handler(Looper.getMainLooper())

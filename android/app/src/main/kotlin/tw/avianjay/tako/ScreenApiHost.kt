@@ -1,10 +1,12 @@
 package tw.avianjay.tako
 
 import android.app.Activity
+import android.content.Context
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.view.WindowManager
 
 /**
  * Screen control implemented by the accessibility service of the `full`
@@ -12,6 +14,8 @@ import android.provider.Settings
  */
 interface ScreenBackend {
     val screenshots: Boolean
+    fun beginControlSession(sessionId: String)
+    fun endControlSession(sessionId: String, returnToApp: Boolean)
     fun snapshot(screenshot: Boolean, maxNodes: Int, callback: (Result<ScreenSnapshotData>) -> Unit)
     fun resolveNode(token: Long, node: Int, callback: (Result<ScreenTargetData>) -> Unit)
     fun resolvePoint(x: Double, y: Double, callback: (Result<ScreenTargetData>) -> Unit)
@@ -41,7 +45,10 @@ object ScreenFlags {
     const val MULTI_LINE = 8192
 }
 
-class ScreenApiHost(private val activity: Activity) : ScreenApi {
+class ScreenApiHost(private val activity: Context) : ScreenApi {
+    private var controlSessionId: String? = null
+    private var overlaySessionId: String? = null
+    private var approvalShown = false
     private fun backend(): ScreenBackend? = ScreenControlFlavor.backend()
 
     private fun unavailable() = ControlError("screen_control_off", "screen_control_off", null)
@@ -52,6 +59,7 @@ class ScreenApiHost(private val activity: Activity) : ScreenApi {
     }
 
     private fun start(intent: Intent) {
+        if (activity !is Activity) throw ControlError("foreground_required", "foreground_required", null)
         try {
             activity.startActivity(intent)
         } catch (_: ActivityNotFoundException) {
@@ -64,6 +72,22 @@ class ScreenApiHost(private val activity: Activity) : ScreenApi {
     override fun openAppInfo() = start(
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", activity.packageName, null)),
     )
+
+    override fun beginControlSession(sessionId: String) {
+        val backend = backend() ?: return
+        if (sessionId.isEmpty()) return
+        controlSessionId = sessionId
+        (activity as? Activity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        backend.beginControlSession(sessionId)
+    }
+
+    override fun endControlSession(sessionId: String, returnToApp: Boolean) {
+        val own = controlSessionId ?: return
+        if (sessionId.isNotEmpty() && own != sessionId) return
+        controlSessionId = null
+        (activity as? Activity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        backend()?.endControlSession(own, returnToApp)
+    }
 
     override fun snapshot(screenshot: Boolean, maxNodes: Long, callback: (Result<ScreenSnapshotData>) -> Unit) {
         val backend = backend() ?: return callback(Result.failure(unavailable()))
@@ -95,23 +119,29 @@ class ScreenApiHost(private val activity: Activity) : ScreenApi {
 
     override fun showApproval(data: ApprovalOverlayData, callback: (Result<String?>) -> Unit) {
         val backend = backend() ?: return callback(Result.success(null))
-        backend.showApproval(data) { callback(Result.success(it)) }
+        approvalShown = true
+        backend.showApproval(data) { approvalShown = false; callback(Result.success(it)) }
     }
 
     override fun hideApproval() {
-        backend()?.hideApproval()
+        if (approvalShown) { approvalShown = false; backend()?.hideApproval() }
     }
 
     override fun showControlOverlay(data: ControlOverlayData) {
+        overlaySessionId = data.sessionId
         backend()?.showControlOverlay(data)
     }
 
     override fun hideControlOverlay(sessionId: String, endSession: Boolean) {
-        backend()?.hideControlOverlay(sessionId, endSession)
+        val own = overlaySessionId ?: return
+        if (sessionId.isNotEmpty() && sessionId != own) return
+        overlaySessionId = null
+        backend()?.hideControlOverlay(own, endSession)
     }
 
     fun dispose() {
         hideApproval()
-        backend()?.hideControlOverlay("", true)
+        endControlSession("", false)
+        hideControlOverlay("", true)
     }
 }

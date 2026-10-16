@@ -1,11 +1,16 @@
 package tw.avianjay.tako
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
+    fun requestAutomationNotifications(callback:(Result<Boolean>)->Unit) {
+        permissions?.request(android.Manifest.permission.POST_NOTIFICATIONS) {callback(Result.success(it))} ?: callback(Result.success(false))
+    }
+    private var automation: AutomationApiHost? = null
     private var deviceTools: AndroidDeviceApi? = null
     private var permissions: PermissionBroker? = null
     private var screen: ScreenApiHost? = null
@@ -25,6 +30,8 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        automation = AutomationApiHost(this, AutomationEvents(messenger)).also { AutomationApi.setUp(messenger,it) }
+        intent?.getStringExtra("automationRunId")?.let {AutomationBroker.opened(it)}
         UpdaterFlavor.register(this, messenger)
         aicore = AicoreApiHost(messenger)
         deviceTools = AndroidDeviceApi(this)
@@ -41,6 +48,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("automationRunId")?.let {AutomationBroker.opened(it)}
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         deviceTools?.onPermissionResult(requestCode)
@@ -50,12 +62,13 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         // Without the engine nothing can stop or approve: leave no prompt or
         // "controlling the screen" notification behind.
+        automation?.dispose()
         ControlSignals.listener = null
         screen?.dispose()
         shell?.dispose()
         notifications?.dispose()
         permissions?.dispose()
-        AlertNotifications.clearSession(this)
+        if(!AutomationBroker.hasAutomationOwner()) AlertNotifications.clearSession(this)
         deviceTools?.dispose()
         aicore?.dispose()
         deviceTools = null

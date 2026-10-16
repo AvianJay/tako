@@ -4,6 +4,12 @@ import '../util/json.dart';
 
 enum ToolPermission { ask, allow, deny }
 
+/// Shared by foreground and automation hosts in the same engine.
+class PermissionPolicyState {
+  PermissionPolicyState([this.value = const PermissionPolicy()]);
+  PermissionPolicy value;
+}
+
 /// Explicit user preferences; chat-scoped approvals are intentionally absent.
 class PermissionPolicy {
   const PermissionPolicy({
@@ -87,6 +93,38 @@ class PermissionPolicy {
   };
 
   String encode() => jsonEncode(toJson());
+
+  /// Apply only the preferences edited from [before] to this latest policy.
+  PermissionPolicy mergeChanges(
+    PermissionPolicy before,
+    PermissionPolicy after,
+  ) {
+    final rules = {...overrides};
+    for (final key in {...before.overrides.keys, ...after.overrides.keys}) {
+      if (before.overrides[key] == after.overrides[key]) continue;
+      final value = after.overrides[key];
+      if (value == null) {
+        rules.remove(key);
+      } else {
+        rules[key] = value;
+      }
+    }
+    return copyWith(
+      fullPermissions: before.fullPermissions != after.fullPermissions
+          ? after.fullPermissions
+          : null,
+      skipHighRiskConfirmations:
+          before.skipHighRiskConfirmations != after.skipHighRiskConfirmations
+          ? after.skipHighRiskConfirmations
+          : null,
+      overrides: rules,
+      highRiskKeywords:
+          jsonEncode(before.highRiskKeywords) !=
+              jsonEncode(after.highRiskKeywords)
+          ? after.highRiskKeywords
+          : null,
+    );
+  }
 
   factory PermissionPolicy.decode(String? value) {
     final data = value == null ? null : tryDecodeObject(value);

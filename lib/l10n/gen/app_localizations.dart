@@ -2097,6 +2097,12 @@ abstract class AppLocalizations {
   /// **'刪除記憶'**
   String get memoryDeleteTool;
 
+  /// No description provided for @browserStartSessionTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'開啟瀏覽器工作階段'**
+  String get browserStartSessionTool;
+
   /// No description provided for @browserOpenTool.
   ///
   /// In zh, this message translates to:
@@ -3194,6 +3200,486 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'注意'**
   String get calloutCaution;
+
+  /// No description provided for @automations.
+  ///
+  /// In zh, this message translates to:
+  /// **'自動化'**
+  String get automations;
+
+  /// No description provided for @automationHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'設定排程、通知觸發器與 AI 任務。'**
+  String get automationHelp;
+
+  /// No description provided for @automationName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名稱'**
+  String get automationName;
+
+  /// No description provided for @automationPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'任務提示詞'**
+  String get automationPrompt;
+
+  /// No description provided for @automationPromptHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 可依既有權限選用工具。不需要通知時，讓最終回答只有 [SILENT]。'**
+  String get automationPromptHelp;
+
+  /// No description provided for @automationTrigger.
+  ///
+  /// In zh, this message translates to:
+  /// **'觸發來源'**
+  String get automationTrigger;
+
+  /// No description provided for @automationSchedule.
+  ///
+  /// In zh, this message translates to:
+  /// **'排程'**
+  String get automationSchedule;
+
+  /// No description provided for @automationNotification.
+  ///
+  /// In zh, this message translates to:
+  /// **'收到通知'**
+  String get automationNotification;
+
+  /// No description provided for @automationShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'iOS 捷徑'**
+  String get automationShortcut;
+
+  /// No description provided for @automationEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'啟用'**
+  String get automationEnabled;
+
+  /// No description provided for @automationContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'延續這條規則的對話'**
+  String get automationContinue;
+
+  /// No description provided for @automationIndependent.
+  ///
+  /// In zh, this message translates to:
+  /// **'關閉時，每次執行使用獨立對話。'**
+  String get automationIndependent;
+
+  /// No description provided for @automationTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待逾時（分鐘，可留白）'**
+  String get automationTimeout;
+
+  /// No description provided for @automationNoTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'留白表示等待你處理時不設逾時。只計算等待使用者的時間。'**
+  String get automationNoTimeout;
+
+  /// No description provided for @automationBatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知累積方式'**
+  String get automationBatch;
+
+  /// No description provided for @automationImmediate.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即處理'**
+  String get automationImmediate;
+
+  /// No description provided for @automationWindow.
+  ///
+  /// In zh, this message translates to:
+  /// **'時間窗內合併'**
+  String get automationWindow;
+
+  /// No description provided for @automationDigest.
+  ///
+  /// In zh, this message translates to:
+  /// **'累積到指定排程'**
+  String get automationDigest;
+
+  /// No description provided for @automationWindowSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'累積時間窗（秒）'**
+  String get automationWindowSeconds;
+
+  /// No description provided for @automationCondition.
+  ///
+  /// In zh, this message translates to:
+  /// **'條件式'**
+  String get automationCondition;
+
+  /// No description provided for @automationAdvanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'進階條件式'**
+  String get automationAdvanced;
+
+  /// No description provided for @automationPackage.
+  ///
+  /// In zh, this message translates to:
+  /// **'App 套件名稱（可留白）'**
+  String get automationPackage;
+
+  /// No description provided for @automationTitleContains.
+  ///
+  /// In zh, this message translates to:
+  /// **'標題包含'**
+  String get automationTitleContains;
+
+  /// No description provided for @automationTextContains.
+  ///
+  /// In zh, this message translates to:
+  /// **'內文包含'**
+  String get automationTextContains;
+
+  /// No description provided for @automationConditionHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'範例：package == \"jp.naver.line\" and \"班群\" in title\n欄位：package、appLabel、title、text、lines、category、ongoing。支援 ==、!=、in、not in、and、or、not 與括號，不執行程式碼。'**
+  String get automationConditionHelp;
+
+  /// No description provided for @automationTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'測試條件'**
+  String get automationTest;
+
+  /// No description provided for @automationTestHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'輸入 JSON 格式的範例通知欄位。只判斷條件，不呼叫 AI。'**
+  String get automationTestHelp;
+
+  /// No description provided for @automationTestMatches.
+  ///
+  /// In zh, this message translates to:
+  /// **'符合：這個條件式的判斷結果為真。'**
+  String get automationTestMatches;
+
+  /// No description provided for @automationTestNoMatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'不符合：這個條件式的判斷結果為假。'**
+  String get automationTestNoMatch;
+
+  /// No description provided for @automationOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'單次'**
+  String get automationOnce;
+
+  /// No description provided for @automationDaily.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日'**
+  String get automationDaily;
+
+  /// No description provided for @automationWeekly.
+  ///
+  /// In zh, this message translates to:
+  /// **'每週'**
+  String get automationWeekly;
+
+  /// No description provided for @automationInterval.
+  ///
+  /// In zh, this message translates to:
+  /// **'固定間隔'**
+  String get automationInterval;
+
+  /// No description provided for @automationEveryMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'重複間隔（至少 15 分鐘）'**
+  String get automationEveryMinutes;
+
+  /// No description provided for @automationDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期與時間'**
+  String get automationDate;
+
+  /// No description provided for @automationTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'時間'**
+  String get automationTime;
+
+  /// No description provided for @automationExact.
+  ///
+  /// In zh, this message translates to:
+  /// **'準時觸發'**
+  String get automationExact;
+
+  /// No description provided for @automationExactHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要「鬧鐘與提醒」權限。此設定控制觸發時間，完成時間仍受模型與工具影響。'**
+  String get automationExactHelp;
+
+  /// No description provided for @automationExactRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'允許設定鬧鐘與提醒'**
+  String get automationExactRequired;
+
+  /// No description provided for @automationNotificationAccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'設定通知存取權'**
+  String get automationNotificationAccess;
+
+  /// No description provided for @automationAllowNotifications.
+  ///
+  /// In zh, this message translates to:
+  /// **'允許 Tako 發送通知'**
+  String get automationAllowNotifications;
+
+  /// No description provided for @automationIosHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'iOS 會決定背景工作的執行時機，AI 排程可能延後；開啟 Tako 後會處理待執行任務。無法讀取其他 App 的通知。'**
+  String get automationIosHelp;
+
+  /// No description provided for @automationShortcutGuide.
+  ///
+  /// In zh, this message translates to:
+  /// **'設定捷徑自動化'**
+  String get automationShortcutGuide;
+
+  /// No description provided for @automationShortcutsHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'1. 建立並啟用觸發來源為「iOS 捷徑」的規則。\n2. 在「捷徑 → 自動化」選擇「特定時間」等個人觸發來源。\n3. 加入「加入 Tako 自動化任務」，選擇規則，可傳入文字。\n4. 若 iOS 提供選項，選擇自動執行。\n此動作只加入任務佇列，iOS 可能延後執行；需要確認時，點開任務通知繼續。'**
+  String get automationShortcutsHelp;
+
+  /// No description provided for @automationInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'觸發資料'**
+  String get automationInput;
+
+  /// No description provided for @automationRuns.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行紀錄'**
+  String get automationRuns;
+
+  /// No description provided for @automationRecentRuns.
+  ///
+  /// In zh, this message translates to:
+  /// **'顯示進行中的任務與最近 100 筆已結束紀錄。'**
+  String get automationRecentRuns;
+
+  /// No description provided for @automationClearHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除已結束紀錄'**
+  String get automationClearHistory;
+
+  /// No description provided for @automationClearHistoryConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'刪除已結束的執行紀錄，以及未使用的自動化對話與附件？進行中的任務、目前開啟的對話，以及持續對話規則使用的對話會保留。'**
+  String get automationClearHistoryConfirm;
+
+  /// No description provided for @automationNoRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚無自動化規則，按「＋」開始新增。'**
+  String get automationNoRules;
+
+  /// No description provided for @automationNoRuns.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚無執行紀錄。'**
+  String get automationNoRuns;
+
+  /// No description provided for @automationRunNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即執行'**
+  String get automationRunNow;
+
+  /// No description provided for @automationResume.
+  ///
+  /// In zh, this message translates to:
+  /// **'檢視並繼續'**
+  String get automationResume;
+
+  /// No description provided for @automationCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消任務'**
+  String get automationCancel;
+
+  /// No description provided for @automationResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行結果'**
+  String get automationResult;
+
+  /// No description provided for @automationDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'任務詳情'**
+  String get automationDetails;
+
+  /// No description provided for @automationQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'待執行'**
+  String get automationQueued;
+
+  /// No description provided for @automationRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行中'**
+  String get automationRunning;
+
+  /// No description provided for @automationWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待你處理'**
+  String get automationWaiting;
+
+  /// No description provided for @automationCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get automationCompleted;
+
+  /// No description provided for @automationSilent.
+  ///
+  /// In zh, this message translates to:
+  /// **'靜默完成'**
+  String get automationSilent;
+
+  /// No description provided for @automationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行失敗'**
+  String get automationFailed;
+
+  /// No description provided for @automationCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消'**
+  String get automationCancelled;
+
+  /// No description provided for @automationTimedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'已逾時'**
+  String get automationTimedOut;
+
+  /// No description provided for @automationReasonApproval.
+  ///
+  /// In zh, this message translates to:
+  /// **'請檢視並確認工具操作後繼續。'**
+  String get automationReasonApproval;
+
+  /// No description provided for @automationReasonForeground.
+  ///
+  /// In zh, this message translates to:
+  /// **'請開啟 Tako 並解鎖裝置後繼續。'**
+  String get automationReasonForeground;
+
+  /// No description provided for @automationReasonInterrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'執行曾被中斷，請先檢視已保存的操作紀錄。沒有收據的操作可能已完成，確認後再繼續。'**
+  String get automationReasonInterrupted;
+
+  /// No description provided for @automationReasonPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'任務已暫停，完成的操作已保存。'**
+  String get automationReasonPaused;
+
+  /// No description provided for @automationReasonFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'任務未能完成，請檢查模型與權限設定。'**
+  String get automationReasonFailed;
+
+  /// No description provided for @automationInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'請檢查規則、條件式、排程及文字模型設定。'**
+  String get automationInvalid;
+
+  /// No description provided for @automationDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'刪除此規則並取消待處理任務？執行紀錄會保留。'**
+  String get automationDeleteConfirm;
+
+  /// No description provided for @automationFormNotRepresentable.
+  ///
+  /// In zh, this message translates to:
+  /// **'這個條件式包含進階條件，請繼續使用條件式編輯器以保留內容。'**
+  String get automationFormNotRepresentable;
+
+  /// No description provided for @automationModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get automationModel;
+
+  /// No description provided for @automationRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新整理'**
+  String get automationRefresh;
+
+  /// No description provided for @automationViewConversation.
+  ///
+  /// In zh, this message translates to:
+  /// **'檢視對話與產物'**
+  String get automationViewConversation;
+
+  /// No description provided for @automationListTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看自動化規則'**
+  String get automationListTool;
+
+  /// No description provided for @automationGetTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'讀取自動化規則'**
+  String get automationGetTool;
+
+  /// No description provided for @automationSaveTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'儲存自動化規則'**
+  String get automationSaveTool;
+
+  /// No description provided for @automationDeleteTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'刪除自動化規則'**
+  String get automationDeleteTool;
+
+  /// No description provided for @automationRunTool.
+  ///
+  /// In zh, this message translates to:
+  /// **'啟動自動化任務'**
+  String get automationRunTool;
 }
 
 class _AppLocalizationsDelegate

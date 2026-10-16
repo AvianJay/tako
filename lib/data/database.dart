@@ -87,35 +87,83 @@ class Memories extends Table {
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'tako'));
+    : super(executor ?? driftDatabase(name: 'tako', native: nativeOptions));
+
+  // Configure the busy handler before Drift reads user_version, which happens
+  // before migration callbacks and can race another engine's WAL recovery.
+  static final nativeOptions = DriftNativeOptions(
+    setup: (database) {
+      database.execute('PRAGMA busy_timeout = 5000');
+    },
+  );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-      await customStatement(
-        'CREATE INDEX messages_conversation ON message_records (conversation_id, created_at)',
-      );
-      await _createAuditIndex();
-      await _createMemoryIndex();
-    },
-    onUpgrade: (m, from, to) async {
-      if (from < 2) {
-        await m.createTable(auditRecords);
-        await _createAuditIndex();
-      }
-      if (from < 3) {
-        await m.createTable(memories);
-        await _createMemoryIndex();
-      }
-    },
+    onCreate: _migrate,
+    onUpgrade: (m, from, to) => _migrate(m),
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      await customStatement('PRAGMA busy_timeout = 5000');
+      await customStatement('PRAGMA journal_mode = WAL');
     },
   );
+
+  Future<void> _migrate(Migrator m) async {
+    // Native Drift transactions use BEGIN IMMEDIATE. A second engine waits,
+    // then rechecks the version after the first migration has committed.
+    await customStatement('PRAGMA busy_timeout = 5000');
+    await transaction(() async {
+      final from = (await customSelect(
+        'PRAGMA user_version',
+      ).getSingle()).read<int>('user_version');
+      if (from >= schemaVersion) return;
+      if (from == 0) {
+        await m.createAll();
+        await customStatement(
+          'CREATE INDEX messages_conversation ON message_records (conversation_id, created_at)',
+        );
+        await _createAuditIndex();
+        await _createMemoryIndex();
+        await _createAutomationTables();
+      } else {
+        if (from < 2) {
+          await m.createTable(auditRecords);
+          await _createAuditIndex();
+        }
+        if (from < 3) {
+          await m.createTable(memories);
+          await _createMemoryIndex();
+        }
+        if (from < 4) await _createAutomationTables();
+      }
+      // Commit the version with its schema, rather than in Drift's later step.
+      await customStatement('PRAGMA user_version = $schemaVersion');
+    });
+  }
+
+  Future<void> _createAutomationTables() async {
+    await customStatement(
+      'CREATE TABLE automation_rules (id TEXT PRIMARY KEY, data TEXT NOT NULL, next_at INTEGER)',
+    );
+    await customStatement(
+      'CREATE TABLE automation_inputs (id TEXT PRIMARY KEY, rule_id TEXT NOT NULL, data TEXT NOT NULL)',
+    );
+    await customStatement(
+      'CREATE TABLE automation_runs (id TEXT PRIMARY KEY, rule_id TEXT NOT NULL, status TEXT NOT NULL, due_at INTEGER NOT NULL, data TEXT NOT NULL)',
+    );
+    await customStatement(
+      'CREATE INDEX automation_runs_due ON automation_runs(status, due_at)',
+    );
+    await customStatement(
+      'CREATE TABLE automation_events (id TEXT PRIMARY KEY, received_at INTEGER NOT NULL)',
+    );
+    await customStatement(
+      'CREATE TABLE execution_leases (name TEXT PRIMARY KEY, owner TEXT NOT NULL, expires_at INTEGER NOT NULL)',
+    );
+  }
 
   Future<void> _createAuditIndex() => customStatement(
     'CREATE INDEX audit_started_at ON audit_records (started_at DESC)',

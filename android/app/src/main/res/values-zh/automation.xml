@@ -1,0 +1,4 @@
+<resources>
+<string name="automation_channel">自動化</string>
+<string name="automation_running">正在執行自動化任務</string>
+</resources>

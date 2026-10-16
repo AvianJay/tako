@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import '../../platform/capabilities.dart';
+import '../chat/agent_suspended.dart';
 import '../chat/content_block.dart';
 import '../repl/repl_runtime.dart';
 import '../util/ids.dart';
@@ -18,6 +19,7 @@ typedef ReplExecute =
 typedef ReplRuntimeFactory = ReplRuntime Function();
 const replToolNames = {'read_skill', 'js_repl'};
 const _methods = <String, String>{
+  'browser.startSession': 'browser_start_session',
   'browser.open': 'browser_open',
   'browser.read': 'browser_read',
   'browser.click': 'browser_click',
@@ -264,6 +266,9 @@ class ReplToolSession {
         sideEffects: effects,
         attachments: images,
       );
+    } on AgentSuspended {
+      close();
+      rethrow;
     } catch (_) {
       _runtime?.close();
       _runtime = null;

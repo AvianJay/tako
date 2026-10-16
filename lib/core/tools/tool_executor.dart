@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../data/audit_repository.dart';
+import '../chat/agent_suspended.dart';
 import '../chat/content_block.dart';
 import '../permissions/permission_gate.dart';
 import '../permissions/risk_classifier.dart';
@@ -25,6 +26,8 @@ class ToolExecutor {
     required this.registry,
     required this.permissions,
     required this.audit,
+    this.onStarted,
+    this.onFinished,
     int maxOutputChars = 6000,
   }) : maxOutputChars = maxOutputChars.clamp(256, 60000);
 
@@ -32,6 +35,9 @@ class ToolExecutor {
   final PermissionGate permissions;
   final AuditRepository audit;
   final int maxOutputChars;
+  final Future<void> Function(ToolCallBlock, ToolContext)? onStarted;
+  final Future<void> Function(ToolCallBlock, ToolContext, ToolExecution)?
+  onFinished;
 
   /// Record a loop/budget rejection before any primitive can commit an action.
   Future<ToolExecution> reject(
@@ -65,6 +71,7 @@ class ToolExecutor {
   }
 
   Future<ToolExecution> execute(ToolCallBlock call, ToolContext context) async {
+    await permissions.refreshPolicy();
     final tool = registry.get(call.name);
     final args = tryDecodeObject(call.arguments);
     final argumentIssue = tool != null && args != null
@@ -88,6 +95,8 @@ class ToolExecutor {
         cancelledEarly = true;
       } on ToolTargetException catch (error) {
         invalid = error.code;
+      } on AgentSuspended {
+        rethrow;
       } catch (_) {
         invalid = 'tool_failed';
       }
@@ -155,9 +164,29 @@ class ToolExecutor {
           // Do not race the completed call against cancellation: a tool may
           // already have committed a side effect and its receipt must be kept.
           // Implementations observe the token before committing or during IO.
+          await onStarted?.call(call, context);
+          context.cancel.throwIfCancelled();
           result = await tool.run(args, context);
+          if (permissions.suspendOnUnavailable &&
+              result.isError &&
+              {
+                'foreground_required',
+                'notification_access_required',
+              }.contains(tryDecodeObject(result.content)?['error'])) {
+            const pause = AgentSuspended('foreground');
+            permissions.onSuspended?.call(pause);
+            throw pause;
+          }
         }
       }
+    } on AgentSuspended {
+      await audit.finish(
+        auditId,
+        decision: 'waiting',
+        resultSummary: '{"status":"waiting"}',
+        isError: false,
+      );
+      rethrow;
     } on RequestCancelled {
       decision = 'cancelled';
       result = _error('cancelled');
@@ -182,11 +211,13 @@ class ToolExecutor {
       resultSummary: content,
       isError: result.isError,
     );
-    return ToolExecution(
+    final execution = ToolExecution(
       result: block,
       attachments: attachments,
       data: result.data,
     );
+    await onFinished?.call(call, context, execution);
+    return execution;
   }
 
   String _truncate(String value) {

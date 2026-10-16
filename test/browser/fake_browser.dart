@@ -61,6 +61,7 @@ class FakeBrowser extends BrowserCapability {
   bool _active = false;
   bool _mounted = false;
   bool _requested = false;
+  bool silent = false;
   late final _tabs = BrowserTabs<_FakeTab>(
     create: _FakeTab.new,
     isBlank: (tab) => tab.url.isEmpty,
@@ -127,7 +128,7 @@ class FakeBrowser extends BrowserCapability {
 
   void _act() {
     // Like the WebView browser, ask for the screen once until it is shown.
-    if (!_mounted && !_requested) {
+    if (!silent && !_mounted && !_requested) {
       openRequests++;
       _requested = true;
       onRequestOpen?.call();
@@ -169,6 +170,7 @@ class FakeBrowser extends BrowserCapability {
   Future<void> reload() async {}
   @override
   void takeOver() {
+    silent = false;
     _active = false;
     _tabs.endResponse();
     notifyListeners();
@@ -177,6 +179,7 @@ class FakeBrowser extends BrowserCapability {
 
   @override
   void endModelSession() {
+    silent = false;
     _active = false;
     _tabs.endResponse();
     notifyListeners();
@@ -184,6 +187,18 @@ class FakeBrowser extends BrowserCapability {
 
   @override
   Future<void> clearBrowsingData() async => log.add('clear');
+
+  @override
+  Future<JsonMap> startSession({
+    required bool silent,
+    required CancelToken cancel,
+  }) async {
+    cancel.throwIfCancelled();
+    this.silent = silent;
+    _tabs.openForModel();
+    _act();
+    return {'started': true, 'silent': silent, 'tab_id': activeTabId};
+  }
 
   @override
   Future<JsonMap> open(String url, CancelToken cancel) async {

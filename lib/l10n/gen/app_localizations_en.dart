@@ -1114,6 +1114,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryDeleteTool => 'Delete memory';
 
   @override
+  String get browserStartSessionTool => 'Start browser session';
+
+  @override
   String get browserOpenTool => 'Open web page';
 
   @override
@@ -1748,4 +1751,265 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get calloutCaution => 'Caution';
+
+  @override
+  String get automations => 'Automations';
+
+  @override
+  String get automationHelp =>
+      'Schedules, notification triggers, and AI tasks.';
+
+  @override
+  String get automationName => 'Name';
+
+  @override
+  String get automationPrompt => 'Task prompt';
+
+  @override
+  String get automationPromptHelp =>
+      'The AI can choose tools under your existing permissions. Return exactly [SILENT] when no result needs a notification.';
+
+  @override
+  String get automationTrigger => 'Trigger';
+
+  @override
+  String get automationSchedule => 'Schedule';
+
+  @override
+  String get automationNotification => 'Notification received';
+
+  @override
+  String get automationShortcut => 'iOS Shortcut';
+
+  @override
+  String get automationEnabled => 'Enabled';
+
+  @override
+  String get automationContinue => 'Continue the rule conversation';
+
+  @override
+  String get automationIndependent =>
+      'Off: each run starts an independent conversation.';
+
+  @override
+  String get automationTimeout => 'Waiting timeout (minutes, optional)';
+
+  @override
+  String get automationNoTimeout =>
+      'Leave blank to wait without a timeout. Only time waiting for you counts.';
+
+  @override
+  String get automationBatch => 'Notification batching';
+
+  @override
+  String get automationImmediate => 'Immediately';
+
+  @override
+  String get automationWindow => 'Combine in a time window';
+
+  @override
+  String get automationDigest => 'Collect until a schedule';
+
+  @override
+  String get automationWindowSeconds => 'Collection window (seconds)';
+
+  @override
+  String get automationCondition => 'Condition expression';
+
+  @override
+  String get automationAdvanced => 'Advanced expression';
+
+  @override
+  String get automationPackage => 'App package name (optional)';
+
+  @override
+  String get automationTitleContains => 'Title contains';
+
+  @override
+  String get automationTextContains => 'Body contains';
+
+  @override
+  String get automationConditionHelp =>
+      'Example: package == \"jp.naver.line\" and \"班群\" in title\nFields: package, appLabel, title, text, lines, category, ongoing. Operators: ==, !=, in, not in, and, or, not, parentheses. No executable code.';
+
+  @override
+  String get automationTest => 'Test condition';
+
+  @override
+  String get automationTestHelp =>
+      'Enter sample notification fields as JSON. This only evaluates the condition and does not call AI.';
+
+  @override
+  String get automationTestMatches =>
+      'Matches: this condition evaluates to true.';
+
+  @override
+  String get automationTestNoMatch =>
+      'Does not match: this condition evaluates to false.';
+
+  @override
+  String get automationOnce => 'Once';
+
+  @override
+  String get automationDaily => 'Daily';
+
+  @override
+  String get automationWeekly => 'Weekly';
+
+  @override
+  String get automationInterval => 'Fixed interval';
+
+  @override
+  String get automationEveryMinutes => 'Repeat interval (at least 15 minutes)';
+
+  @override
+  String get automationDate => 'Date and time';
+
+  @override
+  String get automationTime => 'Time';
+
+  @override
+  String get automationExact => 'Precise trigger time';
+
+  @override
+  String get automationExactHelp =>
+      'Requires Alarms & reminders access. This controls the trigger time; AI completion depends on the model and tools.';
+
+  @override
+  String get automationExactRequired => 'Allow Alarms & reminders';
+
+  @override
+  String get automationNotificationAccess => 'Set up notification access';
+
+  @override
+  String get automationAllowNotifications => 'Allow Tako notifications';
+
+  @override
+  String get automationIosHelp =>
+      'iOS chooses when background tasks run. Scheduled AI work may be delayed; opening Tako processes pending work. Other apps’ notifications cannot be read.';
+
+  @override
+  String get automationShortcutGuide => 'Set up Shortcuts automation';
+
+  @override
+  String get automationShortcutsHelp =>
+      '1. Create and enable a rule with the iOS Shortcut trigger.\n2. In Shortcuts → Automation, choose a personal trigger such as Time of Day.\n3. Add “Queue Tako Automation”, select the rule, and optionally pass text.\n4. Choose automatic execution when iOS offers it.\nThe action only queues the task. iOS may delay execution. If Tako asks for approval, open the task notification to continue.';
+
+  @override
+  String get automationInput => 'Trigger data';
+
+  @override
+  String get automationRuns => 'Run history';
+
+  @override
+  String get automationRecentRuns =>
+      'Active tasks and the 100 most recent finished runs.';
+
+  @override
+  String get automationClearHistory => 'Clear finished history';
+
+  @override
+  String get automationClearHistoryConfirm =>
+      'Delete finished run records and unused automation conversations with their attachments? Active tasks, the open conversation, and conversations used by continuing rules are kept.';
+
+  @override
+  String get automationNoRules => 'No automations yet. Add a rule to begin.';
+
+  @override
+  String get automationNoRuns => 'No run history.';
+
+  @override
+  String get automationRunNow => 'Run now';
+
+  @override
+  String get automationResume => 'Review and continue';
+
+  @override
+  String get automationCancel => 'Cancel task';
+
+  @override
+  String get automationResult => 'Result';
+
+  @override
+  String get automationDetails => 'Task details';
+
+  @override
+  String get automationQueued => 'Queued';
+
+  @override
+  String get automationRunning => 'Running';
+
+  @override
+  String get automationWaiting => 'Needs your attention';
+
+  @override
+  String get automationCompleted => 'Completed';
+
+  @override
+  String get automationSilent => 'Completed silently';
+
+  @override
+  String get automationFailed => 'Failed';
+
+  @override
+  String get automationCancelled => 'Cancelled';
+
+  @override
+  String get automationTimedOut => 'Timed out';
+
+  @override
+  String get automationReasonApproval =>
+      'Review the proposed tool operation to continue.';
+
+  @override
+  String get automationReasonForeground =>
+      'Open Tako and unlock the device to continue.';
+
+  @override
+  String get automationReasonInterrupted =>
+      'Execution was interrupted. Review the saved operation receipts before continuing. An operation without a receipt may have completed.';
+
+  @override
+  String get automationReasonPaused =>
+      'The task is paused. Completed operations were saved.';
+
+  @override
+  String get automationReasonFailed =>
+      'The task could not finish. Check its model and permission settings.';
+
+  @override
+  String get automationInvalid =>
+      'Check the rule, condition, schedule, and text model settings.';
+
+  @override
+  String get automationDeleteConfirm =>
+      'Delete this rule and cancel its pending tasks? Run history will be kept.';
+
+  @override
+  String get automationFormNotRepresentable =>
+      'This expression uses advanced conditions. Keep using the expression editor to preserve it.';
+
+  @override
+  String get automationModel => 'Model';
+
+  @override
+  String get automationRefresh => 'Refresh';
+
+  @override
+  String get automationViewConversation => 'View conversation and artifacts';
+
+  @override
+  String get automationListTool => 'List automations';
+
+  @override
+  String get automationGetTool => 'Read automation';
+
+  @override
+  String get automationSaveTool => 'Save automation';
+
+  @override
+  String get automationDeleteTool => 'Delete automation';
+
+  @override
+  String get automationRunTool => 'Run automation';
 }

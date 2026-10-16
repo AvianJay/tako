@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'app/app_controller.dart';
 import 'app/bootstrap.dart';
 import 'data/database.dart';
+import 'platform/automation/background_entry.dart';
 import 'platform/services.dart';
+
+@pragma('vm:entry-point')
+Future<void> automationMain() => startAutomationWorker();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

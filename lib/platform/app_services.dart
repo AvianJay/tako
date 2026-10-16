@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../core/automation/automation_capability.dart';
 import '../core/browser/browser_capability.dart';
 import '../core/files/workspace.dart';
 import '../core/notifications/notification_capability.dart';
@@ -24,6 +25,18 @@ class DeviceContext {
   final String model;
   final int? batteryPercent;
   final String? network;
+}
+
+abstract interface class AutomationServiceProvider {
+  AutomationCapability get automation;
+}
+
+final _unavailableAutomation = UnavailableAutomation();
+
+extension AutomationServices on AppServices {
+  AutomationCapability get automation => this is AutomationServiceProvider
+      ? (this as AutomationServiceProvider).automation
+      : _unavailableAutomation;
 }
 
 /// OS services. Shared code depends on this capability contract; native

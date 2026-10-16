@@ -52,7 +52,7 @@ class ShellResultReceiver : BroadcastReceiver() {
  * its own user; Tako only sends the command after the app's permission gate.
  */
 class ShellApiHost(
-    private val activity: Activity,
+    private val activity: Context,
     private val permissions: PermissionBroker,
 ) : ShellApi {
     companion object {
@@ -100,6 +100,7 @@ class ShellApiHost(
 
     override fun openTermux(): Boolean {
         val intent = activity.packageManager.getLaunchIntentForPackage(TERMUX) ?: return false
+        if (activity !is Activity) throw ControlError("foreground_required", "foreground_required", null)
         activity.startActivity(intent)
         return true
     }

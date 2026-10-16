@@ -24,6 +24,7 @@ final class RemoteSessionController: NSObject {
   private var activityHide: DispatchWorkItem?
   private var statusAutoHidden = false
   private var stopReason: String?
+  private var previousIdleTimerDisabled: Bool?
 
   /// Continued tasks may register at user initiation. Register the same concrete
   /// identifier we submit, not the Info.plist permission wildcard. Each ID is
@@ -115,6 +116,8 @@ final class RemoteSessionController: NSObject {
   }
   private func start() {
     guard !active else { return }
+    previousIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled
+    UIApplication.shared.isIdleTimerDisabled = true
     active = true; expired = false; actions = 0
     stopReason = nil
     statusAutoHidden = false
@@ -203,6 +206,10 @@ final class RemoteSessionController: NSObject {
   }
   private func finish() {
     active = false
+    if let previous = previousIdleTimerDisabled {
+      UIApplication.shared.isIdleTimerDisabled = previous
+      previousIdleTimerDisabled = nil
+    }
     if !expired { processingState = "ended" }
     if let continued = continuedTask {
       continuedTask = nil

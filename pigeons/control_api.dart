@@ -238,6 +238,10 @@ abstract class ScreenApi {
   ScreenStatusData status();
   void openSettings();
   void openAppInfo();
+
+  /// Holds device wakefulness for one model response, including thinking.
+  void beginControlSession(String sessionId);
+  void endControlSession(String sessionId, bool returnToApp);
   @async
   ScreenSnapshotData snapshot(bool screenshot, int maxNodes);
   @async

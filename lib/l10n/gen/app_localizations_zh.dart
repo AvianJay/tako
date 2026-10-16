@@ -1049,6 +1049,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryDeleteTool => '刪除記憶';
 
   @override
+  String get browserStartSessionTool => '開啟瀏覽器工作階段';
+
+  @override
   String get browserOpenTool => '開啟網頁';
 
   @override
@@ -1654,6 +1657,251 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get calloutCaution => '注意';
+
+  @override
+  String get automations => '自動化';
+
+  @override
+  String get automationHelp => '設定排程、通知觸發器與 AI 任務。';
+
+  @override
+  String get automationName => '名稱';
+
+  @override
+  String get automationPrompt => '任務提示詞';
+
+  @override
+  String get automationPromptHelp => 'AI 可依既有權限選用工具。不需要通知時，讓最終回答只有 [SILENT]。';
+
+  @override
+  String get automationTrigger => '觸發來源';
+
+  @override
+  String get automationSchedule => '排程';
+
+  @override
+  String get automationNotification => '收到通知';
+
+  @override
+  String get automationShortcut => 'iOS 捷徑';
+
+  @override
+  String get automationEnabled => '啟用';
+
+  @override
+  String get automationContinue => '延續這條規則的對話';
+
+  @override
+  String get automationIndependent => '關閉時，每次執行使用獨立對話。';
+
+  @override
+  String get automationTimeout => '等待逾時（分鐘，可留白）';
+
+  @override
+  String get automationNoTimeout => '留白表示等待你處理時不設逾時。只計算等待使用者的時間。';
+
+  @override
+  String get automationBatch => '通知累積方式';
+
+  @override
+  String get automationImmediate => '立即處理';
+
+  @override
+  String get automationWindow => '時間窗內合併';
+
+  @override
+  String get automationDigest => '累積到指定排程';
+
+  @override
+  String get automationWindowSeconds => '累積時間窗（秒）';
+
+  @override
+  String get automationCondition => '條件式';
+
+  @override
+  String get automationAdvanced => '進階條件式';
+
+  @override
+  String get automationPackage => 'App 套件名稱（可留白）';
+
+  @override
+  String get automationTitleContains => '標題包含';
+
+  @override
+  String get automationTextContains => '內文包含';
+
+  @override
+  String get automationConditionHelp =>
+      '範例：package == \"jp.naver.line\" and \"班群\" in title\n欄位：package、appLabel、title、text、lines、category、ongoing。支援 ==、!=、in、not in、and、or、not 與括號，不執行程式碼。';
+
+  @override
+  String get automationTest => '測試條件';
+
+  @override
+  String get automationTestHelp => '輸入 JSON 格式的範例通知欄位。只判斷條件，不呼叫 AI。';
+
+  @override
+  String get automationTestMatches => '符合：這個條件式的判斷結果為真。';
+
+  @override
+  String get automationTestNoMatch => '不符合：這個條件式的判斷結果為假。';
+
+  @override
+  String get automationOnce => '單次';
+
+  @override
+  String get automationDaily => '每日';
+
+  @override
+  String get automationWeekly => '每週';
+
+  @override
+  String get automationInterval => '固定間隔';
+
+  @override
+  String get automationEveryMinutes => '重複間隔（至少 15 分鐘）';
+
+  @override
+  String get automationDate => '日期與時間';
+
+  @override
+  String get automationTime => '時間';
+
+  @override
+  String get automationExact => '準時觸發';
+
+  @override
+  String get automationExactHelp => '需要「鬧鐘與提醒」權限。此設定控制觸發時間，完成時間仍受模型與工具影響。';
+
+  @override
+  String get automationExactRequired => '允許設定鬧鐘與提醒';
+
+  @override
+  String get automationNotificationAccess => '設定通知存取權';
+
+  @override
+  String get automationAllowNotifications => '允許 Tako 發送通知';
+
+  @override
+  String get automationIosHelp =>
+      'iOS 會決定背景工作的執行時機，AI 排程可能延後；開啟 Tako 後會處理待執行任務。無法讀取其他 App 的通知。';
+
+  @override
+  String get automationShortcutGuide => '設定捷徑自動化';
+
+  @override
+  String get automationShortcutsHelp =>
+      '1. 建立並啟用觸發來源為「iOS 捷徑」的規則。\n2. 在「捷徑 → 自動化」選擇「特定時間」等個人觸發來源。\n3. 加入「加入 Tako 自動化任務」，選擇規則，可傳入文字。\n4. 若 iOS 提供選項，選擇自動執行。\n此動作只加入任務佇列，iOS 可能延後執行；需要確認時，點開任務通知繼續。';
+
+  @override
+  String get automationInput => '觸發資料';
+
+  @override
+  String get automationRuns => '執行紀錄';
+
+  @override
+  String get automationRecentRuns => '顯示進行中的任務與最近 100 筆已結束紀錄。';
+
+  @override
+  String get automationClearHistory => '清除已結束紀錄';
+
+  @override
+  String get automationClearHistoryConfirm =>
+      '刪除已結束的執行紀錄，以及未使用的自動化對話與附件？進行中的任務、目前開啟的對話，以及持續對話規則使用的對話會保留。';
+
+  @override
+  String get automationNoRules => '尚無自動化規則，按「＋」開始新增。';
+
+  @override
+  String get automationNoRuns => '尚無執行紀錄。';
+
+  @override
+  String get automationRunNow => '立即執行';
+
+  @override
+  String get automationResume => '檢視並繼續';
+
+  @override
+  String get automationCancel => '取消任務';
+
+  @override
+  String get automationResult => '執行結果';
+
+  @override
+  String get automationDetails => '任務詳情';
+
+  @override
+  String get automationQueued => '待執行';
+
+  @override
+  String get automationRunning => '執行中';
+
+  @override
+  String get automationWaiting => '等待你處理';
+
+  @override
+  String get automationCompleted => '已完成';
+
+  @override
+  String get automationSilent => '靜默完成';
+
+  @override
+  String get automationFailed => '執行失敗';
+
+  @override
+  String get automationCancelled => '已取消';
+
+  @override
+  String get automationTimedOut => '已逾時';
+
+  @override
+  String get automationReasonApproval => '請檢視並確認工具操作後繼續。';
+
+  @override
+  String get automationReasonForeground => '請開啟 Tako 並解鎖裝置後繼續。';
+
+  @override
+  String get automationReasonInterrupted =>
+      '執行曾被中斷，請先檢視已保存的操作紀錄。沒有收據的操作可能已完成，確認後再繼續。';
+
+  @override
+  String get automationReasonPaused => '任務已暫停，完成的操作已保存。';
+
+  @override
+  String get automationReasonFailed => '任務未能完成，請檢查模型與權限設定。';
+
+  @override
+  String get automationInvalid => '請檢查規則、條件式、排程及文字模型設定。';
+
+  @override
+  String get automationDeleteConfirm => '刪除此規則並取消待處理任務？執行紀錄會保留。';
+
+  @override
+  String get automationFormNotRepresentable => '這個條件式包含進階條件，請繼續使用條件式編輯器以保留內容。';
+
+  @override
+  String get automationModel => '模型';
+
+  @override
+  String get automationRefresh => '重新整理';
+
+  @override
+  String get automationViewConversation => '檢視對話與產物';
+
+  @override
+  String get automationListTool => '查看自動化規則';
+
+  @override
+  String get automationGetTool => '讀取自動化規則';
+
+  @override
+  String get automationSaveTool => '儲存自動化規則';
+
+  @override
+  String get automationDeleteTool => '刪除自動化規則';
+
+  @override
+  String get automationRunTool => '啟動自動化任務';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -2701,6 +2949,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get memoryDeleteTool => '刪除記憶';
 
   @override
+  String get browserStartSessionTool => '開啟瀏覽器工作階段';
+
+  @override
   String get browserOpenTool => '開啟網頁';
 
   @override
@@ -3306,4 +3557,249 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get calloutCaution => '注意';
+
+  @override
+  String get automations => '自動化';
+
+  @override
+  String get automationHelp => '設定排程、通知觸發器與 AI 任務。';
+
+  @override
+  String get automationName => '名稱';
+
+  @override
+  String get automationPrompt => '任務提示詞';
+
+  @override
+  String get automationPromptHelp => 'AI 可依既有權限選用工具。不需要通知時，讓最終回答只有 [SILENT]。';
+
+  @override
+  String get automationTrigger => '觸發來源';
+
+  @override
+  String get automationSchedule => '排程';
+
+  @override
+  String get automationNotification => '收到通知';
+
+  @override
+  String get automationShortcut => 'iOS 捷徑';
+
+  @override
+  String get automationEnabled => '啟用';
+
+  @override
+  String get automationContinue => '延續這條規則的對話';
+
+  @override
+  String get automationIndependent => '關閉時，每次執行使用獨立對話。';
+
+  @override
+  String get automationTimeout => '等待逾時（分鐘，可留白）';
+
+  @override
+  String get automationNoTimeout => '留白表示等待你處理時不設逾時。只計算等待使用者的時間。';
+
+  @override
+  String get automationBatch => '通知累積方式';
+
+  @override
+  String get automationImmediate => '立即處理';
+
+  @override
+  String get automationWindow => '時間窗內合併';
+
+  @override
+  String get automationDigest => '累積到指定排程';
+
+  @override
+  String get automationWindowSeconds => '累積時間窗（秒）';
+
+  @override
+  String get automationCondition => '條件式';
+
+  @override
+  String get automationAdvanced => '進階條件式';
+
+  @override
+  String get automationPackage => 'App 套件名稱（可留白）';
+
+  @override
+  String get automationTitleContains => '標題包含';
+
+  @override
+  String get automationTextContains => '內文包含';
+
+  @override
+  String get automationConditionHelp =>
+      '範例：package == \"jp.naver.line\" and \"班群\" in title\n欄位：package、appLabel、title、text、lines、category、ongoing。支援 ==、!=、in、not in、and、or、not 與括號，不執行程式碼。';
+
+  @override
+  String get automationTest => '測試條件';
+
+  @override
+  String get automationTestHelp => '輸入 JSON 格式的範例通知欄位。只判斷條件，不呼叫 AI。';
+
+  @override
+  String get automationTestMatches => '符合：這個條件式的判斷結果為真。';
+
+  @override
+  String get automationTestNoMatch => '不符合：這個條件式的判斷結果為假。';
+
+  @override
+  String get automationOnce => '單次';
+
+  @override
+  String get automationDaily => '每日';
+
+  @override
+  String get automationWeekly => '每週';
+
+  @override
+  String get automationInterval => '固定間隔';
+
+  @override
+  String get automationEveryMinutes => '重複間隔（至少 15 分鐘）';
+
+  @override
+  String get automationDate => '日期與時間';
+
+  @override
+  String get automationTime => '時間';
+
+  @override
+  String get automationExact => '準時觸發';
+
+  @override
+  String get automationExactHelp => '需要「鬧鐘與提醒」權限。此設定控制觸發時間，完成時間仍受模型與工具影響。';
+
+  @override
+  String get automationExactRequired => '允許設定鬧鐘與提醒';
+
+  @override
+  String get automationNotificationAccess => '設定通知存取權';
+
+  @override
+  String get automationAllowNotifications => '允許 Tako 發送通知';
+
+  @override
+  String get automationIosHelp =>
+      'iOS 會決定背景工作的執行時機，AI 排程可能延後；開啟 Tako 後會處理待執行任務。無法讀取其他 App 的通知。';
+
+  @override
+  String get automationShortcutGuide => '設定捷徑自動化';
+
+  @override
+  String get automationShortcutsHelp =>
+      '1. 建立並啟用觸發來源為「iOS 捷徑」的規則。\n2. 在「捷徑 → 自動化」選擇「特定時間」等個人觸發來源。\n3. 加入「加入 Tako 自動化任務」，選擇規則，可傳入文字。\n4. 若 iOS 提供選項，選擇自動執行。\n此動作只加入任務佇列，iOS 可能延後執行；需要確認時，點開任務通知繼續。';
+
+  @override
+  String get automationInput => '觸發資料';
+
+  @override
+  String get automationRuns => '執行紀錄';
+
+  @override
+  String get automationRecentRuns => '顯示進行中的任務與最近 100 筆已結束紀錄。';
+
+  @override
+  String get automationClearHistory => '清除已結束紀錄';
+
+  @override
+  String get automationClearHistoryConfirm =>
+      '刪除已結束的執行紀錄，以及未使用的自動化對話與附件？進行中的任務、目前開啟的對話，以及持續對話規則使用的對話會保留。';
+
+  @override
+  String get automationNoRules => '尚無自動化規則，按「＋」開始新增。';
+
+  @override
+  String get automationNoRuns => '尚無執行紀錄。';
+
+  @override
+  String get automationRunNow => '立即執行';
+
+  @override
+  String get automationResume => '檢視並繼續';
+
+  @override
+  String get automationCancel => '取消任務';
+
+  @override
+  String get automationResult => '執行結果';
+
+  @override
+  String get automationDetails => '任務詳情';
+
+  @override
+  String get automationQueued => '待執行';
+
+  @override
+  String get automationRunning => '執行中';
+
+  @override
+  String get automationWaiting => '等待你處理';
+
+  @override
+  String get automationCompleted => '已完成';
+
+  @override
+  String get automationSilent => '靜默完成';
+
+  @override
+  String get automationFailed => '執行失敗';
+
+  @override
+  String get automationCancelled => '已取消';
+
+  @override
+  String get automationTimedOut => '已逾時';
+
+  @override
+  String get automationReasonApproval => '請檢視並確認工具操作後繼續。';
+
+  @override
+  String get automationReasonForeground => '請開啟 Tako 並解鎖裝置後繼續。';
+
+  @override
+  String get automationReasonInterrupted =>
+      '執行曾被中斷，請先檢視已保存的操作紀錄。沒有收據的操作可能已完成，確認後再繼續。';
+
+  @override
+  String get automationReasonPaused => '任務已暫停，完成的操作已保存。';
+
+  @override
+  String get automationReasonFailed => '任務未能完成，請檢查模型與權限設定。';
+
+  @override
+  String get automationInvalid => '請檢查規則、條件式、排程及文字模型設定。';
+
+  @override
+  String get automationDeleteConfirm => '刪除此規則並取消待處理任務？執行紀錄會保留。';
+
+  @override
+  String get automationFormNotRepresentable => '這個條件式包含進階條件，請繼續使用條件式編輯器以保留內容。';
+
+  @override
+  String get automationModel => '模型';
+
+  @override
+  String get automationRefresh => '重新整理';
+
+  @override
+  String get automationViewConversation => '檢視對話與產物';
+
+  @override
+  String get automationListTool => '查看自動化規則';
+
+  @override
+  String get automationGetTool => '讀取自動化規則';
+
+  @override
+  String get automationSaveTool => '儲存自動化規則';
+
+  @override
+  String get automationDeleteTool => '刪除自動化規則';
+
+  @override
+  String get automationRunTool => '啟動自動化任務';
 }

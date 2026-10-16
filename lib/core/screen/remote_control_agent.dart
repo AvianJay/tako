@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/audit_repository.dart';
 import '../../platform/capabilities.dart';
+import '../chat/agent_suspended.dart';
 import '../chat/content_block.dart';
 import '../chat/message.dart';
 import '../chat/response_accumulator.dart';
@@ -661,6 +662,8 @@ class RemoteControlAgent {
     } on RequestCancelled {
       status = 'cancelled';
       reason = 'cancelled';
+    } on AgentSuspended {
+      rethrow;
     } catch (_) {
       status = 'incomplete';
       reason = 'worker_failed';

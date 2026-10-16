@@ -384,7 +384,7 @@ abstract class ScreenCapability extends ChangeNotifier implements Capability {
     notifyListeners();
   }
 
-  void endModelSession() {
+  void endModelSession({bool returnToApp = true}) {
     if (_modelSession == null) return;
     _modelSession = null;
     notifyListeners();
@@ -447,7 +447,7 @@ class UnavailableScreen extends ScreenCapability {
   @override
   void beginModelSession() {}
   @override
-  void endModelSession() {}
+  void endModelSession({bool returnToApp = true}) {}
   @override
   void takeOver() => onTakeOver?.call();
   @override

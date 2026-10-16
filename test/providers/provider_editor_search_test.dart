@@ -115,8 +115,10 @@ Future<_Harness> _boot(
   await tester.runAsync(() async {
     await app.initialize();
     await app.saveProvider(_provider(api: api));
+    if (permissionPolicy != null) {
+      await app.savePermissionPolicy(permissionPolicy);
+    }
   });
-  if (permissionPolicy != null) app.permissionGate.policy = permissionPolicy;
   final navigator = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     ProviderScope(

@@ -5,7 +5,11 @@ import 'package:flutter/services.dart';
 /// ActivityKit is a status surface; the native task grants finite background time.
 class IosRemoteSession {
   static const _channel = MethodChannel('tw.avianjay.tako/remote_session');
-  IosRemoteSession({required this.onStop, this.onDiagnostics}) {
+  IosRemoteSession({
+    required this.onStop,
+    this.onDiagnostics,
+    this.onReturnToApp,
+  }) {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'stop' || call.method == 'backgroundExpired') {
         _diagnostics({
@@ -21,15 +25,29 @@ class IosRemoteSession {
   }
   final void Function() onStop;
   final void Function(Map<String, Object?> values)? onDiagnostics;
+  final Future<void> Function()? onReturnToApp;
+  Future<void> _pending = Future<void>.value();
   void _diagnostics(Object? value) {
     if (value is Map) {
       onDiagnostics?.call(Map<String, Object?>.from(value));
     }
   }
 
-  Future<void> setActive(bool active) async {
-    await _send(active ? 'start' : 'end');
-    await refreshDiagnostics();
+  Future<void> setActive(bool active) {
+    final operation = _pending.then((_) async {
+      if (!active) {
+        try {
+          // Keep native background time until iCTRL brings the local app back.
+          await onReturnToApp?.call();
+        } catch (_) {
+          // Returning is best effort; native resources must always be released.
+        }
+      }
+      await _send(active ? 'start' : 'end');
+      await refreshDiagnostics();
+    });
+    _pending = operation.catchError((Object _) {});
+    return operation;
   }
 
   Future<void> refreshDiagnostics() async {

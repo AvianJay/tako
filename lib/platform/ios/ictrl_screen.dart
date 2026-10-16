@@ -784,9 +784,9 @@ class IctrlScreen extends RemoteScreen {
   }
 
   @override
-  void endModelSession() {
+  void endModelSession({bool returnToApp = true}) {
     if (!modelActive) return;
-    super.endModelSession();
+    super.endModelSession(returnToApp: returnToApp);
     _sessionStarting = null;
     unawaited(sessionChanged?.call(false));
   }

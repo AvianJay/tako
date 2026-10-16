@@ -1,0 +1,96 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Tako Automation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tako 自動化"
+          }
+        }
+      }
+    },
+    "Queue Tako Automation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加入 Tako 自動化任務"
+          }
+        }
+      }
+    },
+    "Automation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動化規則"
+          }
+        }
+      }
+    },
+    "Input text": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入文字"
+          }
+        }
+      }
+    },
+    "Queue Automation": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加入自動化任務"
+          }
+        }
+      }
+    },
+    "Add a saved automation to Tako's background queue. Execution may be delayed by iOS. Open Tako when a task needs your approval.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將已儲存的自動化加入 Tako 背景佇列。iOS 可能延後執行，需要確認時請開啟 Tako。"
+          }
+        }
+      }
+    },
+    "This automation is unavailable. Open Tako to review it.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此自動化無法使用，請開啟 Tako 檢查。"
+          }
+        }
+      }
+    },
+    "Queued in Tako. iOS may delay background execution.": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已加入 Tako 佇列，iOS 可能延後背景執行。"
+          }
+        }
+      }
+    },
+    "Queue ${automation} with ${input}": {
+      "localizations": {
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將 ${automation} 加入佇列，輸入 ${input}"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

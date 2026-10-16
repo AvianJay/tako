@@ -84,6 +84,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
     ksp("com.google.mlkit:genai-schema-compiler:1.0.0-alpha1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

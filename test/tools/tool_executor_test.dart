@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tako/core/chat/agent_suspended.dart';
 import 'package:tako/core/chat/content_block.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/cancel_token.dart';
@@ -81,6 +82,52 @@ void main() {
     audit = AuditRepository(database);
   });
   tearDown(() async => database.close());
+
+  for (final error in ['foreground_required', 'notification_access_required']) {
+    test('normal chat receives $error as a tool error', () async {
+      final executor = ToolExecutor(
+        registry: ToolRegistry([
+          TestTool(
+            onRun: () async => ToolResult(
+              content: jsonEncode({'error': error}),
+              isError: true,
+            ),
+          ),
+        ]),
+        permissions: PermissionGate(),
+        audit: audit,
+      );
+      final result = (await executor.execute(call(), context())).result;
+      expect(result.isError, isTrue);
+      expect(
+        (jsonDecode(result.content) as Map<String, Object?>)['error'],
+        error,
+      );
+    });
+    test('automation suspends on $error and latches the pause', () async {
+      AgentSuspended? suspended;
+      final gate = PermissionGate()
+        ..suspendOnUnavailable = true
+        ..onSuspended = (pause) => suspended = pause;
+      final executor = ToolExecutor(
+        registry: ToolRegistry([
+          TestTool(
+            onRun: () async => ToolResult(
+              content: jsonEncode({'error': error}),
+              isError: true,
+            ),
+          ),
+        ]),
+        permissions: gate,
+        audit: audit,
+      );
+      await expectLater(
+        executor.execute(call(), context()),
+        throwsA(isA<AgentSuspended>()),
+      );
+      expect(suspended?.reason, 'foreground');
+    });
+  }
 
   test('registry exposes only available, enabled tools', () {
     final first = TestTool();

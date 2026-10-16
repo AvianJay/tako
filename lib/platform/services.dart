@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/automation/automation_capability.dart';
 import '../core/browser/browser_capability.dart';
 import '../core/files/workspace.dart';
 import '../core/notifications/notification_capability.dart';
@@ -20,6 +21,7 @@ import '../core/shortcuts/shortcuts_capability.dart';
 import 'android/aicore_on_device.dart';
 import 'android/device_control.dart';
 import 'app_services.dart';
+import 'automation/native_automation.dart';
 import 'browser/webview_browser.dart';
 import 'device_tools_capability.dart';
 import 'ios/apple_intelligence_on_device.dart';
@@ -41,7 +43,7 @@ import 'workspace/workspace_shell.dart';
 export 'app_services.dart';
 
 /// OS plugins and filesystem access are confined to this platform boundary.
-class PlatformServices implements AppServices {
+class PlatformServices implements AppServices, AutomationServiceProvider {
   PlatformServices() {
     if (Platform.isAndroid) {
       AndroidControlEvents(
@@ -52,6 +54,10 @@ class PlatformServices implements AppServices {
   }
 
   late final _workspace = LocalWorkspace();
+  @override
+  late final AutomationCapability automation = _mobile
+      ? NativeAutomation()
+      : UnavailableAutomation();
   @override
   WorkspaceCapability get workspace => _workspace;
   static final _mobile = Platform.isAndroid || Platform.isIOS;
@@ -85,6 +91,16 @@ class PlatformServices implements AppServices {
       : UnavailableScreen();
   late final _remoteSession = IosRemoteSession(
     onStop: () => screen.takeOver(),
+    onReturnToApp: () async {
+      final remote = screen as IctrlScreen;
+      final host = Uri.parse(remote.endpoint).host;
+      // A LAN/Tailscale runner controls another device, not this app's phone.
+      if (!const {'127.0.0.1', 'localhost', '::1'}.contains(host)) return;
+      await remote.rpc('launch_app', {
+        'bundle_id': 'tw.avianjay.tako',
+        'settle': false,
+      });
+    },
     onDiagnostics: (values) =>
         (screen as IctrlScreen).updateSessionDiagnostics(values),
   );
