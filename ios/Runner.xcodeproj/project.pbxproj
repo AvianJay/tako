@@ -30,7 +30,7 @@
 		ABAE02000000000000000001 /* AutomationHost.swift */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000001; };
 		ABAE02000000000000000002 /* AutomationIntents.swift */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000002; };
 		ABAE02000000000000000003 /* Localizable.xcstrings */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000003; };
-		ABAE02000000000000000004 /* AppShortcuts.xcstrings */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000004; };
+		ABAE02000000000000000004 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = ABAE01000000000000000004 /* AppShortcuts.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -91,7 +91,8 @@
 		ABAE01000000000000000001 /* AutomationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationHost.swift; sourceTree = "<group>"; };
 		ABAE01000000000000000002 /* AutomationIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationIntents.swift; sourceTree = "<group>"; };
 		ABAE01000000000000000003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		ABAE01000000000000000004 /* AppShortcuts.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = AppShortcuts.xcstrings; sourceTree = "<group>"; };
+		ABAE01000000000000000005 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		ABAE01000000000000000006 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/AppShortcuts.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,7 +161,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				F1A701080000000000000000 /* PrivacyInfo.xcprivacy */,
 				F1A701060000000000000000 /* TakoNative.swift */,
-				ABAE01000000000000000004 /* AppShortcuts.xcstrings */,
+				ABAE01000000000000000004 /* AppShortcuts.strings */,
 				ABAE01000000000000000003 /* Localizable.xcstrings */,
 				ABAE01000000000000000002 /* AutomationIntents.swift */,
 				ABAE01000000000000000001 /* AutomationHost.swift */,
@@ -272,7 +273,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ABAE02000000000000000004 /* AppShortcuts.xcstrings */,
+				ABAE02000000000000000004 /* AppShortcuts.strings in Resources */,
 				ABAE02000000000000000003 /* Localizable.xcstrings */,
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
@@ -361,6 +362,15 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		ABAE01000000000000000004 /* AppShortcuts.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				ABAE01000000000000000005 /* en */,
+				ABAE01000000000000000006 /* zh-Hant */,
+			);
+			name = AppShortcuts.strings;
+			sourceTree = "<group>";
+		};
 		97C146FA1CF9000F007C117D /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
