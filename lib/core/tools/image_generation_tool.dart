@@ -33,8 +33,19 @@ class ImageGenerationTool implements Tool, Capability {
       'by writing <image src="PATH"/> where it belongs, with PATH from images. '
       'Use use_attached_images for images in the latest user message, or '
       'reference_images for workspace paths (including earlier generated images). '
-      'Omit provider_id/model to use the first compatible image model. '
-      'Available models: ${models().map((p) => jsonEncode({'provider_id': p.id, 'provider': p.displayName, 'model': p.model, 'reference_images': p.capabilities.imageReferenceInput})).join(', ')}';
+      'Both sources can be combined, in attachment-then-path order. '
+      'Each model has a max_reference_images limit; do not omit references to '
+      'fit a smaller limit. Omit provider_id/model to select the first model '
+      'that accepts the full reference count. '
+      'Available models: ${models().map((p) => jsonEncode(_modelInfo(p))).join(', ')}';
+
+  Map<String, Object?> _modelInfo(ProviderConfig provider) => {
+    'provider_id': provider.id,
+    'provider': provider.displayName,
+    'model': provider.model,
+    'reference_images': provider.maxReferenceImages > 0,
+    'max_reference_images': provider.maxReferenceImages,
+  };
 
   @override
   Map<String, Object?> get schema => {
@@ -50,8 +61,10 @@ class ImageGenerationTool implements Tool, Capability {
       'reference_images': {
         'type': 'array',
         'items': {'type': 'string'},
-        'maxItems': 8,
-        'description': 'Relative workspace image paths to use as references.',
+        'maxItems': maxImageReferenceInputs,
+        'description':
+            'Ordered relative workspace image paths. Combined with attached '
+            'images, must fit the selected model\'s max_reference_images.',
       },
     },
     'required': ['prompt'],
@@ -76,7 +89,7 @@ class ImageGenerationTool implements Tool, Capability {
         paths != null && (paths is! List || paths.any((p) => p is! String))) {
       return _error('invalid_arguments');
     }
-    if (paths is List && paths.length > 8) {
+    if (paths is List && paths.length > maxImageReferenceInputs) {
       return _error('too_many_reference_images');
     }
     final references = <ImageBlock>[
@@ -85,20 +98,33 @@ class ImageGenerationTool implements Tool, Capability {
     if (args['use_attached_images'] == true && references.isEmpty) {
       return _error('no_reference_images');
     }
-    if (references.length + (paths is List ? paths.length : 0) > 8) {
+    final referenceCount =
+        references.length + (paths is List ? paths.length : 0);
+    if (referenceCount > maxImageReferenceInputs) {
       return _error('too_many_reference_images');
     }
-    final wantsReferences =
-        references.isNotEmpty || paths is List && paths.isNotEmpty;
+    final wantsReferences = referenceCount > 0;
     final candidates = models().where(
       (p) =>
           (args['provider_id'] == null || p.id == args['provider_id']) &&
           (args['model'] == null || p.model == args['model']),
     );
     final provider = candidates
-        .where((p) => !wantsReferences || p.capabilities.imageReferenceInput)
+        .where((p) => referenceCount <= p.maxReferenceImages)
         .firstOrNull;
     if (provider == null) {
+      if (wantsReferences && candidates.any((p) => p.maxReferenceImages > 0)) {
+        return ToolResult(
+          content: jsonEncode({
+            'error': 'too_many_reference_images',
+            'reference_image_count': referenceCount,
+            'models': [
+              for (final candidate in candidates) _modelInfo(candidate),
+            ],
+          }),
+          isError: true,
+        );
+      }
       return _error(
         wantsReferences && candidates.isNotEmpty
             ? 'image_references_unsupported'
@@ -112,7 +138,6 @@ class ImageGenerationTool implements Tool, Capability {
         references.add(image);
       }
     }
-    if (references.length > 8) return _error('too_many_reference_images');
     final hydrated = await workspace.hydrateBlocks(
       references,
       vision: true,

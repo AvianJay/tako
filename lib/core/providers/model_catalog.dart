@@ -11,6 +11,7 @@ class ModelSpec {
     this.tools = true,
     this.imageGeneration = ImageGenerationMode.none,
     this.imageReferenceInput = false,
+    this.maxReferenceImages,
     this.officialId,
   });
   final int contextWindow;
@@ -20,6 +21,7 @@ class ModelSpec {
   final bool tools;
   final ImageGenerationMode imageGeneration;
   final bool imageReferenceInput;
+  final int? maxReferenceImages;
   final String? officialId;
   ProviderCapabilities get capabilities => ProviderCapabilities(
     contextWindow: contextWindow,
@@ -28,6 +30,7 @@ class ModelSpec {
     reasoning: reasoning,
     imageGeneration: imageGeneration,
     imageReferenceInput: imageReferenceInput,
+    maxReferenceImages: maxReferenceImages,
   );
 }
 
@@ -56,6 +59,7 @@ abstract final class ModelCatalog {
         tools: false,
         imageGeneration: ImageGenerationMode.imagesApi,
         imageReferenceInput: true,
+        maxReferenceImages: 16,
       ),
       // https://api-docs.deepseek.com/quick_start/pricing (1M / 384K)
       'deepseek-flash' ||
@@ -187,6 +191,8 @@ abstract final class ModelCatalog {
         tools: false,
         imageGeneration: ImageGenerationMode.chatOutput,
         imageReferenceInput: true,
+        // Google's recommended input count, used as a conservative default.
+        maxReferenceImages: 3,
       ),
       'gemini-3-pro-image' || 'gemini-3-pro-image-preview' => const ModelSpec(
         65536,
@@ -196,6 +202,7 @@ abstract final class ModelCatalog {
         tools: false,
         imageGeneration: ImageGenerationMode.chatOutput,
         imageReferenceInput: true,
+        maxReferenceImages: 14,
       ),
       'gemini-3.1-flash-image' ||
       'gemini-3.1-flash-image-preview' ||
@@ -207,6 +214,7 @@ abstract final class ModelCatalog {
         tools: false,
         imageGeneration: ImageGenerationMode.chatOutput,
         imageReferenceInput: true,
+        maxReferenceImages: 14,
       ),
       'gemini-3.1-flash-lite-image' => const ModelSpec(
         65536,
@@ -216,6 +224,7 @@ abstract final class ModelCatalog {
         tools: false,
         imageGeneration: ImageGenerationMode.chatOutput,
         imageReferenceInput: true,
+        maxReferenceImages: 14,
       ),
       // https://www.alibabacloud.com/help/en/model-studio/qwen3-6-plus
       // https://www.alibabacloud.com/help/en/model-studio/qwen3-5-plus
@@ -248,6 +257,7 @@ abstract final class ModelCatalog {
         tools: false,
         imageGeneration: ImageGenerationMode.imagesApi,
         imageReferenceInput: true,
+        maxReferenceImages: 5,
       ),
       // https://docs.mistral.ai/models/mistral-large-4-0
       // These models publish context limits but no separate output cap.

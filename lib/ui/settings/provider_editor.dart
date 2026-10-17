@@ -46,6 +46,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
   late bool _local, _tools, _vision, _canReason;
   ImageGenerationMode _imageGeneration = ImageGenerationMode.none;
   bool _imageReferenceInput = false;
+  int? _maxReferenceImages;
   bool _builtInSearch = false;
   bool _allowCustomSearchEndpoint = false;
   bool _testingSearch = false;
@@ -150,6 +151,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       reasoning: profile.capabilities.reasoning,
       imageGeneration: profile.capabilities.imageGeneration,
       imageReferenceInput: profile.capabilities.imageReferenceInput,
+      maxReferenceImages: profile.capabilities.maxReferenceImages,
     );
   }
 
@@ -172,6 +174,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
           ? imageMode
           : ImageGenerationMode.none;
       _imageReferenceInput = spec?.imageReferenceInput ?? false;
+      _maxReferenceImages = spec?.maxReferenceImages;
     });
   }
 
@@ -188,6 +191,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       imageGeneration: _imageGeneration,
       imageReferenceInput:
           _imageGeneration != ImageGenerationMode.none && _imageReferenceInput,
+      maxReferenceImages: _maxReferenceImages,
       builtInWebSearch: _builtInSearch,
       allowCustomSearchEndpoint: _allowCustomSearchEndpoint,
       contextWindow: int.tryParse(_context.text) ?? 32768,
@@ -245,6 +249,10 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
         ? model.capabilities.imageGeneration
         : ImageGenerationMode.none;
     _imageReferenceInput = model.capabilities.imageReferenceInput;
+    _maxReferenceImages = model.capabilities.maxReferenceImages?.clamp(
+      1,
+      maxImageReferenceInputs,
+    );
     _builtInSearch = model.capabilities.builtInWebSearch;
     _allowCustomSearchEndpoint = model.capabilities.allowCustomSearchEndpoint;
     _searchProbeResult = null;
@@ -350,6 +358,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
       imageGeneration: _imageGeneration,
       imageReferenceInput:
           _imageGeneration != ImageGenerationMode.none && _imageReferenceInput,
+      maxReferenceImages: _maxReferenceImages,
       builtInWebSearch: _builtInSearch,
       allowCustomSearchEndpoint: _allowCustomSearchEndpoint,
       contextWindow: int.tryParse(_context.text) ?? 32768,
@@ -1164,7 +1173,7 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                         : l.imageGenerationHelp,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  if (_imageGeneration != ImageGenerationMode.none)
+                  if (_imageGeneration != ImageGenerationMode.none) ...[
                     SwitchListTile(
                       key: const ValueKey('provider-image-reference'),
                       contentPadding: EdgeInsets.zero,
@@ -1178,6 +1187,41 @@ class _ProviderEditorState extends ConsumerState<ProviderEditor> {
                               _autoDetect = false;
                             }),
                     ),
+                    if (_imageReferenceInput)
+                      DropdownButtonFormField<int>(
+                        key: ValueKey(
+                          'provider-reference-limit-$_editingModel-$_maxReferenceImages',
+                        ),
+                        isExpanded: true,
+                        initialValue: _maxReferenceImages ?? 0,
+                        decoration: InputDecoration(
+                          labelText: l.maxReferenceImages,
+                          helperText: l.maxReferenceImagesHelp,
+                          helperMaxLines: 3,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 0,
+                            child: Text(l.controlToolModeAuto),
+                          ),
+                          for (
+                            var count = 1;
+                            count <= maxImageReferenceInputs;
+                            count++
+                          )
+                            DropdownMenuItem(
+                              value: count,
+                              child: Text('$count'),
+                            ),
+                        ],
+                        onChanged: _working
+                            ? null
+                            : (value) => setState(() {
+                                _maxReferenceImages = value == 0 ? null : value;
+                                _autoDetect = false;
+                              }),
+                      ),
+                  ],
                   const SizedBox(height: 16),
                 ],
                 if (!_imagesOnly) ...[

@@ -1,4 +1,5 @@
 export 'cancel_token.dart';
+export 'image_reference_support.dart';
 export 'model_discovery.dart';
 export 'provider_adapter.dart';
 export 'provider_config.dart';

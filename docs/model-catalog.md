@@ -30,3 +30,35 @@ Command A Vision has image input but [does not support tool use](https://docs.co
 
 For `api.x.ai`, image edits use JSON image data URIs and accept up to five
 references. Other Images API endpoints retain their multipart edit format.
+
+## Reference-image inputs
+
+Checked 2026-10-17 for all reference-capable image presets currently in Tako.
+Reference support does not imply unlimited inputs or the same limit for every
+model. The following defaults also apply to saved profiles that only stored the
+older reference-input boolean.
+
+| Model | Default reference count | Basis |
+| --- | --- | --- |
+| GPT Image 1, 1 Mini, 1.5, 2, 2.5 Sunburst/Flare; ChatGPT Image Latest | 16 | [OpenAI Images edit API](https://developers.openai.com/api/reference/python/resources/images/methods/edit) accepts up to 16 input files. |
+| Gemini 2.5 Flash Image, including its preview alias | 3 | [Google image-generation guide](https://ai.google.dev/gemini-api/docs/image-generation#limitations) recommends up to 3 inputs for best results. This is a conservative app default, not a claimed hard API maximum. |
+| Gemini 3 Pro Image, 3.1 Flash Image, Nano Banana 2.1, 3.1 Flash Lite Image, including catalog preview aliases | 14 | [Google reference-image guide](https://ai.google.dev/gemini-api/docs/image-generation#use_up_to_14_reference_images) allows up to 14; character, object and style fidelity have separate guidance. Lite is not optimized for multiple reference inputs. |
+| Grok Imagine Image 2.0 | 5 | [xAI Imagine overview](https://docs.x.ai/developers/model-capabilities/imagine) documents up to 5 source images. |
+| Image Playground | 1 | The current Tako ImageCreator integration accepts at most one image; this is also enforced by its platform adapter. |
+| Other manually configured image models, including Responses image tools | 1 | Unknown limits are not inferred from vision support or an API format. Set the provider's supported count in model settings. |
+
+The reference switch remains the opt-in: turning it off accepts zero references.
+An explicit per-model count overrides presets for compatible gateways; the app
+still bounds a request to 16 references, xAI's direct Images transport to 5, and
+the current on-device integration to 1. A lower provider limit can be configured
+without disabling multiple-image support elsewhere. Discovery preserves edited
+model settings.
+
+`generate_image` counts attachments and ordered workspace paths together. With
+automatic model selection it skips candidates that cannot accept the full count;
+with an explicit model it returns a stable error and the candidate limits before
+reading paths or opening a provider request. No images are silently dropped or
+split into independent generations. Direct image requests reject excess draft
+attachments before creating a message, and transports enforce the same policy.
+The chat composer's separate limit of 8 total attachments remains in place;
+workspace paths let the tool use higher model limits.

@@ -759,6 +759,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String _error(String? code, AppLocalizations l) => switch (code) {
     'contextTooLarge' => l.contextTooLarge,
     'visionRequired' => l.visionRequired,
+    'imageReferenceLimit' => l.imageReferenceLimit,
     'attachmentLimit' => l.attachmentLimit,
     'imageUnavailable' => l.imageUnavailable,
     'unsupportedImage' => l.unsupportedImage,

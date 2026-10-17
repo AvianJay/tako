@@ -40,6 +40,7 @@ class ProviderCapabilities {
     this.allowCustomSearchEndpoint = false,
     this.imageGeneration = ImageGenerationMode.none,
     this.imageReferenceInput = false,
+    this.maxReferenceImages,
   });
 
   factory ProviderCapabilities.fromJson(JsonMap json) => ProviderCapabilities(
@@ -55,6 +56,7 @@ class ProviderCapabilities {
       orElse: () => ImageGenerationMode.none,
     ),
     imageReferenceInput: asBool(json['imageReferenceInput']) ?? false,
+    maxReferenceImages: asInt(json['maxReferenceImages']),
   );
 
   final bool tools;
@@ -69,6 +71,9 @@ class ProviderCapabilities {
 
   final ImageGenerationMode imageGeneration;
   final bool imageReferenceInput;
+
+  /// Null uses the model preset, or one image for an unknown model.
+  final int? maxReferenceImages;
 
   bool get acceptsImageInput => imageGeneration == ImageGenerationMode.none
       ? vision
@@ -89,6 +94,7 @@ class ProviderCapabilities {
     bool? allowCustomSearchEndpoint,
     ImageGenerationMode? imageGeneration,
     bool? imageReferenceInput,
+    int? maxReferenceImages,
   }) => ProviderCapabilities(
     tools: tools ?? this.tools,
     vision: vision ?? this.vision,
@@ -99,6 +105,7 @@ class ProviderCapabilities {
         allowCustomSearchEndpoint ?? this.allowCustomSearchEndpoint,
     imageGeneration: imageGeneration ?? this.imageGeneration,
     imageReferenceInput: imageReferenceInput ?? this.imageReferenceInput,
+    maxReferenceImages: maxReferenceImages ?? this.maxReferenceImages,
   );
 
   JsonMap toJson() => {
@@ -110,6 +117,7 @@ class ProviderCapabilities {
     'allowCustomSearchEndpoint': allowCustomSearchEndpoint,
     'imageGeneration': imageGeneration.name,
     'imageReferenceInput': imageReferenceInput,
+    if (maxReferenceImages != null) 'maxReferenceImages': maxReferenceImages,
   };
 }
 

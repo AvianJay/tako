@@ -300,6 +300,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose a model that supports vision or reference images to send images.';
 
   @override
+  String get imageReferenceLimit =>
+      'Too many reference images for the available image models. Remove images, choose another model, or check its reference-image limit in Settings.';
+
+  @override
   String get toolStepLimit =>
       'Tool-call limit reached. Review the results, then press Continue if needed.';
 
@@ -600,6 +604,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get imageReferenceInputHelp =>
       'Allow attached images as references for generation or editing. Enable only when this model supports image input for generation.';
+
+  @override
+  String get maxReferenceImages => 'Maximum reference images';
+
+  @override
+  String get maxReferenceImagesHelp =>
+      'Use the model preset automatically, or set the limit supported by your provider. Unknown models default to one image.';
 
   @override
   String get imageGenerationTool => 'Generate image';

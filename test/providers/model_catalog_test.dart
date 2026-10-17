@@ -1,8 +1,56 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tako/core/providers/image_reference_support.dart';
 import 'package:tako/core/providers/model_catalog.dart';
 import 'package:tako/core/providers/provider_config.dart';
 
 void main() {
+  test(
+    'reference counts distinguish documented models and unknown profiles',
+    () {
+      final limits = {
+        'openai/gpt-image-1': 16,
+        'gpt-image-2.5-flare-2026-09-08': 16,
+        'google/gemini-2.5-flash-image:free': 3,
+        'gemini-3-pro-image-preview': 14,
+        'gemini-3.1-flash-image': 14,
+        'gemini-nano-banana-2.1': 14,
+        'gemini-3.1-flash-lite-image': 14,
+        'x-ai/grok-imagine-image-2.0': 5,
+        'custom-image-model': 1,
+      };
+      for (final entry in limits.entries) {
+        // A pre-existing saved profile only had the reference-input boolean.
+        final config = ProviderConfig(
+          id: 'provider',
+          displayName: 'Provider',
+          apiType: ApiType.chatCompletions,
+          baseUrl: 'https://provider.example/v1',
+          model: entry.key,
+          capabilities: const ProviderCapabilities(
+            imageGeneration: ImageGenerationMode.imagesApi,
+            imageReferenceInput: true,
+          ),
+        );
+        expect(config.maxReferenceImages, entry.value, reason: entry.key);
+        final custom = config.copyWith(
+          capabilities: config.capabilities.copyWith(maxReferenceImages: 2),
+        );
+        expect(custom.maxReferenceImages, 2);
+        expect(ProviderConfig.fromJson(custom.toJson()).maxReferenceImages, 2);
+        expect(
+          config
+              .copyWith(
+                capabilities: config.capabilities.copyWith(
+                  imageReferenceInput: false,
+                ),
+              )
+              .maxReferenceImages,
+          0,
+        );
+      }
+    },
+  );
+
   test('documented image models auto-select Images API and references', () {
     for (final id in [
       'gpt-image-1',

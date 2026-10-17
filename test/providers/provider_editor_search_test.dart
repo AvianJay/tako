@@ -198,6 +198,19 @@ void main() {
       await tester.tap(references);
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(references).value, isTrue);
+      final limits = find.byWidgetPredicate(
+        (widget) => switch (widget.key) {
+          ValueKey<String>(:final value) => value.startsWith(
+            'provider-reference-limit-',
+          ),
+          _ => false,
+        },
+      );
+      await _scrollTo(tester, limits);
+      await tester.tap(limits);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('3').last);
+      await tester.pumpAndSettle();
       final second = find.widgetWithText(InputChip, 'second-model');
       await _scrollTo(tester, second, delta: -300);
       await tester.tap(second);
@@ -232,6 +245,7 @@ void main() {
         saved.forModel('first-model').capabilities.imageReferenceInput,
         isTrue,
       );
+      expect(saved.forModel('first-model').maxReferenceImages, 3);
       expect(
         saved.forModel('second-model').capabilities.imageGeneration,
         ImageGenerationMode.responsesTool,
@@ -239,6 +253,16 @@ void main() {
       expect(
         saved.forModel('second-model').capabilities.imageReferenceInput,
         isFalse,
+      );
+      expect(
+        saved.forModel('second-model').capabilities.maxReferenceImages,
+        isNull,
+      );
+      await harness.reopen(tester, saved);
+      await _scrollTo(tester, limits);
+      expect(
+        tester.widget<DropdownButtonFormField<int>>(limits).initialValue,
+        3,
       );
       expect(tester.takeException(), isNull);
     },

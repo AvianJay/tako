@@ -7,6 +7,7 @@ import '../../chat/content_block.dart';
 import '../../chat/message.dart';
 import '../../util/json.dart';
 import '../cancel_token.dart';
+import '../image_reference_support.dart';
 import '../provider_adapter.dart';
 import '../provider_config.dart';
 import '../provider_event.dart';
@@ -74,19 +75,7 @@ class ImagesAdapter extends HttpProviderAdapter {
     final references = _userMessage(
       request,
     ).content.whereType<ImageBlock>().toList();
-    if (references.isNotEmpty && !config.capabilities.imageReferenceInput) {
-      throw const ProviderError(
-        'This image model does not support reference images',
-        code: 'unsupported_image_input',
-      );
-    }
-    final maxReferences = _xaiImages ? 5 : 16;
-    if (references.length > maxReferences) {
-      throw ProviderError(
-        'Use at most $maxReferences reference images',
-        code: 'invalid_request',
-      );
-    }
+    validateImageReferences(config, request);
     if (references.isEmpty) {
       return http.AbortableRequest(
           'POST',

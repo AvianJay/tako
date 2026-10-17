@@ -77,6 +77,7 @@ void main() {
   const imageCaps = ProviderCapabilities(
     imageGeneration: ImageGenerationMode.imagesApi,
     imageReferenceInput: true,
+    maxReferenceImages: 16,
   );
 
   setUp(() async {
@@ -146,6 +147,91 @@ void main() {
           .single;
       expect(reference.data, isNotEmpty);
       expect(app.messages.last.status, MessageStatus.done);
+    },
+  );
+
+  test(
+    'multiple attached references all reach direct image generation',
+    () async {
+      await app.saveProvider(_provider('images', imageCaps));
+      app.draftAttachments = [
+        await workspace.importBytes('first.png', png),
+        await workspace.importBytes('second.png', png),
+      ];
+      await app.send('Combine both references');
+      expect(app.errorCode, isNull);
+      expect(
+        images.requests.single.messages.single.content.whereType<ImageBlock>(),
+        hasLength(2),
+      );
+    },
+  );
+
+  test(
+    'direct reference-count failure preserves the draft before creating a chat',
+    () async {
+      await app.saveProvider(
+        _provider('images', imageCaps.copyWith(maxReferenceImages: 1)),
+      );
+      app.draftAttachments = [
+        await workspace.importBytes('first.png', png),
+        await workspace.importBytes('second.png', png),
+      ];
+      await app.send('Combine both references');
+      expect(app.errorCode, 'imageReferenceLimit');
+      expect(app.draftAttachments, hasLength(2));
+      expect(app.conversation, isNull);
+      expect(images.requests, isEmpty);
+    },
+  );
+
+  test(
+    'text-only chat preserves multiple attachments when no image model fits',
+    () async {
+      await app.saveProvider(
+        _provider('chat', const ProviderCapabilities(tools: true)),
+      );
+      await app.saveProvider(
+        _provider('images', imageCaps.copyWith(maxReferenceImages: 1)),
+      );
+      app.draftAttachments = [
+        await workspace.importBytes('first.png', png),
+        await workspace.importBytes('second.png', png),
+      ];
+      await app.send('Combine both references');
+      expect(app.errorCode, 'imageReferenceLimit');
+      expect(app.draftAttachments, hasLength(2));
+      expect(chat.requests, isEmpty);
+      expect(images.requests, isEmpty);
+    },
+  );
+
+  test(
+    'text chat skips a single-reference model when routing multiple attachments',
+    () async {
+      await app.saveProvider(
+        _provider('chat', const ProviderCapabilities(tools: true)),
+      );
+      await app.saveProvider(
+        _provider('single', imageCaps.copyWith(maxReferenceImages: 1)),
+      );
+      await app.saveProvider(_provider('multiple', imageCaps));
+      app.draftAttachments = [
+        await workspace.importBytes('first.png', png),
+        await workspace.importBytes('second.png', png),
+      ];
+      await app.send('Combine these images');
+      expect(app.errorCode, isNull);
+      final receipt = app.messages
+          .expand((message) => message.content)
+          .whereType<ToolResultBlock>()
+          .single;
+      final result = jsonDecode(receipt.content) as Map<String, Object?>;
+      expect(result['provider_id'], 'multiple');
+      expect(
+        images.requests.single.messages.single.content.whereType<ImageBlock>(),
+        hasLength(2),
+      );
     },
   );
 

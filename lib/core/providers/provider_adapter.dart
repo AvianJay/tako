@@ -9,6 +9,7 @@ import '../on_device/on_device_capability.dart';
 import '../util/json.dart';
 import 'cancel_token.dart';
 import 'chat_completions/chat_completions_adapter.dart';
+import 'image_reference_support.dart';
 import 'images/images_adapter.dart';
 import 'messages/messages_adapter.dart';
 import 'model_names.dart' as names;
@@ -289,6 +290,7 @@ abstract class HttpProviderAdapter implements ProviderAdapter {
     final client = _clientFactory();
     cancel.addListener(client.close);
     try {
+      validateImageReferences(config, request);
       final outgoing = _request('POST', endpoint, cancel)
         ..body = jsonEncode(buildBody(request));
       final response = await cancel.bind(

@@ -1651,6 +1651,20 @@ class AppController extends ChangeNotifier {
         errorCode = 'visionRequired';
         return;
       }
+      final referenceCount = attachments.whereType<ImageBlock>().length;
+      if (provider.generatesImages &&
+          referenceCount > provider.maxReferenceImages) {
+        errorCode = 'imageReferenceLimit';
+        return;
+      }
+      if (!provider.capabilities.acceptsImageInput &&
+          _canRouteReferenceImages(provider) &&
+          !imageModels.any(
+            (model) => referenceCount <= model.maxReferenceImages,
+          )) {
+        errorCode = 'imageReferenceLimit';
+        return;
+      }
       final hydrated = attachments.isEmpty
           ? <ContentBlock>[]
           : await services.workspace.hydrateBlocks(

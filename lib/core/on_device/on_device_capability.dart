@@ -115,6 +115,7 @@ const appleImageModel = LocalModel.system(
       contextWindow: 4096,
       imageGeneration: ImageGenerationMode.onDevice,
       imageReferenceInput: true,
+      maxReferenceImages: 1,
     ),
     maxOutputTokens: 1024,
   ),

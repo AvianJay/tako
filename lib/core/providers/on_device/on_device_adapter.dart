@@ -1,5 +1,6 @@
 import '../../on_device/on_device_capability.dart';
 import '../cancel_token.dart';
+import '../image_reference_support.dart';
 import '../provider_adapter.dart';
 import '../provider_config.dart';
 import '../provider_event.dart';
@@ -16,6 +17,12 @@ class OnDeviceAdapter implements ProviderAdapter {
     required CancelToken cancel,
   }) async* {
     if (cancel.isCancelled) return;
+    try {
+      validateImageReferences(config, request);
+    } on ProviderError catch (error) {
+      yield error;
+      return;
+    }
     yield* onDevice.generate(config, request, cancel: cancel);
   }
 

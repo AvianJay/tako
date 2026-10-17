@@ -274,6 +274,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get visionRequired => '请选择支持视觉或参考图的模型，再发送图片。';
 
   @override
+  String get imageReferenceLimit =>
+      '参考图数量超过可用生图模型的上限。请减少图片、选择其他模型，或在设置中检查参考图上限。';
+
+  @override
   String get toolStepLimit => '已達工具呼叫上限。請檢查目前結果，需要時按「繼續」。';
 
   @override
@@ -562,6 +566,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageReferenceInputHelp => '允许将附件图片用于参考生图或编辑。仅在此模型支持生图图片输入时开启。';
+
+  @override
+  String get maxReferenceImages => '参考图数量上限';
+
+  @override
+  String get maxReferenceImagesHelp => '自动使用模型预设，或设置供应商支持的上限。未知模型默认接受一张。';
 
   @override
   String get imageGenerationTool => '生成图片';
@@ -2174,6 +2184,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get visionRequired => '請選擇支援視覺或參考圖的模型，再傳送圖片。';
 
   @override
+  String get imageReferenceLimit =>
+      '參考圖數量超過可用生圖模型的上限。請減少圖片、選擇其他模型，或在設定中檢查參考圖上限。';
+
+  @override
   String get toolStepLimit => '已達工具呼叫上限。請檢查目前結果，需要時按「繼續」。';
 
   @override
@@ -2462,6 +2476,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get imageReferenceInputHelp => '允許將附件圖片用於參考生圖或編輯。僅在此模型支援生圖圖片輸入時開啟。';
+
+  @override
+  String get maxReferenceImages => '參考圖數量上限';
+
+  @override
+  String get maxReferenceImagesHelp => '自動使用模型預設，或設定供應商支援的上限。未知模型預設接受一張。';
 
   @override
   String get imageGenerationTool => '生成圖片';

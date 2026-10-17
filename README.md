@@ -38,6 +38,11 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     using the configured image models. Reference images can come from message
     attachments or workspace files. Generated originals are saved locally and
     can be viewed, shared, or used as references in later requests.
+    Multiple references are sent together in order; `generate_image` supports
+    up to 16 workspace references, with a lower limit where required by the
+    model. Selection checks the full count before loading files or contacting
+    the image provider. Model settings include a reference-image count override;
+    unknown models default to one input. See [reference limits](docs/model-catalog.md#reference-image-inputs).
 - **On-device models** (64-bit Android and iOS), run by llama.cpp through [llamadart](https://pub.dev/packages/llamadart):
   - A recommended list of small Qwen3 models. They are downloaded from Hugging Face, pinned to a commit, and checked against their SHA-256.
   - You can also import a GGUF file or download one from a URL.

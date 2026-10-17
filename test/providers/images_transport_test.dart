@@ -62,6 +62,26 @@ ChatRequest _request({bool reference = false}) => ChatRequest(
   ],
 );
 
+ChatRequest _references(int count) {
+  final base = _request(reference: true);
+  return ChatRequest(
+    systemPrompt: '',
+    messages: [
+      base.messages.single.copyWith(
+        content: [
+          const TextBlock('A bird'),
+          for (var i = 0; i < count; i++)
+            ImageBlock(
+              path: 'attachments/ref-$i.png',
+              mimeType: 'image/png',
+              data: _png,
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
 void main() {
   test(
     'factory routes image profile to authenticated JSON generation endpoint',
@@ -141,6 +161,109 @@ void main() {
     expect(events.single, isA<ProviderError>());
     expect(called, isFalse);
   });
+
+  for (final count in [2, 16]) {
+    test('multipart edits send all $count ordered reference files', () async {
+      final client = _Client((request) async {
+        expect(request.url.path, '/v1/images/edits');
+        final files = (request as http.MultipartRequest).files;
+        expect(files, hasLength(count));
+        for (var i = 0; i < count; i++) {
+          expect(files[i].field, 'image[]');
+          expect(files[i].filename, 'reference-${i + 1}.png');
+          expect(await files[i].finalize().toBytes(), base64Decode(_png));
+        }
+        return _json({
+          'data': [
+            {'b64_json': _png},
+          ],
+        });
+      });
+      final events = await ImagesAdapter(
+        _config(),
+        clientFactory: () => client,
+      ).send(_references(count), cancel: CancelToken()).toList();
+      expect(events.last, isA<Done>());
+    });
+  }
+
+  for (final (api, mode) in [
+    (ApiType.chatCompletions, ImageGenerationMode.imagesApi),
+    (ApiType.chatCompletions, ImageGenerationMode.chatOutput),
+    (ApiType.responses, ImageGenerationMode.responsesTool),
+  ]) {
+    test('$mode enforces custom limits before sending a request', () async {
+      var sent = false;
+      final client = _Client((_) async {
+        sent = true;
+        return _json({});
+      });
+      final adapter = ProviderAdapter.create(
+        _config().copyWith(
+          apiType: api,
+          capabilities: ProviderCapabilities(
+            imageGeneration: mode,
+            imageReferenceInput: true,
+            maxReferenceImages: 1,
+          ),
+        ),
+        clientFactory: () => client,
+      );
+      final events = await adapter
+          .send(_references(2), cancel: CancelToken())
+          .toList();
+      expect(
+        events.whereType<ProviderError>().single.code,
+        'too_many_reference_images',
+      );
+      expect(sent, isFalse);
+    });
+  }
+
+  test(
+    'chat image input limits include images replayed from earlier turns',
+    () async {
+      var sent = false;
+      final client = _Client((_) async {
+        sent = true;
+        return _json({});
+      });
+      final base = _references(1).messages.single;
+      final adapter = ProviderAdapter.create(
+        _config().copyWith(
+          capabilities: const ProviderCapabilities(
+            imageGeneration: ImageGenerationMode.chatOutput,
+            imageReferenceInput: true,
+            maxReferenceImages: 1,
+          ),
+        ),
+        clientFactory: () => client,
+      );
+      final events = await adapter
+          .send(
+            ChatRequest(
+              systemPrompt: '',
+              messages: [
+                base,
+                ChatMessage(
+                  id: 'next',
+                  conversationId: 'chat',
+                  role: MessageRole.user,
+                  createdAt: DateTime.utc(2026),
+                  content: base.content,
+                ),
+              ],
+            ),
+            cancel: CancelToken(),
+          )
+          .toList();
+      expect(
+        events.whereType<ProviderError>().single.code,
+        'too_many_reference_images',
+      );
+      expect(sent, isFalse);
+    },
+  );
 
   for (final referenceCount in [0, 1, 2]) {
     test(

@@ -615,6 +615,12 @@ abstract class AppLocalizations {
   /// **'请选择支持视觉或参考图的模型，再发送图片。'**
   String get visionRequired;
 
+  /// No description provided for @imageReferenceLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考图数量超过可用生图模型的上限。请减少图片、选择其他模型，或在设置中检查参考图上限。'**
+  String get imageReferenceLimit;
+
   /// No description provided for @toolStepLimit.
   ///
   /// In zh, this message translates to:
@@ -1190,6 +1196,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'允许将附件图片用于参考生图或编辑。仅在此模型支持生图图片输入时开启。'**
   String get imageReferenceInputHelp;
+
+  /// No description provided for @maxReferenceImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'参考图数量上限'**
+  String get maxReferenceImages;
+
+  /// No description provided for @maxReferenceImagesHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动使用模型预设，或设置供应商支持的上限。未知模型默认接受一张。'**
+  String get maxReferenceImagesHelp;
 
   /// No description provided for @imageGenerationTool.
   ///
