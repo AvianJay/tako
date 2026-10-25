@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
@@ -266,11 +267,27 @@ abstract class SystemOnDevice extends UnavailableOnDevice {
             }
             yield generatedImageFromBytes(data);
           case 'agent':
+          case 'agent_json':
             if (request.tools.isEmpty || pendingAgent != null) {
               throw invalidTools;
             }
+            Map<Object?, Object?> reply = value;
+            if (value['type'] == 'agent_json') {
+              final json = value['json'];
+              if (json is! String || json.length > 262144) throw invalidTools;
+              final Object? decoded;
+              try {
+                // Require one whole JSON object; never repair, strip fences,
+                // or extract a tool call from partially generated text.
+                decoded = jsonDecode(json);
+              } on FormatException {
+                throw invalidTools;
+              }
+              if (decoded is! Map<String, Object?>) throw invalidTools;
+              reply = decoded;
+            }
             pendingAgent = systemModelAgentEvents(
-              value,
+              reply,
               request.tools,
               invalidCode: '${service}_invalid_tools',
             );

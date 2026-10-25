@@ -1,6 +1,7 @@
 package tw.avianjay.tako
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
@@ -36,6 +37,9 @@ import kotlinx.coroutines.sync.withLock
 
 private const val STABLE_ID = "aicore:gemini-nano"
 private const val PREVIEW_ID = "aicore:gemini-nano-preview"
+// Observed with Nano 4 Full on AICore 26.10: typed inference fails even for
+// a single String field, while ordinary inference works. No public SDK constant.
+private const val NANO_V4_TYPED_INFERENCE_ERROR = 200
 
 /** ML Kit owns inference; Tako's Dart agent loop executes approved tools. */
 class AicoreApiHost(messenger: BinaryMessenger) :
@@ -64,39 +68,56 @@ class AicoreApiHost(messenger: BinaryMessenger) :
     )
 
     @RequiresApi(26)
-    private suspend fun details(id: String): Map<String, Any> {
+    private suspend fun details(id: String, onStage: (String) -> Unit): Map<String, Any> {
+        onStage("metadata.client")
         val client = session(id).model
+        onStage("metadata.checkStatus")
         val status = client.checkStatus()
         if (status == FeatureStatus.UNAVAILABLE) return unavailable(id)
         val available = status == FeatureStatus.AVAILABLE
+        onStage("metadata.structuredOutput")
+        val tools = available && client.isStructuredOutputFeatureAvailable()
+        onStage("metadata.tokenLimit")
+        val contextWindow = if (available) client.getTokenLimit().coerceAtLeast(1) else 4096
+        onStage("metadata.baseModelName")
+        val baseModelName = if (available) client.getBaseModelName() else "Gemini Nano"
         return mapOf(
             "modelId" to id,
             "state" to if (available) "ready" else "available",
-            "tools" to (available && client.isStructuredOutputFeatureAvailable()),
-            "contextWindow" to if (available) client.getTokenLimit().coerceAtLeast(1) else 4096,
-            "baseModelName" to if (available) client.getBaseModelName() else "Gemini Nano",
+            "tools" to tools,
+            "contextWindow" to contextWindow,
+            "baseModelName" to baseModelName,
         )
     }
 
     @RequiresApi(26)
-    private suspend fun ready(id: String): AicoreSession {
+    private suspend fun ready(id: String, onStage: (String) -> Unit): AicoreSession {
         // Only one model is kept warm; stable/preview share the system service.
+        onStage("ready.closeOtherSessions")
         for ((otherId, other) in sessions) {
             if (otherId != id) other.close()
         }
         sessions.keys.removeAll { it != id }
+        onStage("ready.client")
         val current = session(id)
+        onStage("ready.checkStatus")
         when (current.model.checkStatus()) {
             FeatureStatus.UNAVAILABLE -> throw AicoreFailure("aicore_unavailable")
-            FeatureStatus.DOWNLOADABLE -> current.model.download().collect { status ->
-                if (status is DownloadStatus.DownloadFailed) throw status.e
+            FeatureStatus.DOWNLOADABLE -> {
+                onStage("ready.download")
+                current.model.download().collect { status ->
+                    if (status is DownloadStatus.DownloadFailed) throw status.e
+                }
             }
         }
+        onStage("ready.waitForDownload")
         while (current.model.checkStatus() == FeatureStatus.DOWNLOADING) delay(1000)
+        onStage("ready.checkStatus")
         if (current.model.checkStatus() != FeatureStatus.AVAILABLE) {
             throw AicoreFailure("aicore_unavailable")
         }
         if (!current.warm) {
+            onStage("ready.warmup")
             current.model.warmup()
             current.warm = true
         }
@@ -109,11 +130,13 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                 try {
                     val statuses = mutex.withLock {
                         listOf(STABLE_ID, PREVIEW_ID).map { id ->
+                            var stage = "client"
                             if (Build.VERSION.SDK_INT < 26) unavailable(id)
                             else try {
-                                details(id)
+                                details(id) { stage = it }
                             } catch (error: Exception) {
                                 if (error is CancellationException) throw error
+                                logFailure("status", id, stage, error)
                                 unavailable(id)
                             }
                         }
@@ -134,15 +157,17 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                     return
                 }
                 scope.launch {
+                    var stage = "lock"
                     try {
                         val metadata = mutex.withLock {
-                            ready(id)
-                            details(id)
+                            ready(id) { stage = it }
+                            details(id) { stage = it }
                         }
                         result.success(metadata)
                     } catch (_: CancellationException) {
                         result.error("aicore_cancelled", "AICore preparation cancelled", null)
                     } catch (error: Exception) {
+                        logFailure("prepare", id, stage, error)
                         result.error(errorCode(error), "Could not prepare AICore", null)
                     }
                 }
@@ -177,39 +202,86 @@ class AicoreApiHost(messenger: BinaryMessenger) :
         requestId = request
         generation = scope.launch {
             previous?.cancelAndJoin()
+            var stage = "lock"
             try {
                 mutex.withLock {
-                    val model = ready(id).model
-                    sink.success(details(id) + mapOf("type" to "ready"))
+                    val current = ready(id) { stage = it }
+                    val model = current.model
+                    val metadata = details(id) { stage = it }
+                    sink.success(metadata + mapOf("type" to "ready"))
+                    stage = "request.build"
                     val outgoing = generateContentRequest(TextPart(prompt)) {
                         temperature = if (useTools) 0.2f else 0.7f
                         topK = 40
                         candidateCount = 1
                         maxOutputTokens = maxTokens
                     }
+                    stage = "request.tokenLimit"
                     val tokenLimit = model.getTokenLimit()
                     if (useTools) {
+                        stage = "request.structuredOutput"
                         if (!model.isStructuredOutputFeatureAvailable()) {
                             throw AicoreFailure("aicore_tools_unavailable")
                         }
-                        val typed = generateTypedContentRequest(outgoing, AicoreAgentReply::class)
-                        val count = model.countTokens(typed).totalTokens
-                        if (count > tokenLimit) throw AicoreFailure("aicore_request_too_large")
-                        // Partial/truncated JSON never reaches the executor.
-                        val candidate = model.generateContent(typed).candidates.firstOrNull()
-                        if (candidate?.finishReason != TypedCandidate.TypedFinishReason.STOP ||
-                            candidate.response == null) throw AicoreFailure("aicore_invalid_tools")
-                        val reply = candidate.response!!
-                        sink.success(mapOf("type" to "agent", "kind" to reply.kind,
-                            "text" to reply.text, "calls" to reply.calls.map {
-                                mapOf("name" to it.name, "arguments" to it.arguments)
-                            }))
+                        stage = "request.typed"
+                        var count = 0
+                        if (!current.useJsonToolReplies) {
+                            val typed = generateTypedContentRequest(outgoing, AicoreAgentReply::class)
+                            stage = "countTokens.typed"
+                            count = model.countTokens(typed).totalTokens
+                            checkTokenBudget(count, maxTokens, tokenLimit)
+                            stage = "generate.typed"
+                            val response = try {
+                                model.generateContent(typed)
+                            } catch (error: GenAiException) {
+                                if (error.errorCode != NANO_V4_TYPED_INFERENCE_ERROR ||
+                                    metadata["baseModelName"] != "nano-v4-full") throw error
+                                logFailure("generate", id, stage, error)
+                                // Retry without native constrained decoding. Remember only for
+                                // this session; a new session probes typed support again.
+                                current.useJsonToolReplies = true
+                                null
+                            }
+                            if (response != null) {
+                                // Partial/truncated JSON never reaches the executor.
+                                stage = "response.typed"
+                                val candidate = response.candidates.firstOrNull()
+                                if (candidate?.finishReason != TypedCandidate.TypedFinishReason.STOP ||
+                                    candidate.response == null) throw AicoreFailure("aicore_invalid_tools")
+                                val reply = candidate.response!!
+                                sink.success(mapOf("type" to "agent", "kind" to reply.kind,
+                                    "text" to reply.text, "calls" to reply.calls.map {
+                                        mapOf("name" to it.name, "arguments" to it.arguments)
+                                    }))
+                            }
+                        }
+                        if (current.useJsonToolReplies) {
+                            stage = "request.json"
+                            val jsonRequest = generateContentRequest(TextPart(toolJsonPrompt(prompt))) {
+                                temperature = 0.2f
+                                topK = 40
+                                candidateCount = 1
+                                maxOutputTokens = maxTokens
+                            }
+                            stage = "countTokens.json"
+                            count = model.countTokens(jsonRequest).totalTokens
+                            checkTokenBudget(count, maxTokens, tokenLimit)
+                            stage = "generate.json"
+                            val candidate = model.generateContent(jsonRequest).candidates.firstOrNull()
+                            if (candidate?.finishReason != Candidate.FinishReason.STOP ||
+                                candidate.text.isBlank()) throw AicoreFailure("aicore_invalid_tools")
+                            // Dart strictly parses and validates the entire reply, then waits
+                            // for done before publishing any tool call to the permission gate.
+                            sink.success(mapOf("type" to "agent_json", "json" to candidate.text))
+                        }
                         sink.success(mapOf("type" to "usage", "inputTokens" to count))
                         sink.success(mapOf("type" to "done", "reason" to "stop"))
                     } else {
+                        stage = "countTokens.text"
                         val count = model.countTokens(outgoing).totalTokens
-                        if (count > tokenLimit) throw AicoreFailure("aicore_request_too_large")
+                        checkTokenBudget(count, maxTokens, tokenLimit)
                         var reason = "stop"
+                        stage = "generate.stream"
                         model.generateContentStream(outgoing).collect { chunk ->
                             chunk.candidates.firstOrNull()?.let { candidate ->
                                 if (candidate.text.isNotEmpty()) {
@@ -226,6 +298,7 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                 // Stop is a user action, with neither completion nor error.
             } catch (error: Exception) {
                 // SDK exception messages may contain input; never expose them.
+                logFailure("generate", id, stage, error)
                 sink.error(errorCode(error), "AICore request failed", null)
             } finally {
                 sink.endOfStream()
@@ -244,6 +317,13 @@ class AicoreApiHost(messenger: BinaryMessenger) :
         return aicoreErrorCode(error)
     }
 
+    private fun logFailure(operation: String, id: String, stage: String, error: Exception) {
+        // Log only fixed labels and codes, never SDK messages, stack traces or request content.
+        val sdkErrorCode = (error as? GenAiException)?.errorCode
+        Log.w("TakoAicore", "operation=$operation stage=$stage modelId=$id " +
+            "sdkErrorCode=$sdkErrorCode exception=${error.javaClass.simpleName}")
+    }
+
     private fun closeSessions() {
         if (Build.VERSION.SDK_INT >= 26) sessions.values.forEach { it.close() }
         sessions.clear()
@@ -259,10 +339,27 @@ class AicoreApiHost(messenger: BinaryMessenger) :
 
 private class AicoreFailure(val code: String) : Exception()
 
+private fun checkTokenBudget(inputTokens: Int, outputTokens: Int, limit: Int) {
+    if (inputTokens.toLong() + outputTokens > limit) {
+        throw AicoreFailure("aicore_request_too_large")
+    }
+}
+
+private fun toolJsonPrompt(prompt: String): String = """
+    $prompt
+
+    Return exactly one JSON object, without Markdown fences or any text outside it.
+    For an answer use {"kind":"answer","text":"your reply","calls":[]}.
+    To request tools use {"kind":"tool_calls","text":"","calls":[{"name":"tool name","arguments":"{}"}]}.
+    Each arguments value must be a JSON object encoded as a string, matching the supplied tool's parameters.
+    Use only names from the supplied tools list, at most 8 calls, and never invent tool results.
+""".trimIndent()
+
 @RequiresApi(26)
 private class AicoreSession(preview: Boolean) : AutoCloseable {
     private val worker = Executors.newCachedThreadPool()
     var warm = false
+    var useJsonToolReplies = false
     val model: GenerativeModel = Generation.getClient(generationConfig {
         workerExecutor = worker
         modelConfig = modelConfig {

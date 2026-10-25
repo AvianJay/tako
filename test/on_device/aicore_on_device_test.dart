@@ -490,4 +490,169 @@ void main() {
       ),
     );
   });
+
+  group('plain JSON fallback', () {
+    const answer = {
+      'kind': 'answer',
+      'text': 'The result is one.',
+      'calls': <Object?>[],
+    };
+    const toolCall = {
+      'kind': 'tool_calls',
+      'text': '',
+      'calls': [
+        {'name': 'fixture_tool', 'arguments': '{"text":"one"}'},
+      ],
+    };
+    final toolJson = jsonEncode(toolCall);
+    Map<String, Object?> event(String type, Map<String, Object?> reply) =>
+        type == 'agent_json'
+        ? {'type': type, 'json': jsonEncode(reply)}
+        : {'type': type, ...reply};
+
+    for (final entry in {'answer': answer, 'tool call': toolCall}.entries) {
+      test('${entry.key} is validated and buffered until Done', () async {
+        final output = <ProviderEvent>[];
+        final complete = Completer<void>();
+        final subscription = engine
+            .generate(config, toolRequest, cancel: CancelToken())
+            .listen(output.add, onDone: complete.complete);
+        addTearDown(subscription.cancel);
+        await listening.future;
+        await emit(event('agent_json', entry.value));
+        expect(output, isEmpty);
+        await emit({'type': 'done', 'reason': 'stop'});
+        await complete.future;
+        expect(output.whereType<ProviderError>(), isEmpty);
+        if (entry.key == 'answer') {
+          expect(output.whereType<TextDelta>().single.text, answer['text']);
+          expect(output.whereType<ToolCallStart>(), isEmpty);
+          expect(output.whereType<Done>().single.stopReason, 'stop');
+        } else {
+          final start = output.whereType<ToolCallStart>().single;
+          expect(start.name, 'fixture_tool');
+          final args = output.whereType<ToolCallArgsDelta>().single;
+          expect(args.id, start.id);
+          expect(jsonDecode(args.jsonFragment), {'text': 'one'});
+          expect(output.whereType<ToolCallEnd>().single.id, start.id);
+          expect(output.whereType<Done>().single.stopReason, 'tool_calls');
+        }
+      });
+    }
+
+    final invalidJson = <String, Object?>{
+      'missing payload': null,
+      'non-string payload': toolCall,
+      'malformed JSON': '{"kind":',
+      'non-object JSON': '[]',
+      'wrong field type': jsonEncode({...answer, 'calls': ''}),
+      'unknown tool': jsonEncode({
+        ...toolCall,
+        'calls': [
+          {'name': 'unknown_tool', 'arguments': '{}'},
+        ],
+      }),
+      'trailing text': '$toolJson extra text',
+      'markdown fence': '```json\n$toolJson\n```',
+      'oversized payload': '$toolJson${' ' * 262144}',
+    };
+    for (final entry in invalidJson.entries) {
+      test('${entry.key} never publishes calls', () async {
+        final result = engine
+            .generate(config, toolRequest, cancel: CancelToken())
+            .toList();
+        await listening.future;
+        await emit({'type': 'agent_json', 'json': entry.value});
+        expect(
+          (await result).single,
+          isA<ProviderError>().having(
+            (e) => e.code,
+            'code',
+            'aicore_invalid_tools',
+          ),
+        );
+      });
+    }
+
+    test('requires tools in the request', () async {
+      final result = engine
+          .generate(config, request, cancel: CancelToken())
+          .toList();
+      await listening.future;
+      await emit(event('agent_json', toolCall));
+      expect(
+        (await result).single,
+        isA<ProviderError>().having(
+          (e) => e.code,
+          'code',
+          'aicore_invalid_tools',
+        ),
+      );
+    });
+
+    for (final (first, second) in [
+      ('agent_json', 'agent_json'),
+      ('agent_json', 'agent'),
+      ('agent', 'agent_json'),
+    ]) {
+      test('$first followed by $second discards both tool rounds', () async {
+        final result = engine
+            .generate(config, toolRequest, cancel: CancelToken())
+            .toList();
+        await listening.future;
+        await emit(event(first, toolCall));
+        await emit(event(second, toolCall));
+        expect(
+          (await result).single,
+          isA<ProviderError>().having(
+            (e) => e.code,
+            'code',
+            'aicore_invalid_tools',
+          ),
+        );
+      });
+    }
+
+    for (final ending in [
+      'stream end',
+      'length',
+      'missing reason',
+      'native error',
+      'cancelled',
+    ]) {
+      test('$ending discards a complete but uncommitted tool round', () async {
+        final cancel = CancelToken();
+        final result = engine
+            .generate(config, toolRequest, cancel: cancel)
+            .toList();
+        await listening.future;
+        await emit(event('agent_json', toolCall));
+        switch (ending) {
+          case 'stream end':
+            await emit(null);
+          case 'length':
+            await emit({'type': 'done', 'reason': 'length'});
+          case 'missing reason':
+            await emit({'type': 'done'});
+          case 'native error':
+            await emit(null, error: 'aicore_failed');
+          case 'cancelled':
+            cancel.cancel();
+        }
+        final output = await result;
+        if (ending == 'cancelled') {
+          expect(output, isEmpty);
+        } else {
+          expect(
+            output.single,
+            isA<ProviderError>().having((e) => e.code, 'code', switch (ending) {
+              'stream end' => 'incomplete_stream',
+              'native error' => 'aicore_failed',
+              _ => 'aicore_invalid_tools',
+            }),
+          );
+        }
+      });
+    }
+  });
 }
