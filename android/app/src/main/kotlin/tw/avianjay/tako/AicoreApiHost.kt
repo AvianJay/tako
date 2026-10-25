@@ -11,6 +11,7 @@ import com.google.mlkit.genai.prompt.Generation
 import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.ModelPreference
 import com.google.mlkit.genai.prompt.ModelReleaseStage
+import com.google.mlkit.genai.prompt.SystemInstruction
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.TypedCandidate
 import com.google.mlkit.genai.prompt.generateContentRequest
@@ -257,7 +258,10 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                         }
                         if (current.useJsonToolReplies) {
                             stage = "request.json"
-                            val jsonRequest = generateContentRequest(TextPart(toolJsonPrompt(prompt))) {
+                            // Keep the envelope separate from chat instructions: every reply,
+                            // including a greeting, must contain all three required fields.
+                            val jsonRequest = generateContentRequest(TextPart(prompt)) {
+                                systemInstruction = SystemInstruction(TOOL_JSON_PROTOCOL)
                                 temperature = 0.2f
                                 topK = 40
                                 candidateCount = 1
@@ -268,8 +272,13 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                             checkTokenBudget(count, maxTokens, tokenLimit)
                             stage = "generate.json"
                             val candidate = model.generateContent(jsonRequest).candidates.firstOrNull()
+                            stage = "response.json"
                             if (candidate?.finishReason != Candidate.FinishReason.STOP ||
-                                candidate.text.isBlank()) throw AicoreFailure("aicore_invalid_tools")
+                                candidate.text.isBlank()) {
+                                Log.w("TakoAicore", "stage=$stage modelId=$id " +
+                                    "finishReason=${candidate?.finishReason} responseChars=${candidate?.text?.length ?: 0}")
+                                throw AicoreFailure("aicore_invalid_tools")
+                            }
                             // Dart strictly parses and validates the entire reply, then waits
                             // for done before publishing any tool call to the permission gate.
                             sink.success(mapOf("type" to "agent_json", "json" to candidate.text))
@@ -345,14 +354,15 @@ private fun checkTokenBudget(inputTokens: Int, outputTokens: Int, limit: Int) {
     }
 }
 
-private fun toolJsonPrompt(prompt: String): String = """
-    $prompt
-
+private val TOOL_JSON_PROTOCOL = """
     Return exactly one JSON object, without Markdown fences or any text outside it.
     For an answer use {"kind":"answer","text":"your reply","calls":[]}.
     To request tools use {"kind":"tool_calls","text":"","calls":[{"name":"tool name","arguments":"{}"}]}.
     Each arguments value must be a JSON object encoded as a string, matching the supplied tool's parameters.
     Use only names from the supplied tools list, at most 8 calls, and never invent tool results.
+    This JSON envelope is required for every reply, including greetings and answers needing no tools.
+    The supplied system's formatting and language instructions apply only to the text string inside this envelope.
+    Include all three fields: kind, text, calls. For an answer, calls must be empty and text must contain the answer.
 """.trimIndent()
 
 @RequiresApi(26)

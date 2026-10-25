@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/on_device/on_device_capability.dart';
@@ -198,6 +199,19 @@ abstract class SystemOnDevice extends UnavailableOnDevice {
       'Invalid system model tool reply',
       code: '${service}_invalid_tools',
     );
+    void reportInvalid(String stage, String reason) {
+      // Only fixed labels and the allowlisted model ID belong in logs.
+      debugPrint(
+        'SystemOnDevice service=$service modelId=${config.model} '
+        'stage=$stage reason=$reason',
+      );
+    }
+
+    Never invalid(String stage, String reason) {
+      reportInvalid(stage, reason);
+      throw invalidTools;
+    }
+
     final id = ++_nextRequest;
     final incoming = StreamController<Object?>();
     StreamSubscription<Object?>? subscription;
@@ -252,13 +266,12 @@ abstract class SystemOnDevice extends UnavailableOnDevice {
             _loading = null;
             _changed();
           case 'text':
-            if (request.tools.isNotEmpty || value['text'] is! String) {
-              throw invalidTools;
-            }
+            if (request.tools.isNotEmpty) invalid('event', 'unexpected_text');
+            if (value['text'] is! String) invalid('event', 'text_type');
             yield TextDelta(value['text']! as String);
           case 'image':
             final data = value['data'];
-            if (request.tools.isNotEmpty) throw invalidTools;
+            if (request.tools.isNotEmpty) invalid('event', 'unexpected_image');
             if (data is! Uint8List) {
               throw const ProviderError(
                 'Invalid generated image',
@@ -268,35 +281,40 @@ abstract class SystemOnDevice extends UnavailableOnDevice {
             yield generatedImageFromBytes(data);
           case 'agent':
           case 'agent_json':
-            if (request.tools.isEmpty || pendingAgent != null) {
-              throw invalidTools;
-            }
+            if (request.tools.isEmpty) invalid('event', 'unexpected_agent');
+            if (pendingAgent != null) invalid('event', 'duplicate_agent');
             Map<Object?, Object?> reply = value;
             if (value['type'] == 'agent_json') {
               final json = value['json'];
-              if (json is! String || json.length > 262144) throw invalidTools;
+              if (json is! String) invalid('json', 'payload_type');
+              if (json.length > 262144) invalid('json', 'payload_size');
               final Object? decoded;
               try {
                 // Require one whole JSON object; never repair, strip fences,
                 // or extract a tool call from partially generated text.
                 decoded = jsonDecode(json);
               } on FormatException {
-                throw invalidTools;
+                invalid('json', 'json_syntax');
               }
-              if (decoded is! Map<String, Object?>) throw invalidTools;
+              if (decoded is! Map<String, Object?>) {
+                invalid('json', 'json_object');
+              }
               reply = decoded;
             }
             pendingAgent = systemModelAgentEvents(
               reply,
               request.tools,
               invalidCode: '${service}_invalid_tools',
+              onInvalid: (reason) => reportInvalid('reply', reason),
             );
           case 'usage':
             yield Usage(inputTokens: asInt(value['inputTokens']));
           case 'done':
-            if (request.tools.isNotEmpty &&
-                (pendingAgent == null || value['reason'] != 'stop')) {
-              throw invalidTools;
+            if (request.tools.isNotEmpty) {
+              if (pendingAgent == null) invalid('completion', 'missing_agent');
+              if (value['reason'] != 'stop') {
+                invalid('completion', 'unexpected_completion');
+              }
             }
             for (final event in pendingAgent ?? const <ProviderEvent>[]) {
               if (cancel.isCancelled) return;
@@ -317,6 +335,9 @@ abstract class SystemOnDevice extends UnavailableOnDevice {
         }
       }
       if (!cancel.isCancelled) {
+        if (request.tools.isNotEmpty) {
+          reportInvalid('completion', 'missing_completion');
+        }
         yield const ProviderError(
           'System model stream ended before completion',
           code: 'incomplete_stream',

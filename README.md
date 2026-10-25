@@ -65,7 +65,8 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     truncated requests never execute tools. This is not a native `tools=` SDK
     interface. Image input and thinking are not enabled by this integration.
     If Nano 4 Full reports AICore inference error 200 for structured output,
-    Tako retries with a JSON-only prompt for that session. The complete JSON
+    Tako retries with a complete JSON protocol in a native system instruction.
+    That session uses this protocol for subsequent tool replies. The complete JSON
     reply still passes the same validation and permission checks before any
     tool runs; a new session tries native structured output again.
     See [ML Kit Prompt API](https://developers.google.com/ml-kit/genai/prompt/android/get-started)

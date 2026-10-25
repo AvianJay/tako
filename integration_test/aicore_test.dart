@@ -3,8 +3,10 @@
 // Optionally add --dart-define=AICORE_MODEL=aicore:gemini-nano-preview
 // (or aicore:gemini-nano) to require one route to be ready and test only it.
 // The native service reports the actual base model in the STATUS output.
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -13,6 +15,8 @@ import 'package:tako/core/chat/message.dart';
 import 'package:tako/core/on_device/on_device_capability.dart';
 import 'package:tako/core/providers/providers.dart';
 import 'package:tako/platform/android/aicore_on_device.dart';
+
+import '../test/on_device/real_chat_fixture.dart';
 
 const _selectedModel = String.fromEnvironment('AICORE_MODEL');
 const _generationTimeout = Duration(minutes: 2);
@@ -47,9 +51,9 @@ ChatRequest _request({required bool structured}) => ChatRequest(
 
 Future<List<ProviderEvent>> _generate(
   AicoreOnDevice engine,
-  LocalModel model, {
-  required bool structured,
-}) async {
+  LocalModel model,
+  ChatRequest request,
+) async {
   final cancel = CancelToken();
   try {
     return await engine
@@ -61,9 +65,9 @@ Future<List<ProviderEvent>> _generate(
             baseUrl: '',
             model: model.id,
             capabilities: model.profile().capabilities,
-            maxOutputTokens: 256,
+            maxOutputTokens: request.maxTokens ?? 1024,
           ),
-          _request(structured: structured),
+          request,
           cancel: cancel,
         )
         .toList()
@@ -72,7 +76,7 @@ Future<List<ProviderEvent>> _generate(
           onTimeout: () {
             cancel.cancel();
             throw TestFailure(
-              '${model.id}: ${structured ? 'structured' : 'text'} '
+              '${model.id}: ${request.tools.isNotEmpty ? 'structured' : 'text'} '
               'generation exceeded $_generationTimeout.',
             );
           },
@@ -96,8 +100,38 @@ void main() {
 
   for (final candidate in models) {
     if (_selectedModel.isNotEmpty && candidate.id != _selectedModel) continue;
-    for (final structured in [false, true]) {
-      final mode = structured ? 'structured answer' : 'text';
+    for (final scenario in const [
+      (name: 'text', structured: false, userText: null, toolCall: false),
+      (
+        name: 'minimal structured answer',
+        structured: true,
+        userText: null,
+        toolCall: false,
+      ),
+      (
+        name: 'real app greeting in English',
+        structured: true,
+        userText: 'hi',
+        toolCall: false,
+      ),
+      (
+        name: 'real app greeting in Chinese',
+        structured: true,
+        userText: '你好',
+        toolCall: false,
+      ),
+      (
+        name: 'real app read-only tool request',
+        structured: true,
+        userText:
+            'Use get_device_status now to read the current battery level. '
+            'Call that tool exactly once with no arguments; do not guess '
+            'the battery level or call any other tool.',
+        toolCall: true,
+      ),
+    ]) {
+      final structured = scenario.structured;
+      final mode = scenario.name;
       testWidgets(
         '${candidate.id} generates $mode through native Android AICore',
         (tester) async {
@@ -152,23 +186,69 @@ void main() {
             return;
           }
 
-          final events = await _generate(engine, model, structured: structured);
+          final request = scenario.userText == null
+              ? _request(structured: structured)
+              : await realisticAicoreChatRequest(
+                  promptTemplate: await rootBundle.loadString(
+                    'assets/prompts/system_prompt.md',
+                  ),
+                  userText: scenario.userText!,
+                );
+          if (scenario.userText != null) {
+            // Exercise the full production prompt and registry, including the
+            // real user context envelope and normal 1,024-token output budget.
+            expect(request.tools.length, greaterThanOrEqualTo(32));
+            expect(request.maxTokens, 1024);
+            expect(request.messages.single.contextEnvelope, isNotNull);
+            expect(
+              request.tools.map((tool) => tool.name),
+              containsAll([
+                'get_device_status',
+                'file_read',
+                'browser_read',
+                'memory_search',
+                'automation_save',
+                'fetch_page',
+              ]),
+            );
+          }
+          final events = await _generate(engine, model, request);
           expect(
             events.whereType<ProviderError>().map((event) => event.code),
             isEmpty,
             reason: '${model.id} $mode failed in the native AICore path.',
           );
-          expect(events.whereType<ToolCallStart>(), isEmpty);
-          expect(events.whereType<ToolCallArgsDelta>(), isEmpty);
-          expect(events.whereType<ToolCallEnd>(), isEmpty);
           final reply = events.whereType<TextDelta>().map((e) => e.text).join();
-          expect(
-            reply.trim(),
-            isNotEmpty,
-            reason: '${model.id} $mode was empty.',
-          );
+          if (scenario.toolCall) {
+            // Inspect the proposed call only. There is no executor attached to
+            // this generation, so no device data is read or action performed.
+            final calls = events.whereType<ToolCallStart>().toList();
+            expect(calls, hasLength(1));
+            expect(calls.single.name, 'get_device_status');
+            final ends = events.whereType<ToolCallEnd>().toList();
+            expect(ends, hasLength(1));
+            expect(ends.single.id, calls.single.id);
+            final arguments = events
+                .whereType<ToolCallArgsDelta>()
+                .where((event) => event.id == calls.single.id)
+                .map((event) => event.jsonFragment)
+                .join();
+            expect(jsonDecode(arguments), <String, Object?>{});
+          } else {
+            expect(events.whereType<ToolCallStart>(), isEmpty);
+            expect(events.whereType<ToolCallArgsDelta>(), isEmpty);
+            expect(events.whereType<ToolCallEnd>(), isEmpty);
+            expect(
+              reply.trim(),
+              isNotEmpty,
+              reason: '${model.id} $mode was empty.',
+            );
+          }
           expect(events.whereType<Done>(), hasLength(1));
-          expect(events.whereType<Done>().single.stopReason, 'stop');
+          expect(
+            events.whereType<Done>().single.stopReason,
+            scenario.toolCall ? 'tool_calls' : 'stop',
+          );
           expect(engine.loadedModel, model.id);
           expect(engine.loadingModel, isNull);
           debugPrint('AICORE PASS ${model.id}: $mode (${reply.length} chars)');

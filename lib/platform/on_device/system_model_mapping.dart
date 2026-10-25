@@ -76,44 +76,50 @@ List<ProviderEvent> systemModelAgentEvents(
   Map<Object?, Object?> reply,
   List<ToolDefinition> tools, {
   required String invalidCode,
+  void Function(String reason)? onInvalid,
 }) {
-  final invalid = ProviderError(
-    'The system model returned an invalid tool reply',
-    code: invalidCode,
-  );
+  Never invalid(String reason) {
+    // Reasons are fixed labels: never pass model content to diagnostics.
+    onInvalid?.call(reason);
+    throw ProviderError(
+      'The system model returned an invalid tool reply',
+      code: invalidCode,
+    );
+  }
+
   final kind = reply['kind'];
   final text = reply['text'];
   final calls = reply['calls'];
-  if (text is! String ||
-      text.length > 65536 ||
-      calls is! List<Object?> ||
-      calls.length > 8) {
-    throw invalid;
-  }
+  if (text is! String) invalid('text_type');
+  if (text.length > 65536) invalid('text_size');
+  if (calls is! List<Object?>) invalid('calls_type');
+  if (calls.length > 8) invalid('calls_size');
   if (kind == 'answer') {
-    if (calls.isNotEmpty || text.trim().isEmpty) throw invalid;
+    if (calls.isNotEmpty) invalid('answer_calls');
+    if (text.trim().isEmpty) invalid('answer_blank');
     return [TextDelta(text)];
   }
-  if (kind != 'tool_calls' || calls.isEmpty || tools.isEmpty) throw invalid;
+  if (kind is! String) invalid('kind_type');
+  if (kind != 'tool_calls') invalid('kind');
+  if (calls.isEmpty) invalid('empty_calls');
+  if (tools.isEmpty) invalid('tools_disabled');
   final allowed = tools.map((tool) => tool.name).toSet();
   final parsed = <(String, String)>[];
   for (final call in calls) {
-    if (call is! Map<Object?, Object?>) throw invalid;
+    if (call is! Map<Object?, Object?>) invalid('call_type');
     final name = call['name'];
     final arguments = call['arguments'];
-    if (name is! String ||
-        !allowed.contains(name) ||
-        arguments is! String ||
-        arguments.length > 65536) {
-      throw invalid;
-    }
+    if (name is! String) invalid('name_type');
+    if (!allowed.contains(name)) invalid('unknown_tool');
+    if (arguments is! String) invalid('arguments_type');
+    if (arguments.length > 65536) invalid('arguments_size');
     Object? decoded;
     try {
       decoded = jsonDecode(arguments);
     } on FormatException {
-      throw invalid;
+      invalid('arguments_json');
     }
-    if (decoded is! Map<String, Object?>) throw invalid;
+    if (decoded is! Map<String, Object?>) invalid('arguments_object');
     parsed.add((name, jsonEncode(decoded)));
   }
   return [
