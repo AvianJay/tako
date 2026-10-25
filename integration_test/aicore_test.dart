@@ -21,6 +21,68 @@ import '../test/on_device/real_chat_fixture.dart';
 const _selectedModel = String.fromEnvironment('AICORE_MODEL');
 const _generationTimeout = Duration(minutes: 2);
 
+/// Observe shapes on the engine's own subscription without logging contents.
+class _ShapeDiagnosticEvents extends EventChannel {
+  const _ShapeDiagnosticEvents() : super('tw.avianjay.tako/aicore/events');
+
+  @override
+  Stream<dynamic> receiveBroadcastStream([dynamic arguments]) =>
+      super.receiveBroadcastStream(arguments).map((event) {
+        if (event is Map<Object?, Object?> && event['type'] == 'agent_json') {
+          final json = event['json'];
+          if (json is! String || json.length > 262144) {
+            debugPrint('AICORE JSON SHAPE invalid_payload');
+            return event;
+          }
+          final Object? decoded;
+          try {
+            decoded = jsonDecode(json);
+          } on FormatException {
+            debugPrint('AICORE JSON SHAPE invalid_json');
+            return event;
+          }
+          if (decoded is! Map<String, Object?>) {
+            debugPrint('AICORE JSON SHAPE non_object');
+            return event;
+          }
+          final hasCalls = decoded.containsKey('calls');
+          final calls = decoded['calls'];
+          final kindKnown = switch (decoded['kind']) {
+            'answer' => 'answer',
+            'tool_calls' => 'tool_calls',
+            _ => 'unknown',
+          };
+          final argumentTypes = calls is List<Object?>
+              ? [
+                  for (final call in calls.take(9))
+                    if (call is! Map<String, Object?>)
+                      'invalid_call'
+                    else if (!call.containsKey('arguments'))
+                      'missing'
+                    else
+                      _shapeType(call['arguments']),
+                ]
+              : const <String>[];
+          debugPrint(
+            'AICORE JSON SHAPE hasCalls=$hasCalls '
+            'callsType=${hasCalls ? _shapeType(calls) : 'missing'} '
+            'kindKnown=$kindKnown argumentTypes=$argumentTypes',
+          );
+        }
+        return event;
+      });
+}
+
+String _shapeType(Object? value) => switch (value) {
+  null => 'null',
+  String() => 'string',
+  bool() => 'boolean',
+  num() => 'number',
+  List<Object?>() => 'list',
+  Map<Object?, Object?>() => 'object',
+  _ => 'other',
+};
+
 ChatRequest _request({required bool structured}) => ChatRequest(
   systemPrompt:
       'Answer the user briefly. Do not request any tools. '
@@ -151,7 +213,7 @@ void main() {
           // while the native Activity stays resumed. AICore enforces foreground
           // access itself; do not mistake that binding reset for a background app.
 
-          final engine = AicoreOnDevice();
+          final engine = AicoreOnDevice(events: const _ShapeDiagnosticEvents());
           addTearDown(() async {
             try {
               if (engine.isAvailable) {

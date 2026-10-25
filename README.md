@@ -64,11 +64,11 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     approvals, audit log and agent loop as other providers. Malformed or
     truncated requests never execute tools. This is not a native `tools=` SDK
     interface. Image input and thinking are not enabled by this integration.
-    If Nano 4 Full reports AICore inference error 200 for structured output,
-    Tako retries with a complete JSON protocol in a native system instruction.
-    That session uses this protocol for subsequent tool replies. The complete JSON
-    reply still passes the same validation and permission checks before any
-    tool runs; a new session tries native structured output again.
+    Nano 4 Full uses a JSON protocol in a native system instruction because its
+    typed inference can fail or return malformed nested tool arguments. JSON
+    object arguments are converted to the app's internal format, with the same
+    validation and permission checks before any tool runs. Other models retain
+    native structured output.
     See [ML Kit Prompt API](https://developers.google.com/ml-kit/genai/prompt/android/get-started)
     and [structured output](https://developers.google.com/ml-kit/genai/prompt/android/structured-output).
   - **Apple Intelligence (iOS 26):** Apple's on-device model appears in

@@ -497,6 +497,7 @@ void main() {
       'text': 'The result is one.',
       'calls': <Object?>[],
     };
+    const answerWithoutCalls = {'kind': 'answer', 'text': 'The result is one.'};
     const toolCall = {
       'kind': 'tool_calls',
       'text': '',
@@ -504,13 +505,39 @@ void main() {
         {'name': 'fixture_tool', 'arguments': '{"text":"one"}'},
       ],
     };
+    Map<String, Object?> toolReply(Object? arguments) => {
+      ...toolCall,
+      'calls': [
+        {'name': 'fixture_tool', 'arguments': arguments},
+      ],
+    };
+    final objectToolCall = toolReply({'text': 'one'});
+    final nestedToolCall = toolReply({
+      'text': 'one',
+      'options': {
+        'items': [
+          1,
+          true,
+          null,
+          {'escaped': '\n"\\'},
+        ],
+      },
+    });
     final toolJson = jsonEncode(toolCall);
     Map<String, Object?> event(String type, Map<String, Object?> reply) =>
         type == 'agent_json'
         ? {'type': type, 'json': jsonEncode(reply)}
         : {'type': type, ...reply};
 
-    for (final entry in {'answer': answer, 'tool call': toolCall}.entries) {
+    for (final entry in {
+      'answer': answer,
+      'answer without calls': answerWithoutCalls,
+      'tool call': toolCall,
+      'empty object arguments': toolReply({}),
+      'object arguments': objectToolCall,
+      'nested object arguments': nestedToolCall,
+      'arguments at encoded size limit': toolReply({'text': 'x' * 65525}),
+    }.entries) {
       test('${entry.key} is validated and buffered until Done', () async {
         final output = <ProviderEvent>[];
         final complete = Completer<void>();
@@ -524,7 +551,7 @@ void main() {
         await emit({'type': 'done', 'reason': 'stop'});
         await complete.future;
         expect(output.whereType<ProviderError>(), isEmpty);
-        if (entry.key == 'answer') {
+        if (entry.value['kind'] == 'answer') {
           expect(output.whereType<TextDelta>().single.text, answer['text']);
           expect(output.whereType<ToolCallStart>(), isEmpty);
           expect(output.whereType<Done>().single.stopReason, 'stop');
@@ -533,7 +560,13 @@ void main() {
           expect(start.name, 'fixture_tool');
           final args = output.whereType<ToolCallArgsDelta>().single;
           expect(args.id, start.id);
-          expect(jsonDecode(args.jsonFragment), {'text': 'one'});
+          final expected =
+              ((entry.value['calls'] as List).single as Map)['arguments'];
+          expect(
+            jsonDecode(args.jsonFragment),
+            expected is String ? jsonDecode(expected) : expected,
+          );
+          expect(args.jsonFragment.length, lessThanOrEqualTo(65536));
           expect(output.whereType<ToolCallEnd>().single.id, start.id);
           expect(output.whereType<Done>().single.stopReason, 'tool_calls');
         }
@@ -546,12 +579,57 @@ void main() {
       'malformed JSON': '{"kind":',
       'non-object JSON': '[]',
       'wrong field type': jsonEncode({...answer, 'calls': ''}),
+      'tool reply missing calls': jsonEncode({
+        'kind': 'tool_calls',
+        'text': '',
+      }),
+      'unknown kind missing calls': jsonEncode({
+        'kind': 'unknown',
+        'text': 'Hello',
+      }),
+      'unknown kind empty calls': jsonEncode({...answer, 'kind': 'unknown'}),
+      'answer null calls': jsonEncode({...answer, 'calls': null}),
+      'answer number calls': jsonEncode({...answer, 'calls': 1}),
+      'answer boolean calls': jsonEncode({...answer, 'calls': false}),
+      'answer object calls': jsonEncode({...answer, 'calls': {}}),
+      'answer nonempty calls': jsonEncode({
+        ...answer,
+        'calls': objectToolCall['calls'],
+      }),
+      'answer missing calls and text': jsonEncode({'kind': 'answer'}),
+      'answer missing calls with null text': jsonEncode({
+        ...answerWithoutCalls,
+        'text': null,
+      }),
+      'answer missing calls with blank text': jsonEncode({
+        ...answerWithoutCalls,
+        'text': ' ',
+      }),
       'unknown tool': jsonEncode({
         ...toolCall,
         'calls': [
           {'name': 'unknown_tool', 'arguments': '{}'},
         ],
       }),
+      'unknown tool with object arguments': jsonEncode({
+        ...objectToolCall,
+        'calls': [
+          {
+            'name': 'unknown_tool',
+            'arguments': {'text': 'one'},
+          },
+        ],
+      }),
+      'null arguments': jsonEncode(toolReply(null)),
+      'list arguments': jsonEncode(toolReply([])),
+      'number arguments': jsonEncode(toolReply(42)),
+      'boolean arguments': jsonEncode(toolReply(true)),
+      'oversized encoded object arguments': jsonEncode(
+        toolReply({'text': 'x' * 65526}),
+      ),
+      'partial object arguments':
+          '{"kind":"tool_calls","text":"","calls":'
+          '[{"name":"fixture_tool","arguments":{"text":"one"',
       'trailing text': '$toolJson extra text',
       'markdown fence': '```json\n$toolJson\n```',
       'oversized payload': '$toolJson${' ' * 262144}',
@@ -563,6 +641,27 @@ void main() {
             .toList();
         await listening.future;
         await emit({'type': 'agent_json', 'json': entry.value});
+        expect(
+          (await result).single,
+          isA<ProviderError>().having(
+            (e) => e.code,
+            'code',
+            'aicore_invalid_tools',
+          ),
+        );
+      });
+    }
+
+    for (final entry in {
+      'object arguments': objectToolCall,
+      'answer without calls': answerWithoutCalls,
+    }.entries) {
+      test('native agent events still reject ${entry.key}', () async {
+        final result = engine
+            .generate(config, toolRequest, cancel: CancelToken())
+            .toList();
+        await listening.future;
+        await emit(event('agent', entry.value));
         expect(
           (await result).single,
           isA<ProviderError>().having(
@@ -613,46 +712,58 @@ void main() {
       });
     }
 
-    for (final ending in [
-      'stream end',
-      'length',
-      'missing reason',
-      'native error',
-      'cancelled',
-    ]) {
-      test('$ending discards a complete but uncommitted tool round', () async {
-        final cancel = CancelToken();
-        final result = engine
-            .generate(config, toolRequest, cancel: cancel)
-            .toList();
-        await listening.future;
-        await emit(event('agent_json', toolCall));
-        switch (ending) {
-          case 'stream end':
-            await emit(null);
-          case 'length':
-            await emit({'type': 'done', 'reason': 'length'});
-          case 'missing reason':
-            await emit({'type': 'done'});
-          case 'native error':
-            await emit(null, error: 'aicore_failed');
-          case 'cancelled':
-            cancel.cancel();
-        }
-        final output = await result;
-        if (ending == 'cancelled') {
-          expect(output, isEmpty);
-        } else {
-          expect(
-            output.single,
-            isA<ProviderError>().having((e) => e.code, 'code', switch (ending) {
-              'stream end' => 'incomplete_stream',
-              'native error' => 'aicore_failed',
-              _ => 'aicore_invalid_tools',
-            }),
-          );
-        }
-      });
+    for (final entry in {
+      'tool round': objectToolCall,
+      'answer without calls': answerWithoutCalls,
+    }.entries) {
+      for (final ending in [
+        'stream end',
+        'length',
+        'missing reason',
+        'native error',
+        'cancelled',
+      ]) {
+        test(
+          '$ending discards a complete but uncommitted ${entry.key}',
+          () async {
+            final cancel = CancelToken();
+            final result = engine
+                .generate(config, toolRequest, cancel: cancel)
+                .toList();
+            await listening.future;
+            await emit(event('agent_json', entry.value));
+            switch (ending) {
+              case 'stream end':
+                await emit(null);
+              case 'length':
+                await emit({'type': 'done', 'reason': 'length'});
+              case 'missing reason':
+                await emit({'type': 'done'});
+              case 'native error':
+                await emit(null, error: 'aicore_failed');
+              case 'cancelled':
+                cancel.cancel();
+            }
+            final output = await result;
+            if (ending == 'cancelled') {
+              expect(output, isEmpty);
+            } else {
+              expect(
+                output.single,
+                isA<ProviderError>().having(
+                  (e) => e.code,
+                  'code',
+                  switch (ending) {
+                    'stream end' => 'incomplete_stream',
+                    'native error' => 'aicore_failed',
+                    _ => 'aicore_invalid_tools',
+                  },
+                ),
+              );
+            }
+          },
+        );
+      }
     }
   });
 }

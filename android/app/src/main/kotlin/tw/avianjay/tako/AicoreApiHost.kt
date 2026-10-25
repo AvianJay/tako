@@ -38,9 +38,6 @@ import kotlinx.coroutines.sync.withLock
 
 private const val STABLE_ID = "aicore:gemini-nano"
 private const val PREVIEW_ID = "aicore:gemini-nano-preview"
-// Observed with Nano 4 Full on AICore 26.10: typed inference fails even for
-// a single String field, while ordinary inference works. No public SDK constant.
-private const val NANO_V4_TYPED_INFERENCE_ERROR = 200
 
 /** ML Kit owns inference; Tako's Dart agent loop executes approved tools. */
 class AicoreApiHost(messenger: BinaryMessenger) :
@@ -224,39 +221,10 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                         if (!model.isStructuredOutputFeatureAvailable()) {
                             throw AicoreFailure("aicore_tools_unavailable")
                         }
-                        stage = "request.typed"
-                        var count = 0
-                        if (!current.useJsonToolReplies) {
-                            val typed = generateTypedContentRequest(outgoing, AicoreAgentReply::class)
-                            stage = "countTokens.typed"
-                            count = model.countTokens(typed).totalTokens
-                            checkTokenBudget(count, maxTokens, tokenLimit)
-                            stage = "generate.typed"
-                            val response = try {
-                                model.generateContent(typed)
-                            } catch (error: GenAiException) {
-                                if (error.errorCode != NANO_V4_TYPED_INFERENCE_ERROR ||
-                                    metadata["baseModelName"] != "nano-v4-full") throw error
-                                logFailure("generate", id, stage, error)
-                                // Retry without native constrained decoding. Remember only for
-                                // this session; a new session probes typed support again.
-                                current.useJsonToolReplies = true
-                                null
-                            }
-                            if (response != null) {
-                                // Partial/truncated JSON never reaches the executor.
-                                stage = "response.typed"
-                                val candidate = response.candidates.firstOrNull()
-                                if (candidate?.finishReason != TypedCandidate.TypedFinishReason.STOP ||
-                                    candidate.response == null) throw AicoreFailure("aicore_invalid_tools")
-                                val reply = candidate.response!!
-                                sink.success(mapOf("type" to "agent", "kind" to reply.kind,
-                                    "text" to reply.text, "calls" to reply.calls.map {
-                                        mapOf("name" to it.name, "arguments" to it.arguments)
-                                    }))
-                            }
-                        }
-                        if (current.useJsonToolReplies) {
+                        // Nano 4's typed path can fail with error 200 or return invalid
+                        // nested arguments. Use the validated JSON protocol consistently;
+                        // other models keep native constrained decoding.
+                        val count = if (metadata["baseModelName"] == "nano-v4-full") {
                             stage = "request.json"
                             // Keep the envelope separate from chat instructions: every reply,
                             // including a greeting, must contain all three required fields.
@@ -268,7 +236,7 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                                 maxOutputTokens = maxTokens
                             }
                             stage = "countTokens.json"
-                            count = model.countTokens(jsonRequest).totalTokens
+                            val count = model.countTokens(jsonRequest).totalTokens
                             checkTokenBudget(count, maxTokens, tokenLimit)
                             stage = "generate.json"
                             val candidate = model.generateContent(jsonRequest).candidates.firstOrNull()
@@ -282,6 +250,24 @@ class AicoreApiHost(messenger: BinaryMessenger) :
                             // Dart strictly parses and validates the entire reply, then waits
                             // for done before publishing any tool call to the permission gate.
                             sink.success(mapOf("type" to "agent_json", "json" to candidate.text))
+                            count
+                        } else {
+                            stage = "request.typed"
+                            val typed = generateTypedContentRequest(outgoing, AicoreAgentReply::class)
+                            stage = "countTokens.typed"
+                            val count = model.countTokens(typed).totalTokens
+                            checkTokenBudget(count, maxTokens, tokenLimit)
+                            stage = "generate.typed"
+                            val candidate = model.generateContent(typed).candidates.firstOrNull()
+                            stage = "response.typed"
+                            if (candidate?.finishReason != TypedCandidate.TypedFinishReason.STOP ||
+                                candidate.response == null) throw AicoreFailure("aicore_invalid_tools")
+                            val reply = candidate.response!!
+                            sink.success(mapOf("type" to "agent", "kind" to reply.kind,
+                                "text" to reply.text, "calls" to reply.calls.map {
+                                    mapOf("name" to it.name, "arguments" to it.arguments)
+                                }))
+                            count
                         }
                         sink.success(mapOf("type" to "usage", "inputTokens" to count))
                         sink.success(mapOf("type" to "done", "reason" to "stop"))
@@ -357,8 +343,9 @@ private fun checkTokenBudget(inputTokens: Int, outputTokens: Int, limit: Int) {
 private val TOOL_JSON_PROTOCOL = """
     Return exactly one JSON object, without Markdown fences or any text outside it.
     For an answer use {"kind":"answer","text":"your reply","calls":[]}.
-    To request tools use {"kind":"tool_calls","text":"","calls":[{"name":"tool name","arguments":"{}"}]}.
-    Each arguments value must be a JSON object encoded as a string, matching the supplied tool's parameters.
+    To request tools use {"kind":"tool_calls","text":"","calls":[{"name":"tool name","arguments":{}}]}.
+    Each arguments value must be a JSON object matching the supplied tool's parameters, not a JSON-encoded string.
+    Use an empty object {} for a tool without parameters, never an empty string.
     Use only names from the supplied tools list, at most 8 calls, and never invent tool results.
     This JSON envelope is required for every reply, including greetings and answers needing no tools.
     The supplied system's formatting and language instructions apply only to the text string inside this envelope.
@@ -369,7 +356,6 @@ private val TOOL_JSON_PROTOCOL = """
 private class AicoreSession(preview: Boolean) : AutoCloseable {
     private val worker = Executors.newCachedThreadPool()
     var warm = false
-    var useJsonToolReplies = false
     val model: GenerativeModel = Generation.getClient(generationConfig {
         workerExecutor = worker
         modelConfig = modelConfig {

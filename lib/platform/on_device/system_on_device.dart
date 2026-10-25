@@ -299,6 +299,28 @@ abstract class SystemOnDevice extends UnavailableOnDevice {
               if (decoded is! Map<String, Object?>) {
                 invalid('json', 'json_object');
               }
+              // A JSON answer may omit calls to express no tool requests.
+              // Explicit calls and every tool_calls reply remain validated.
+              if (decoded['kind'] == 'answer' &&
+                  !decoded.containsKey('calls')) {
+                decoded['calls'] = <Object?>[];
+              }
+              // JSON replies can carry argument objects directly. Normalize
+              // only those objects; the existing validator still checks every
+              // call, encoded argument size and allowed tool before publishing.
+              final calls = decoded['calls'];
+              if (calls is List<Object?>) {
+                for (final call in calls) {
+                  if (call is Map<String, Object?> &&
+                      call['arguments'] is Map<String, Object?>) {
+                    try {
+                      call['arguments'] = jsonEncode(call['arguments']);
+                    } on JsonUnsupportedObjectError {
+                      invalid('reply', 'arguments_json');
+                    }
+                  }
+                }
+              }
               reply = decoded;
             }
             pendingAgent = systemModelAgentEvents(
