@@ -110,6 +110,53 @@ void main() {
     expect(iosDeviceToolNames, isNot(contains('resolve_app')));
   });
   test(
+    'an English name finds a localized label through its package name',
+    () async {
+      final api = FakeApi()
+        ..apps = [
+          DeviceAppEntry(label: '蝦皮購物', packageName: 'com.shopee.tw'),
+          DeviceAppEntry(label: '設定', packageName: 'com.android.settings'),
+          DeviceAppEntry(
+            label: '時鐘',
+            packageName: 'com.google.android.deskclock',
+          ),
+        ];
+      final registry = ToolRegistry(
+        createDeviceTools(NativeDeviceTools(platform: 'Android', api: api)),
+      );
+      final opened = await registry.get('open_app')!.run({
+        'title': 'Open Shopee',
+        'name': 'Shopee',
+      }, context());
+      expect(opened.isError, isFalse, reason: opened.content);
+      expect(api.launchedApps, ['com.shopee.tw']);
+      final settings = await registry.get('resolve_app')!.run({
+        'name': 'Settings',
+      }, context());
+      expect((jsonDecode(settings.content) as Map)['apps'], [
+        {'name': '設定', 'package': 'com.android.settings', 'installed': true},
+      ]);
+      // Generic package words never match every app.
+      final generic = await registry.get('resolve_app')!.run({
+        'name': 'Android',
+      }, context());
+      expect(jsonDecode(generic.content), {'apps': []});
+      // A miss names similar apps with their packages.
+      final missing = await registry.get('open_app')!.run({
+        'title': 'Open Shopee Mall',
+        'name': 'Shopee Mall',
+      }, context());
+      expect(jsonDecode(missing.content), {
+        'similar': [
+          {'name': '蝦皮購物', 'package': 'com.shopee.tw'},
+        ],
+        'error': 'app_not_found',
+      });
+      expect(api.launchedApps, ['com.shopee.tw']);
+    },
+  );
+
+  test(
     'Stop racing a committed write preserves its eventual side effect',
     () async {
       final api = FakeApi()..write = Completer<void>();

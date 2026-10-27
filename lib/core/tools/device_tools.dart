@@ -81,6 +81,7 @@ class _DeviceTool extends Tool {
       ];
       if (observer != null &&
           (result['launched'] == true || result['remote_opened'] == true)) {
+        observer.readings.launched();
         return observer.result(
           ctx,
           jsonEncode(result),
@@ -102,8 +103,25 @@ class _DeviceTool extends Tool {
 
 typedef InstalledApp = ({String label, String packageName});
 
+const _genericPackageParts = {
+  'android',
+  'app',
+  'apps',
+  'client',
+  'google',
+  'mobile',
+};
+
+/// The distinctive segments of a package name: `com.shopee.tw` → `shopee`.
+Set<String> _packageParts(String packageName) => {
+  for (final part in packageName.toLowerCase().split('.').skip(1))
+    if (part.length >= 3 && !_genericPackageParts.contains(part)) part,
+};
+
 /// Apps whose label matches [query]: exact labels (or the package name)
-/// first, then label prefixes, then labels containing the query.
+/// first, then label prefixes, then labels containing the query, then a
+/// package segment. Labels are localized ("蝦皮購物") while package names
+/// are not, so an English name still finds `com.shopee.tw`.
 List<InstalledApp> matchApps(String query, List<InstalledApp> apps) {
   if (query.contains('|')) {
     return {
@@ -117,23 +135,26 @@ List<InstalledApp> matchApps(String query, List<InstalledApp> apps) {
       .join(' ');
   final wanted = normalize(query);
   if (wanted.isEmpty) return const [];
-  for (final test in <bool Function(String)>[
-    (label) => label == wanted,
-    (label) => label.startsWith(wanted),
-    (label) => label.contains(wanted),
+  final segment = wanted.replaceAll(' ', '');
+  for (final test in <bool Function(InstalledApp)>[
+    (app) =>
+        normalize(app.label) == wanted ||
+        app.packageName.toLowerCase() == wanted,
+    (app) => normalize(app.label).startsWith(wanted),
+    (app) => normalize(app.label).contains(wanted),
+    (app) => _packageParts(app.packageName).contains(segment),
   ]) {
     final found = [
       for (final app in apps)
-        if (test(normalize(app.label)) ||
-            app.packageName.toLowerCase() == wanted)
-          app,
+        if (test(app)) app,
     ];
     if (found.isNotEmpty) return found;
   }
   return const [];
 }
 
-/// Apps sharing a word (or, for CJK names, a character) with [query].
+/// Apps sharing a word (or, for CJK names, a character) with [query], in
+/// their label or package name.
 List<InstalledApp> similarApps(String query, List<InstalledApp> apps) {
   Set<String> parts(String value) => {
     for (final word in value.toLowerCase().split(RegExp('[ \t._-]+')))
@@ -144,7 +165,9 @@ List<InstalledApp> similarApps(String query, List<InstalledApp> apps) {
   final wanted = parts(query);
   return [
     for (final app in apps)
-      if (parts(app.label).any(wanted.contains)) app,
+      if (parts(app.label).any(wanted.contains) ||
+          _packageParts(app.packageName).any(wanted.contains))
+        app,
   ];
 }
 

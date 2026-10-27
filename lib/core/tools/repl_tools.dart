@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import '../../platform/capabilities.dart';
 import '../chat/agent_suspended.dart';
 import '../chat/content_block.dart';
+import '../providers/cancel_token.dart';
 import '../repl/repl_runtime.dart';
+import '../screen/screen_reading.dart';
 import '../util/ids.dart';
 import '../util/json.dart';
 import 'action_title.dart';
@@ -42,6 +44,69 @@ const _methods = <String, String>{
   'phone.replay': 'screen_replay',
 };
 
+/// Methods whose argument may be the element itself: `phone.tap(element)`.
+const _directElement = {'phone.tap', 'phone.longPress', 'browser.click'};
+
+/// Methods that need an element or a point.
+const _pointTargets = {'phone.tap', 'phone.longPress'};
+
+/// The longest `phone.wait`, in milliseconds.
+const _maxWaitMs = 5000;
+const _waitSchema = {
+  'type': 'object',
+  'properties': {
+    'ms': {'type': 'integer', 'minimum': 0, 'maximum': _maxWaitMs},
+  },
+  'required': ['ms'],
+};
+
+/// Argument names an error may repeat back. Other names are not echoed: a
+/// model-made name can contain private text.
+const _knownKeys = {
+  'element',
+  'ref',
+  'id',
+  'x',
+  'y',
+  'to_x',
+  'to_y',
+  'text',
+  'submit',
+  'direction',
+  'key',
+  'duration',
+  'observe',
+  'screenshot',
+  'title',
+  'type',
+  'label',
+  'value',
+  'flags',
+  'view_id',
+  'bounds',
+  'clickable',
+};
+
+/// What to do next, shown with a host error's code.
+const _hints = <String, String>{
+  'app_not_found':
+      'no installed app matches; pass {package}, pick one from details.similar, or call phone.resolveApp({name: "English|中文"})',
+  'ambiguous_app_name':
+      'several apps match; pass {package} from details.candidates',
+  'tako_in_front_open_another_app':
+      'Tako itself is in front; open the target app first',
+  'stale_element_read_again':
+      "the screen or page changed after that element was read; use an element of the latest observation (an action's result.screen, or read again)",
+  'element_changed_read_again':
+      'the element changed on screen; read again and use its new element',
+  'unknown_id_read_again':
+      'no such element in the latest observation; read again',
+  'use_a_screenshot_from_an_earlier_response':
+      'x and y must come from a screenshot returned in an earlier response; in this script pass an element instead',
+  'denied_by_user': 'the user declined this action; do not retry it',
+  'not_editable': 'that element is not a text field',
+};
+
 class _Reference {
   const _Reference(this.group, this.id, this.revision, this.check);
   final String group;
@@ -49,6 +114,8 @@ class _Reference {
   final int revision;
   final String check;
 }
+
+typedef _Resolved = ({_Reference? reference, Map<String, Object?>? failure});
 
 /// Two presentation tools over the SAME audited primitive registry. One per task.
 class ReplToolSession {
@@ -68,9 +135,18 @@ class ReplToolSession {
   final Future<String> Function(String skill)? loadSkill;
   final _loaded = <String>{};
   final _refs = <String, _Reference>{};
+
+  /// Element ids of each group's latest observation, mapped to their refs.
+  final _ids = <String, Map<int, String>>{};
+
+  /// The response whose script made each group's latest observation.
+  final _observedIn = <String, String>{};
+
+  /// The latest phone observation's app and element identities, and refs.
+  String? _phoneIdentity;
+  List<String> _phoneRefs = const [];
   int _browserRevision = 0;
   int _operation = 0;
-  String? _phoneReadInMessage;
   ReplRuntime? _runtime;
   bool _running = false;
 
@@ -97,14 +173,21 @@ class ReplToolSession {
       return _error('skill_unavailable');
     }
     final selected = args['method'];
+    bool wanted(String method) =>
+        method.startsWith('$skill.') &&
+        (selected == null || selected == method.split('.').last);
     final apis = {
       for (final entry in methods.entries)
-        if (entry.key.startsWith('$skill.') &&
-            (selected == null || selected == entry.key.split('.').last))
+        if (wanted(entry.key))
           entry.key: {
             'tool': entry.value,
-            'parameters': registry.get(entry.value)!.schema,
+            'parameters': _parameters(
+              entry.key,
+              registry.get(entry.value)!.schema,
+            ),
           },
+      if (skill == 'phone' && wanted('phone.wait'))
+        'phone.wait': {'parameters': _waitSchema},
     };
     if (apis.isEmpty) return _error('method_unavailable');
     final guide =
@@ -113,8 +196,43 @@ class ReplToolSession {
     _loaded.add(skill);
     return ToolResult(
       content:
-          '$guide\nHost tool schemas (title defaults to the js_repl title; element replaces id):\n${jsonEncode(apis)}',
+          '$guide\nHost API parameters (title defaults to the js_repl title):\n${jsonEncode(apis)}',
     );
+  }
+
+  /// A tool schema as the JavaScript API takes it: an element's ref in place
+  /// of a listing id, and the title filled in from js_repl.
+  static Map<String, Object?> _parameters(
+    String method,
+    Map<String, Object?> schema,
+  ) {
+    final properties = {...?asMap(schema['properties'])};
+    final required = [
+      for (final key in asList(schema['required']) ?? const [])
+        if (key != 'title') key,
+    ];
+    if (properties.remove('id') != null) {
+      properties['ref'] = const {
+        'type': 'string',
+        'description':
+            'ref of an element from the latest read; passing the element object also works',
+      };
+      if (required.remove('id')) required.add('ref');
+    }
+    return {
+      ...schema,
+      'properties': properties,
+      'required': required,
+      if (_pointTargets.contains(method))
+        'anyOf': [
+          {
+            'required': ['ref'],
+          },
+          {
+            'required': ['x', 'y'],
+          },
+        ],
+    };
   }
 
   Future<ToolResult> run(Map<String, Object?> args, ToolContext context) async {
@@ -136,59 +254,93 @@ class ReplToolSession {
         invoke: (method, arguments) async {
           final group = method.split('.').first;
           if (!_loaded.contains(group)) {
-            return {'error': '${group}_skill_not_loaded'};
+            return _failure(
+              '${group}_skill_not_loaded',
+              'call read_skill with skill "$group" first',
+            );
+          }
+          if (method == 'phone.wait' && skills.contains('phone')) {
+            return _wait(arguments, context.cancel);
           }
           final name = methods[method];
-          if (name == null) return const {'error': 'method_unavailable'};
+          if (name == null) {
+            final offered = [
+              for (final known in methods.keys)
+                if (known.startsWith('$group.')) known,
+              if (group == 'phone' && skills.contains('phone')) 'phone.wait',
+            ];
+            return _failure(
+              'method_unavailable',
+              'this device offers ${offered.join(', ')}',
+            );
+          }
           final tool = registry.get(name);
           if (tool == null) return const {'error': 'tool_unavailable'};
           if (arguments.length > 1) {
-            return const {'error': 'one_argument_object_expected'};
+            return _failure(
+              'one_argument_object_expected',
+              'pass one object: $method({...})',
+            );
           }
-          final value = arguments.firstOrNull;
+          final direct = _directElement.contains(method);
+          var value = arguments.firstOrNull;
+          // phone.tap(element.ref)
+          if (direct && value is String) value = {'ref': value};
           if (value != null && value is! Map<String, Object?>) {
-            return const {'error': 'argument_object_expected'};
+            return _failure(
+              'argument_object_expected',
+              'pass one object: $method({...})',
+            );
           }
-          final params = Map<String, Object?>.of(
+          var params = Map<String, Object?>.of(
             value as Map<String, Object?>? ?? {},
           );
           final properties = asMap(tool.schema['properties']) ?? {};
+          Object? handle;
+          if (properties.containsKey('id')) {
+            if (direct &&
+                params['ref'] is String &&
+                !params.containsKey('element')) {
+              // The argument is the element itself, or {ref}: keep options.
+              handle = params['ref'];
+              params = {
+                for (final key in const ['observe', 'screenshot'])
+                  if (params.containsKey(key)) key: params[key],
+              };
+            } else {
+              final given = [
+                for (final key in const ['element', 'ref', 'id'])
+                  if (params.containsKey(key)) key,
+              ];
+              if (given.length > 1) {
+                return _failure(
+                  'one_element_reference',
+                  'pass only one of element, ref or id',
+                );
+              }
+              if (given.isNotEmpty) {
+                handle = params.remove(given.single);
+                if (handle == null) return _targetRequired(method, null);
+              }
+            }
+          }
           if (properties.containsKey('title')) {
             params.putIfAbsent('title', () => title);
           }
           _Reference? reference;
-          final directElement = const {
-            'phone.tap',
-            'phone.longPress',
-            'browser.click',
-          }.contains(method);
-          final element = directElement ? value : params.remove('element');
-          if (element != null &&
-              element is Map<String, Object?> &&
-              element['ref'] is String) {
-            reference = _refs[element['ref']];
-            if (reference == null || reference.group != group) {
-              return const {'error': 'stale_element_read_again'};
-            }
-            final revision = group == 'browser'
-                ? _browserRevision
-                : readings?.latest(context.conversationId)?.tree.token;
-            if (revision != reference.revision) {
-              return const {'error': 'stale_element_read_again'};
-            }
-            if (directElement) params.clear();
+          if (handle != null) {
+            final resolved = _resolve(method, handle, context);
+            if (resolved.failure case final failure?) return failure;
+            reference = resolved.reference!;
             params['id'] = reference.id;
-            if (properties.containsKey('title')) params['title'] = title;
-          } else if (directElement &&
-              !(params['x'] is num && params['y'] is num)) {
-            return const {'error': 'element_reference_required'};
-          } else if (params.containsKey('id')) {
-            return const {'error': 'element_reference_required'};
+          } else if (direct && !(params['x'] is num && params['y'] is num)) {
+            return _targetRequired(method, value);
           }
           if (group == 'phone' &&
               (params.containsKey('x') || params.containsKey('to_x')) &&
-              _phoneReadInMessage == context.messageId) {
-            return const {'error': 'use_a_screenshot_from_an_earlier_response'};
+              _observedIn['phone'] == context.messageId) {
+            const code = 'use_a_screenshot_from_an_earlier_response';
+            return _failure(code, _hints[code]);
           }
           final before = readings?.latest(context.conversationId)?.tree.token;
           final id = '${context.messageId}-repl-${++_operation}';
@@ -225,20 +377,22 @@ class ReplToolSession {
               ],
           });
           if (receipt.isError) {
-            return {
-              'error': data?['error'] ?? 'operation_failed',
-              'details': data,
-            };
+            final code = '${data?['error'] ?? 'operation_failed'}';
+            return _failure(code, _hints[code], {
+              for (final entry in (data ?? const {}).entries)
+                if (entry.key != 'error') entry.key: entry.value,
+            });
           }
           if (name == 'browser_read' && result.data != null) {
             _browserRevision++;
+            _observedIn['browser'] = context.messageId;
             return _browserSnapshot(result.data!);
           }
           final reading = readings?.latest(context.conversationId);
           if (group == 'phone' &&
               reading != null &&
               reading.tree.token != before) {
-            _phoneReadInMessage = context.messageId;
+            _observedIn['phone'] = context.messageId;
             final observation = _phoneSnapshot(
               context.conversationId,
               receipt.content,
@@ -253,7 +407,7 @@ class ReplToolSession {
           return data ?? {'text': receipt.content};
         },
       );
-      if (evaluation.reset) _refs.clear();
+      if (evaluation.reset) _forget();
       return ToolResult(
         content: jsonEncode({
           if (evaluation.error != null) 'error': evaluation.error,
@@ -272,7 +426,7 @@ class ReplToolSession {
     } catch (_) {
       _runtime?.close();
       _runtime = null;
-      _refs.clear();
+      _forget();
       return ToolResult(
         content: jsonEncode({
           'error': 'repl_failed',
@@ -288,69 +442,219 @@ class ReplToolSession {
     }
   }
 
+  /// The reference that an element, its ref or a listing id names, or the
+  /// failure to report.
+  _Resolved _resolve(String method, Object? handle, ToolContext context) {
+    final group = method.split('.').first;
+    _Resolved fail(String code, String? hint) =>
+        (reference: null, failure: _failure(code, hint));
+    if (handle is Map) handle = handle['ref'] ?? handle['id'];
+    final String? key;
+    if (handle is String) {
+      key = handle;
+    } else if (handle is num && handle == handle.roundToDouble()) {
+      // A bare id names an element of a listing the model has already seen.
+      // A script that read again itself may hold ids of an older listing.
+      if (_observedIn[group] == context.messageId) {
+        return fail(
+          'pass_the_element_not_its_id',
+          'this response read the $group itself, so pass the element or element.ref; a bare id only names an element of a listing printed in an earlier response',
+        );
+      }
+      key = _ids[group]?[handle.toInt()];
+      if (key == null) {
+        return fail('unknown_id_read_again', _hints['unknown_id_read_again']);
+      }
+    } else {
+      return (reference: null, failure: _targetRequired(method, handle));
+    }
+    final reference = _refs[key];
+    final revision = group == 'browser'
+        ? _browserRevision
+        : readings?.latest(context.conversationId)?.tree.token;
+    if (reference == null ||
+        reference.group != group ||
+        reference.revision != revision) {
+      return fail(
+        'stale_element_read_again',
+        _hints['stale_element_read_again'],
+      );
+    }
+    return (reference: reference, failure: null);
+  }
+
+  static Map<String, Object?> _targetRequired(String method, Object? value) {
+    final group = method.split('.').first;
+    return _failure(
+      'element_reference_required',
+      value == null
+          ? "$method got no element (null or undefined): nothing matched in the latest $group observation's elements"
+          : '$method needs an element from the latest $group observation: pass the element itself, {ref: element.ref} or {element}'
+                '${_pointTargets.contains(method) ? ', or {x, y} from a screenshot returned in an earlier response' : ''}',
+      {
+        if (value is Map)
+          'received_keys': [
+            for (final key in value.keys)
+              _knownKeys.contains(key) ? key : '(other)',
+          ],
+      },
+    );
+  }
+
+  /// A host error for JavaScript: its code, what to do next, and details.
+  static Map<String, Object?> _failure(
+    String code, [
+    String? hint,
+    Map<String, Object?>? details,
+  ]) {
+    final extra = details == null || details.isEmpty
+        ? null
+        : jsonEncode(details);
+    return {
+      'error': code,
+      'message': [
+        code,
+        if (hint != null) ': $hint',
+        if (extra != null)
+          ' ${extra.length > 600 ? '${extra.substring(0, 600)}…' : extra}',
+      ].join(),
+      if (extra != null) 'details': details,
+    };
+  }
+
+  /// Lets an animation or a loading screen finish without reading it.
+  static Future<Map<String, Object?>> _wait(
+    List<Object?> arguments,
+    CancelToken cancel,
+  ) async {
+    final options = arguments.length == 1 ? asMap(arguments.single) : null;
+    final ms = options?['ms'];
+    if (ms is! num || !ms.isFinite || ms < 0 || ms > _maxWaitMs) {
+      return _failure(
+        'invalid_arguments',
+        'phone.wait({ms}) waits 0..$_maxWaitMs milliseconds',
+      );
+    }
+    await cancel.bind(Future<void>.delayed(Duration(milliseconds: ms.round())));
+    return {'waited_ms': ms.round()};
+  }
+
   Map<String, Object?> _browserSnapshot(Map<String, Object?> data) {
     _refs.removeWhere((_, ref) => ref.group == 'browser');
+    final ids = _ids['browser'] = {};
     return {
       ...data,
       'elements': [
         for (final raw in asList(data['elements']) ?? [])
-          if (asMap(raw) case final element?) _browserElement(element),
+          if (asMap(raw) case final element?) _browserElement(element, ids),
       ],
     };
   }
 
-  Map<String, Object?> _browserElement(Map<String, Object?> element) => {
-    for (final entry in element.entries)
-      if (entry.key != 'check') entry.key: entry.value,
-    'ref': _reference(
+  Map<String, Object?> _browserElement(
+    Map<String, Object?> element,
+    Map<int, String> ids,
+  ) {
+    final id = asInt(element['id']) ?? 0;
+    final ref = _reference(
       'browser',
-      asInt(element['id']) ?? 0,
+      id,
       _browserRevision,
       asString(element['check']) ?? '',
-    ),
-  };
+    );
+    ids[id] = ref;
+    return {
+      for (final entry in element.entries)
+        if (entry.key != 'check') entry.key: entry.value,
+      'ref': ref,
+    };
+  }
 
   Map<String, Object?> _phoneSnapshot(String conversation, String text) {
     final reading = readings!.latest(conversation)!;
+    final tree = reading.tree;
+    final checks = [
+      for (final element in reading.elements) tree.nodes[element.node].check,
+    ];
+    // An unchanged screen keeps its refs, so elements saved before another
+    // read, or before an action that changed nothing, still work. Any change
+    // mints new refs: a saved ref never moves to a different element.
+    final identity = checks.any((check) => check.isEmpty)
+        ? null
+        : [tree.packageName, ...checks].join('\n');
+    final kept = identity != null && identity == _phoneIdentity
+        ? _phoneRefs
+        : null;
     _refs.removeWhere((_, ref) => ref.group == 'phone');
+    final ids = _ids['phone'] = {};
+    // Bounds use the unit of x and y: screenshot pixels when one is attached.
+    final scaleX = reading.hasImage ? tree.imageWidth / tree.width : 1.0;
+    final scaleY = reading.hasImage ? tree.imageHeight / tree.height : 1.0;
+    final refs = <String>[];
+    final elements = <Map<String, Object?>>[];
+    for (final (index, element) in reading.elements.indexed) {
+      final node = tree.nodes[element.node];
+      final ref = _reference(
+        'phone',
+        element.id,
+        tree.token,
+        checks[index],
+        key: kept?[index],
+      );
+      refs.add(ref);
+      ids[element.id] = ref;
+      final viewId = screenText(node.viewId, 120);
+      elements.add({
+        'id': element.id,
+        'type': element.type,
+        'label': element.label,
+        if (element.value != null) 'value': element.value,
+        'view_id': ?viewId,
+        'clickable': node.clickable,
+        'bounds': {
+          'x1': (node.bounds.left * scaleX).round(),
+          'y1': (node.bounds.top * scaleY).round(),
+          'x2': (node.bounds.right * scaleX).round(),
+          'y2': (node.bounds.bottom * scaleY).round(),
+        },
+        'flags': element.flags,
+        'ref': ref,
+      });
+    }
+    _phoneIdentity = identity;
+    _phoneRefs = refs;
     return {
       'text': text,
-      'app': reading.tree.appLabel,
-      'width': reading.tree.imageWidth > 0
-          ? reading.tree.imageWidth
-          : reading.tree.width,
-      'height': reading.tree.imageHeight > 0
-          ? reading.tree.imageHeight
-          : reading.tree.height,
-      'elements': [
-        for (final element in reading.elements)
-          {
-            'id': element.id,
-            'type': element.type,
-            'label': element.label,
-            if (element.value != null) 'value': element.value,
-            'flags': element.flags,
-            'ref': _reference(
-              'phone',
-              element.id,
-              reading.tree.token,
-              reading.tree.nodes[element.node].check,
-            ),
-          },
-      ],
+      'app': tree.appLabel,
+      'width': reading.hasImage ? tree.imageWidth : tree.width,
+      'height': reading.hasImage ? tree.imageHeight : tree.height,
+      'elements': elements,
     };
   }
 
-  String _reference(String group, int id, int revision, String check) {
-    final key = newId();
-    _refs[key] = _Reference(group, id, revision, check);
-    return key;
+  String _reference(
+    String group,
+    int id,
+    int revision,
+    String check, {
+    String? key,
+  }) {
+    final ref = key ?? newId();
+    _refs[ref] = _Reference(group, id, revision, check);
+    return ref;
+  }
+
+  void _forget() {
+    _refs.clear();
+    _ids.clear();
+    _phoneIdentity = null;
+    _phoneRefs = const [];
   }
 
   void close() {
     _runtime?.close();
     _runtime = null;
-    _refs.clear();
+    _forget();
     _loaded.clear();
   }
 

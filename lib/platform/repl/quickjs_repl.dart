@@ -79,19 +79,36 @@ class QuickJsRepl implements ReplRuntime {
           }
           cancel.throwIfCancelled();
           final error = response['error'];
+          // A failure becomes an Error whose message carries the host's hint;
+          // code and details stay readable in a JavaScript catch.
+          final failure = error == null
+              ? null
+              : {
+                  'message': '${response['message'] ?? error}',
+                  'code': '$error',
+                  if (response['details'] != null)
+                    'details': response['details'],
+                };
           final source =
-              '__takoResolve(${jsonEncode(packet['id'])},${error == null},${jsonEncode(error ?? response)});';
+              '__takoResolve(${jsonEncode(packet['id'])},${error == null},${jsonEncode(failure ?? response)});';
           cpu.start();
           if (!engine.eval(source)) throw StateError('javascript_error');
           cpu.stop();
           idle.reset();
         }
         if (status['error'] case final String error) {
-          close();
+          // A script that threw leaves the engine usable, so var bindings
+          // survive a failed operation or a typo. An exhausted limit or work
+          // still queued starts a fresh engine.
+          final fresh =
+              error == 'execution_limit' ||
+              error.startsWith('InternalError') ||
+              status['jobs'] == true;
+          if (fresh) close();
           return ReplEvaluation(
             output: output.toString(),
             error: _short(error),
-            reset: true,
+            reset: fresh,
           );
         }
         if (status['done'] == true) {
@@ -137,7 +154,7 @@ class QuickJsRepl implements ReplRuntime {
   }
 
   String _short(String text) =>
-      text.length > 300 ? '${text.substring(0, 300)}…' : text;
+      text.length > 1200 ? '${text.substring(0, 1200)}…' : text;
   @override
   void close() {
     _engine?.close();
@@ -152,6 +169,7 @@ const _bootstrap = r'''
   if (globalThis.__takoReady) return;
   const queue = __takoQueue, stringify = JSON.stringify, pending = new Map();
   const freeze = Object.freeze, PromiseClass = Promise, then = Promise.prototype.then;
+  const ErrorClass = Error, define = Object.defineProperty;
   let next = 0;
   // Start host work only when the returned awaitable is consumed. A detached
   // call must not execute merely because a later operation keeps the cell alive.
@@ -170,7 +188,11 @@ const _bootstrap = r'''
     const entry = pending.get(id);
     if (!entry) return;
     pending.delete(id);
-    if (ok) entry.resolve(value); else entry.reject(new Error(String(value)));
+    if (ok) { entry.resolve(value); return; }
+    const error = new ErrorClass(value.message);
+    define(error, 'code', {value: value.code, enumerable: true});
+    if (value.details !== undefined) define(error, 'details', {value: value.details, enumerable: true});
+    entry.reject(error);
   }});
   const api = (group, methods) => Object.freeze(Object.fromEntries(
     methods.map(method => [method, (...args) => call(group + '.' + method, args)])));
@@ -178,7 +200,7 @@ const _bootstrap = r'''
     ['startSession', 'open', 'read', 'click', 'type', 'scroll', 'back'])});
   Object.defineProperty(globalThis, 'phone', {value: api('phone',
     ['openApp', 'read', 'tap', 'longPress', 'type', 'scroll', 'swipe', 'pressKey',
-     'drag', 'openUrl', 'resolveApp', 'sequence', 'workflow', 'replay'])});
+     'drag', 'openUrl', 'resolveApp', 'sequence', 'workflow', 'replay', 'wait'])});
   const log = (...args) => queue(stringify({kind: 'log', text: args.map(value => {
     if (typeof value === 'string') return value;
     try { return stringify(value); } catch (_) { return '[unserializable]'; }

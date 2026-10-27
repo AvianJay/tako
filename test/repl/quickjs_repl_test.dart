@@ -86,8 +86,38 @@ void main() {
       cancel: CancelToken(),
     );
     expect(imported.error, isNotNull);
-    expect(imported.reset, isTrue);
+    expect(imported.reset, isFalse);
   });
+
+  test(
+    'a failed host call keeps var bindings and carries its hint and details',
+    () async {
+      Future<Map<String, Object?>> missing(String _, List<Object?> _) async => {
+        'error': 'app_not_found',
+        'message': 'app_not_found: pass {package}',
+        'details': {
+          'similar': [
+            {'name': '蝦皮購物', 'package': 'com.shopee.tw'},
+          ],
+        },
+      };
+      final failed = await runtime.evaluate(
+        'var kept = 41; await phone.openApp({name: "Shopee"});',
+        invoke: missing,
+        cancel: CancelToken(),
+      );
+      expect(failed.error, 'Error: app_not_found: pass {package}');
+      expect(failed.reset, isFalse);
+      final caught = await runtime.evaluate(
+        'var seen; try { await phone.openApp({name: "Shopee"}); } '
+        'catch (e) { seen = (kept + 1) + ":" + e.code + ":" + e.details.similar[0].package; } seen',
+        invoke: missing,
+        cancel: CancelToken(),
+      );
+      expect(caught.error, isNull);
+      expect(caught.value, '42:app_not_found:com.shopee.tw');
+    },
+  );
 
   test(
     'an infinite script is interrupted and the next call gets a fresh engine',

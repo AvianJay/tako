@@ -206,7 +206,8 @@ class NativeDeviceTools implements DeviceToolsCapability {
         'app_not_found',
         details: {
           'similar': [
-            for (final app in similarApps(name, apps).take(8)) app.label,
+            for (final app in similarApps(name, apps).take(8))
+              {'name': app.label, 'package': app.packageName},
           ],
         },
       );

@@ -22,9 +22,28 @@ const screenToolNames = {
 /// The latest read_screen. The platform keeps one node map, so a new read
 /// in any conversation replaces the ids of every earlier read.
 class ScreenReadings {
+  ScreenReadings({
+    this.launchWait = const Duration(seconds: 4),
+    this.launchPoll = const Duration(milliseconds: 200),
+  });
+
+  /// How long after opening an app a read waits for it to replace Tako in
+  /// front, polling every [launchPoll].
+  final Duration launchWait;
+  final Duration launchPoll;
   String? _conversationId;
   String? _messageId;
   ScreenReading? _reading;
+  DateTime? _launchedAt;
+
+  /// An app was just opened. Until another app is read in front, a read
+  /// that finds Tako waits for it instead of failing at once.
+  void launched() => _launchedAt = DateTime.now();
+
+  bool get _awaitingLaunch {
+    final at = _launchedAt;
+    return at != null && DateTime.now().difference(at) < launchWait;
+  }
 
   ScreenReading? latest(String conversationId) =>
       _conversationId == conversationId ? _reading : null;
@@ -53,12 +72,22 @@ Future<({ScreenReading reading, ImageBlock? image})?> _readScreen(
   required bool screenshot,
   bool automaticScreenshot = false,
 }) async {
-  final tree = await screen.snapshotForModel(
+  Future<ScreenTree> take() => screen.snapshotForModel(
     screenshot: screenshot,
     automaticScreenshot: automaticScreenshot,
     cancel: ctx.cancel,
   );
-  final reading = ScreenReading.from(tree);
+  var tree = await take();
+  var reading = ScreenReading.from(tree);
+  // An app opened a moment ago may not have replaced Tako in front yet.
+  while (tree.ownAppInFront &&
+      reading.elements.isEmpty &&
+      readings._awaitingLaunch) {
+    await ctx.cancel.bind(Future<void>.delayed(readings.launchPoll));
+    tree = await take();
+    reading = ScreenReading.from(tree);
+  }
+  if (!tree.ownAppInFront) readings._launchedAt = null;
   if (tree.ownAppInFront && reading.elements.isEmpty) return null;
   final image = tree.image == null
       ? null
