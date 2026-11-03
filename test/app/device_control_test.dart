@@ -483,6 +483,78 @@ void main() {
     );
   });
 
+  for (final fast in [false, true]) {
+    for (final mode in [ControlToolMode.basic, ControlToolMode.repl]) {
+      test(
+        '${fast ? 'iOS' : 'Android'} ${mode.name} sends only two screen images across turns',
+        () async {
+          final adapter = _Adapter([
+            for (var turn = 0; turn < 2; turn++) ...[
+              if (mode == ControlToolMode.repl)
+                _call('read_skill', {'skill': 'phone'}),
+              for (var read = 0; read < 3; read++)
+                if (mode == ControlToolMode.repl)
+                  _call('js_repl', {
+                    'title': 'Read Settings',
+                    'code': fast
+                        ? 'await phone.read({screenshot: true});'
+                        : 'await phone.read();',
+                  })
+                else
+                  _call('read_screen', {if (fast) 'screenshot': true}),
+              _say((_) => 'Read Settings.'),
+            ],
+          ]);
+          final screen = phoneScreen(screenshots: true)
+            ..fastActions = fast
+            ..show('settings');
+          final (app, _) = await _app(
+            adapter,
+            mode: mode,
+            screen: screen,
+            vision: true,
+          );
+          await app.saveControlSettings(
+            const DeviceControlSettings(screenshots: true),
+          );
+          for (var turn = 0; turn < 2; turn++) {
+            await _approveAll(app, app.send('Read Settings again $turn'));
+            expect(app.errorCode, isNull);
+            expect(app.visibleMessages.last.text, 'Read Settings.');
+          }
+          final originals = _results(app);
+          expect(originals.where((result) => result.isError), isEmpty);
+          expect(
+            originals
+                .expand((result) => result.attachments)
+                .whereType<ImageBlock>(),
+            hasLength(6),
+          );
+          for (final request in adapter.requests) {
+            final images = request.messages
+                .expand((message) => message.content)
+                .whereType<ToolResultBlock>()
+                .expand((result) => result.attachments)
+                .whereType<ImageBlock>();
+            expect(images.length, lessThanOrEqualTo(2));
+          }
+          final outgoing = adapter.requests.last.messages
+              .expand((message) => message.content)
+              .whereType<ToolResultBlock>()
+              .toList();
+          expect(
+            outgoing
+                .expand((result) => result.attachments)
+                .whereType<ImageBlock>(),
+            hasLength(2),
+          );
+          expect(outgoing.length, originals.length);
+          expect(adapter.requests.last.replayOpaqueReasoning, false);
+        },
+      );
+    }
+  }
+
   test('Stop in the screen-control notification stops the response', () async {
     final adapter = _Adapter([
       _call('open_app', {'name': 'Settings'}),

@@ -156,7 +156,7 @@ void main() {
     },
   );
   test(
-    'only superseded remote images are omitted from outgoing active turn',
+    'only superseded screen images are omitted from outgoing history across user turns',
     () {
       ChatMessage message(
         int id,
@@ -190,6 +190,10 @@ void main() {
       final limited = limitRemoteScreenImages(history);
       expect(limited.changed, true);
       expect(
+        (limited.messages[0].content.single as ToolResultBlock).attachments,
+        isEmpty,
+      );
+      expect(
         (limited.messages[2].content.single as ToolResultBlock).attachments,
         isEmpty,
       );
@@ -204,7 +208,7 @@ void main() {
         (limited.messages[2].content.single as ToolResultBlock).content,
         contains('receipt 2'),
       );
-      for (final index in [0, 3, 4, 5]) {
+      for (final index in [3, 4, 5]) {
         expect(
           (limited.messages[index].content.single as ToolResultBlock)
               .attachments,
@@ -218,4 +222,67 @@ void main() {
       );
     },
   );
+  test('REPL batches and errors cannot accumulate more than two screens', () {
+    ChatMessage message(int id, List<ContentBlock> content) => ChatMessage(
+      id: '$id',
+      conversationId: 'c',
+      role: MessageRole.tool,
+      content: content,
+      createdAt: DateTime(2026),
+    );
+    const note = TextBlock('attachment note');
+    const file = FileBlock(
+      path: 'receipt.txt',
+      name: 'receipt.txt',
+      mimeType: 'text/plain',
+    );
+    ToolResultBlock receipt(int id, {bool error = false}) => ToolResultBlock(
+      toolCallId: '$id',
+      toolName: 'js_repl',
+      content: 'receipt $id',
+      isError: error,
+      sideEffects: const [SideEffect(kind: 'screen_tapped', summary: 'done')],
+      attachments: [
+        note,
+        for (var i = 0; i < 8; i++)
+          ImageBlock(path: '$id-$i.jpg', mimeType: 'image/jpeg'),
+        file,
+      ],
+    );
+    final history = [
+      message(0, [receipt(0)]),
+      message(1, [receipt(1, error: true)]),
+      message(2, [receipt(2)]),
+      message(3, [receipt(3)]),
+      message(4, [receipt(4, error: true)]),
+    ];
+    final limited = limitRemoteScreenImages(history);
+    expect(limited.changed, true);
+    final results = limited.messages
+        .expand((m) => m.content)
+        .whereType<ToolResultBlock>()
+        .toList();
+    expect(
+      results
+          .expand((b) => b.attachments)
+          .whereType<ImageBlock>()
+          .map((image) => image.path),
+      ['4-6.jpg', '4-7.jpg'],
+    );
+    for (var i = 0; i < results.length; i++) {
+      final result = results[i];
+      expect(result.toolCallId, '$i');
+      expect(result.content, contains('receipt $i'));
+      expect(result.isError, i == 1 || i == 4);
+      expect(result.sideEffects.single.kind, 'screen_tapped');
+      expect(result.attachments.whereType<TextBlock>().single, same(note));
+      expect(result.attachments.whereType<FileBlock>().single, same(file));
+      expect(
+        (history[i].content.single as ToolResultBlock).attachments
+            .whereType<ImageBlock>(),
+        hasLength(8),
+      );
+    }
+    expect(limitRemoteScreenImages(limited.messages).changed, false);
+  });
 }

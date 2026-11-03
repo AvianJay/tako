@@ -4,25 +4,22 @@ import '../chat/content_block.dart';
 import '../chat/message.dart';
 import '../util/json.dart';
 
-/// Keep two recent screen images in an active tool run. Text, receipts, user
-/// attachments and earlier user turns remain intact; persisted history is never
-/// modified. This avoids repeatedly uploading every intermediate screen.
+/// Keep two recent screen images across the entire outgoing history. Text,
+/// receipts and user attachments remain intact; persisted history is never
+/// modified. This avoids uploading old screens again after each user turn.
 ({List<ChatMessage> messages, bool changed}) limitRemoteScreenImages(
   List<ChatMessage> messages, {
   bool isolatedWorker = false,
 }) {
-  // Isolated worker user messages contain generated observations, including
-  // the seed and recovery screen. They are not the main user's attachments.
-  final start = isolatedWorker
-      ? -1
-      : messages.lastIndexWhere((m) => m.role == MessageRole.user);
   var images = 0;
   var changed = false;
   final result = List<ChatMessage>.of(messages);
-  for (var index = messages.length - 1; index > start; index--) {
+  for (var index = messages.length - 1; index >= 0; index--) {
     final content = messages[index].content.toList();
     for (var b = content.length - 1; b >= 0; b--) {
       final block = content[b];
+      // Isolated worker user messages contain generated seed/recovery screens,
+      // not the main user's attachments.
       if (isolatedWorker && block is ImageBlock) {
         if (++images > 2) {
           content.removeAt(b);
@@ -31,7 +28,6 @@ import '../util/json.dart';
         continue;
       }
       if (block is! ToolResultBlock ||
-          block.isError ||
           !const {
             'read_screen',
             'tap',
@@ -46,6 +42,9 @@ import '../util/json.dart';
             'screen_sequence',
             'screen_workflow',
             'screen_replay',
+            // The REPL bundles phone observations, even when a later operation
+            // fails. Its images need the same bound as basic screen tools.
+            'js_repl',
           }.contains(block.toolName) ||
           !block.attachments.any((a) => a is ImageBlock)) {
         continue;

@@ -549,9 +549,7 @@ extension AgentRunner on AppController {
             : message.copyWith(content: content),
       );
     }
-    final screenHistory = services.screen.supportsFastActions
-        ? limitRemoteScreenImages(path)
-        : (messages: path, changed: false);
+    final screenHistory = limitRemoteScreenImages(path);
     historyChanged |= screenHistory.changed;
     final imagesOnly = provider.capabilities.imagesOnly;
     final budget = imagesOnly
