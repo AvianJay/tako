@@ -1078,6 +1078,38 @@ void main() {
   });
 
   test(
+    'transient provider failures retry the same tool receipts without repeating actions',
+    () async {
+      final tool = _Tool();
+      final adapter = _Adapter([
+        _calls(['one']),
+        const [
+          TextDelta('Discarded partial answer'),
+          Usage(inputTokens: 100, outputTokens: 10),
+          ToolCallStart('incomplete', 'fixture_tool'),
+          ToolCallArgsDelta('incomplete', '{"text":"must not execute"}'),
+          ProviderError('Unavailable', statusCode: 503),
+        ],
+        _answer,
+      ]);
+      final app = await _app(tool, adapter: adapter);
+      await app.send('Use tool then answer');
+      expect(tool.inputs, ['one']);
+      expect(adapter.requests, hasLength(3));
+      expect(adapter.requests[1].messages.last.role, MessageRole.tool);
+      expect(identical(adapter.requests[1], adapter.requests[2]), isTrue);
+      expect(app.visibleMessages.last.status, MessageStatus.done);
+      expect(app.visibleMessages.last.text, 'Completed');
+      expect(app.visibleMessages.last.usage, isNull);
+      expect(
+        app.visibleMessages.last.content.whereType<ToolCallBlock>(),
+        isEmpty,
+      );
+      expect(await app.audit.list(), hasLength(1));
+    },
+  );
+
+  test(
     'retry after provider failure reuses tool receipts without repeating actions',
     () async {
       final tool = _Tool();
@@ -1087,12 +1119,19 @@ void main() {
           TextDelta('Partial'),
           ProviderError('Unavailable', statusCode: 503),
         ],
+        const [ProviderError('Unavailable', statusCode: 503)],
+        const [
+          TextDelta('Last attempt'),
+          ProviderError('Unavailable', statusCode: 503),
+        ],
         _answer,
       ]);
       final app = await _app(tool, adapter: adapter);
       await app.send('Use tool then answer');
       final failed = app.visibleMessages.last;
       expect(failed.status, MessageStatus.error);
+      expect(adapter.requests, hasLength(4));
+      expect(failed.text, 'Last attempt');
       expect(tool.inputs, ['one']);
       await app.retryResponse(failed);
       expect(tool.inputs, ['one']);
@@ -1216,10 +1255,11 @@ void main() {
       final adapter = _Adapter([
         _calls(['one']),
         _answer,
-        [
-          ..._calls(['never executed']).where((event) => event is! Done),
-          const ProviderError('Failed', statusCode: 500),
-        ],
+        for (var attempt = 0; attempt < 3; attempt++)
+          [
+            ..._calls(['never executed']).where((event) => event is! Done),
+            const ProviderError('Failed', statusCode: 500),
+          ],
         _answer,
       ]);
       final app = await _app(tool, adapter: adapter);

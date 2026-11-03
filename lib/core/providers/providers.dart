@@ -4,4 +4,5 @@ export 'model_discovery.dart';
 export 'provider_adapter.dart';
 export 'provider_config.dart';
 export 'provider_event.dart';
+export 'provider_retry.dart';
 export 'reasoning_options.dart';

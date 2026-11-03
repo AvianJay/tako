@@ -1,6 +1,8 @@
 # Phone control
 
 Use `js_repl` with a short user-facing `title` and JavaScript `code`.
+Load this guide once per task. Continue with `js_repl` after operations or
+errors; use `read_skill` with `method` only for a specific API's parameters.
 Variables declared with `var` or assigned to `globalThis` survive across calls in
 this task, also after a call fails. The runtime resets when the response ends,
 stops, or the user takes over. Use `console.log(...)` to return useful

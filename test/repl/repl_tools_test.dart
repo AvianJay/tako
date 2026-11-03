@@ -16,6 +16,7 @@ import 'package:tako/core/tools/tool.dart';
 import 'package:tako/core/tools/tool_executor.dart';
 import 'package:tako/core/tools/tool_registry.dart';
 import 'package:tako/core/tools/tool_settings.dart';
+import 'package:tako/core/util/json.dart';
 import 'package:tako/data/audit_repository.dart';
 import 'package:tako/data/database.dart';
 import 'package:tako/platform/device_tools_capability.dart';
@@ -102,6 +103,7 @@ void main() {
   late ReplToolSession session;
   late ToolExecutor executor;
   final requests = <PermissionRequest>[];
+  final skillLoads = <String>[];
   var deny = false;
   setUp(() {
     database = AppDatabase(NativeDatabase.memory());
@@ -113,6 +115,7 @@ void main() {
       'https://example.com/next': const FakePage('Next', 'Finished', []),
     });
     requests.clear();
+    skillLoads.clear();
     deny = false;
     late final PermissionGate gate;
     gate = PermissionGate(
@@ -154,7 +157,10 @@ void main() {
       execute: primitives.execute,
       readings: readings,
       runtimeFactory: QuickJsRepl.new,
-      loadSkill: (name) async => 'Trusted $name guide',
+      loadSkill: (name) async {
+        skillLoads.add(name);
+        return 'Trusted $name guide';
+      },
     );
     executor = ToolExecutor(
       registry: replPresentation(backend, session),
@@ -382,6 +388,61 @@ void main() {
     expect(tap['required'], isEmpty);
     expect(tap['anyOf'], hasLength(2));
   });
+
+  test(
+    'repeated skill reads are compact and keep variables after errors',
+    () async {
+      final first = await run('read_skill', {'skill': 'phone'});
+      final failed = await run('js_repl', {
+        'title': 'Read settings',
+        'code': 'var saved = await phone.read(); throw new Error("fixture");',
+      });
+      expect(failed.isError, isTrue);
+      final repeated = await run('read_skill', {'skill': 'phone'});
+      expect(tryDecodeObject(repeated.content)?['status'], 'already_loaded');
+      expect(repeated.content.length, lessThan(300));
+      expect(repeated.content.length, lessThan(first.content.length));
+      expect(repeated.content, isNot(contains('Trusted phone guide')));
+      expect(skillLoads, ['phone']);
+      final continued = await run('js_repl', {
+        'title': 'Open About phone',
+        'code':
+            'await phone.tap(saved.elements.find(e => e.label.includes("About phone")));',
+      });
+      expect(continued.isError, isFalse, reason: continued.content);
+      expect(screen.current, 'settings/about');
+      final lookup = await run('read_skill', {
+        'skill': 'phone',
+        'method': 'tap',
+      });
+      expect(lookup.content, isNot(contains('Trusted phone guide')));
+      final apis = jsonDecode(lookup.content.split('\n').last) as Map;
+      expect(apis.keys, ['phone.tap']);
+      expect(skillLoads, ['phone']);
+    },
+  );
+
+  test(
+    'method lookup followed by a full read does not repeat the guide',
+    () async {
+      await run('read_skill', {'skill': 'phone', 'method': 'tap'});
+      final repeated = await run('read_skill', {'skill': 'phone'});
+      expect(tryDecodeObject(repeated.content)?['status'], 'already_loaded');
+      final read = await run('read_skill', {
+        'skill': 'phone',
+        'method': 'read',
+      });
+      expect(read.isError, isFalse);
+      expect(read.content, contains('phone.read'));
+      expect(skillLoads, ['phone']);
+      final unavailable = await run('read_skill', {
+        'skill': 'phone',
+        'method': 'nonexistent',
+      });
+      expect(unavailable.isError, isTrue);
+      expect(skillLoads, ['phone']);
+    },
+  );
 
   test(
     'an id from a listing printed in an earlier response taps that element',

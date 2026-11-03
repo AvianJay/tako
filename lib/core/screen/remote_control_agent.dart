@@ -31,10 +31,12 @@ typedef RemoteAgentBackend = ({ProviderConfig config, ProviderAdapter adapter});
 bool _basicControl(ProviderConfig _) => false;
 const _replWorkerInstructions = '''
 Tool interface for this worker: the phone operations mentioned above are host
-APIs, not direct model tools. First call read_skill with skill="phone" to load
+APIs, not direct model tools. Call read_skill with skill="phone" once per task to load
 Tako's trusted API guide, then use js_repl with title and code. Await every
 operation and print useful observations with console.log. var bindings survive
-across js_repl calls in this task. Use returned element references; coordinates
+across js_repl calls and failures in this task; do not reload the skill between
+operations or after an error. For specific API details use read_skill with method.
+Use returned element references; coordinates
 must come from an image already returned in an earlier model response. Every
 inner operation still passes the original permission gate and step budget.
 After an error inspect completed operation receipts before retrying. Never use
@@ -415,15 +417,18 @@ class RemoteControlAgent {
               ),
             );
           }
-          final accumulator = ResponseAccumulator(
+          final promptHash = replSession == null
+              ? 'remote-worker-v7'
+              : 'remote-worker-v9-repl';
+          var accumulator = ResponseAccumulator(
             sourceApi: selected.config.apiType.name,
-            promptHash: 'remote-worker-v7',
+            promptHash: promptHash,
           );
           var ended = false;
           var providerFailed = false;
           final modelTimer = Stopwatch()..start();
           try {
-            await for (final event in selected.adapter.send(
+            await for (final event in selected.adapter.sendWithRetry(
               ChatRequest(
                 systemPrompt:
                     '${remoteWorkerPromptFor(permissions.policy)}${replSession == null ? '' : _replWorkerInstructions}',
@@ -432,11 +437,15 @@ class RemoteControlAgent {
                 maxTokens: selected.config.maxOutputTokens,
                 replayOpaqueReasoning: !compact.changed,
                 cachePrompt: true,
-                promptHash: replSession == null
-                    ? 'remote-worker-v7'
-                    : 'remote-worker-v8-repl',
+                promptHash: promptHash,
               ),
               cancel: ctx.cancel,
+              onRetry: () {
+                accumulator = ResponseAccumulator(
+                  sourceApi: selected!.config.apiType.name,
+                  promptHash: promptHash,
+                );
+              },
             )) {
               ctx.cancel.throwIfCancelled();
               accumulator.add(event);

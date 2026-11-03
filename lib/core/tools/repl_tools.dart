@@ -173,6 +173,16 @@ class ReplToolSession {
       return _error('skill_unavailable');
     }
     final selected = args['method'];
+    if (_loaded.contains(skill) && selected == null) {
+      return ToolResult(
+        content: jsonEncode({
+          'skill': skill,
+          'status': 'already_loaded',
+          'message':
+              'Continue with js_repl. The guide and variables remain available in this task, including after errors. Use method for a specific API lookup.',
+        }),
+      );
+    }
     bool wanted(String method) =>
         method.startsWith('$skill.') &&
         (selected == null || selected == method.split('.').last);
@@ -190,14 +200,46 @@ class ReplToolSession {
         'phone.wait': {'parameters': _waitSchema},
     };
     if (apis.isEmpty) return _error('method_unavailable');
-    final guide =
-        await (loadSkill?.call(skill) ??
-            rootBundle.loadString('assets/skills/$skill.md'));
+    final guide = _loaded.contains(skill)
+        ? null
+        : await (loadSkill?.call(skill) ??
+              rootBundle.loadString('assets/skills/$skill.md'));
     _loaded.add(skill);
     return ToolResult(
-      content:
-          '$guide\nHost API parameters (title defaults to the js_repl title):\n${jsonEncode(apis)}',
+      content: [
+        ?guide,
+        if (selected == null) ...[
+          'Available API arguments (* required; title defaults to the js_repl title). '
+              'For full parameter constraints or nested objects, use read_skill with skill and method (for example, method="tap"). '
+              'The guide is already loaded; continue with js_repl.',
+          for (final entry in apis.entries)
+            _signature(
+              entry.key,
+              entry.value['parameters']! as Map<String, Object?>,
+            ),
+        ] else ...[
+          'Host API parameters (title defaults to the js_repl title):',
+          jsonEncode(apis),
+        ],
+      ].join('\n'),
     );
+  }
+
+  /// Keep the initial guide below the tool output limit even when this device
+  /// offers workflows with large nested schemas. Fetch those only on demand.
+  static String _signature(String method, Map<String, Object?> parameters) {
+    final required = asList(parameters['required']) ?? const [];
+    final properties = asMap(parameters['properties']) ?? {};
+    final fields = <String>[];
+    for (final entry in properties.entries) {
+      if (entry.key == 'title') continue;
+      final values = asMap(entry.value)?['enum'];
+      fields.add(
+        '${entry.key}${required.contains(entry.key) ? '*' : ''}'
+        '${values is List ? '=${jsonEncode(values)}' : ''}',
+      );
+    }
+    return '$method({${fields.join(', ')}})';
   }
 
   /// A tool schema as the JavaScript API takes it: an element's ref in place
@@ -678,7 +720,7 @@ class _ReplTool extends Tool {
   Capability get requires => _ReplCapability(session);
   @override
   String get description => name == 'read_skill'
-      ? 'Load the browser or phone control skill and its available API. Load it before js_repl.'
+      ? 'Load a browser or phone guide once per task before js_repl. It stays loaded after calls and errors. Use method to look up one API without repeating the guide.'
       : 'Execute JavaScript with await and persistent variables for this task. Only loaded, audited browser/phone APIs are available. Include a short operation title. Print selected results with console.log.';
   @override
   Map<String, Object?> get schema => {
@@ -686,7 +728,12 @@ class _ReplTool extends Tool {
     'properties': name == 'read_skill'
         ? {
             'skill': {'type': 'string', 'enum': session.skills.toList()},
-            'method': {'type': 'string', 'maxLength': 40},
+            'method': {
+              'type': 'string',
+              'maxLength': 40,
+              'description':
+                  'Optional method name, such as tap or type, for its full parameter schema only.',
+            },
           }
         : {
             'title': actionTitleSchema,

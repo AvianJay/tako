@@ -320,6 +320,10 @@ void main() {
         contains('phone skill is available'),
       );
       expect(services.screen.current, 'settings/about');
+      final guide = _results(app).firstWhere((r) => r.toolName == 'read_skill');
+      expect(guide.content, contains('phone.tap('));
+      expect(guide.content, isNot(contains('[tool output truncated]')));
+      expect(guide.content.length, lessThanOrEqualTo(6000));
       expect(_results(app).where((result) => result.isError), isEmpty);
       expect(
         _results(

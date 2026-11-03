@@ -90,6 +90,7 @@ final class ChatMessage {
     List<ContentBlock>? content,
     MessageStatus? status,
     TokenUsage? usage,
+    bool clearUsage = false,
     String? error,
     bool clearError = false,
   }) => ChatMessage(
@@ -104,7 +105,7 @@ final class ChatMessage {
     model: model,
     status: status ?? this.status,
     contextEnvelope: contextEnvelope,
-    usage: usage ?? this.usage,
+    usage: clearUsage ? null : (usage ?? this.usage),
     error: clearError ? null : (error ?? this.error),
   );
 

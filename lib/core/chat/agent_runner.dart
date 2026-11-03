@@ -617,7 +617,7 @@ extension AgentRunner on AppController {
     await chats.saveMessage(response);
     await _refresh();
     final fingerprint = promptFingerprint(systemPrompt);
-    final accumulator = ResponseAccumulator(
+    var accumulator = ResponseAccumulator(
       sourceApi: provider.apiType.name,
       promptHash: fingerprint,
     );
@@ -631,6 +631,7 @@ extension AgentRunner on AppController {
       response = response.copyWith(
         content: accumulator.content,
         usage: accumulator.usage,
+        clearUsage: accumulator.usage == null,
       );
       final index = messages.indexWhere((m) => m.id == response.id);
       if (index >= 0) {
@@ -641,7 +642,7 @@ extension AgentRunner on AppController {
 
     try {
       if (!token.isCancelled) {
-        await for (final event in adapter.send(
+        await for (final event in adapter.sendWithRetry(
           ChatRequest(
             systemPrompt: systemPrompt,
             messages: preparedMessages,
@@ -652,6 +653,15 @@ extension AgentRunner on AppController {
             replayOpaqueReasoning: !budget.wasTrimmed && !historyChanged,
           ),
           cancel: token,
+          onRetry: () {
+            accumulator = ResponseAccumulator(
+              sourceApi: provider.apiType.name,
+              promptHash: fingerprint,
+            );
+            publishTimer?.cancel();
+            publishTimer = null;
+            publish();
+          },
         )) {
           if (token.isCancelled) break;
           if (event is GeneratedImage) {

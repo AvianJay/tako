@@ -324,6 +324,50 @@ void main() {
   );
 
   test(
+    'worker retries an interrupted plan with its loaded skill and JS variables intact',
+    () async {
+      repl = true;
+      adapter = _Adapter([
+        call('read_skill', {'skill': 'phone'}),
+        call('js_repl', {
+          'title': 'Read start',
+          'code': 'var saved = await phone.read(); console.log(saved.text);',
+        }),
+        const [
+          ToolCallStart('incomplete', 'js_repl'),
+          ToolCallArgsDelta('incomplete', '{"title":"Discarded","code":'),
+          ProviderError('Unavailable', statusCode: 503),
+        ],
+        call('read_skill', {'skill': 'phone'}),
+        call('js_repl', {
+          'title': 'Start',
+          'code':
+              'await phone.tap(saved.elements.find(e => e.label === "Start"));',
+        }),
+        const [TextDelta('Done.'), Done('stop')],
+      ]);
+      build();
+      final result = await run();
+      expect(result.isError, isFalse, reason: result.content);
+      expect(tryDecodeObject(result.content)?['verified'], true);
+      expect(screen.current, 'done');
+      expect(screen.actions, hasLength(1));
+      expect(adapter.requests, hasLength(6));
+      expect(identical(adapter.requests[2], adapter.requests[3]), isTrue);
+      final guides = [
+        for (final message in adapter.requests.last.messages)
+          for (final block in message.content.whereType<ToolResultBlock>())
+            if (block.toolName == 'read_skill') block.content,
+      ];
+      expect(guides, hasLength(2));
+      expect(guides.first, isNot(contains('[tool output truncated]')));
+      expect(tryDecodeObject(guides.last)?['status'], 'already_loaded');
+      final audits = await database.select(database.auditRecords).get();
+      expect(audits.where((r) => r.toolName == 'tap'), hasLength(1));
+    },
+  );
+
+  test(
     'bad final-text shape is corrected before contacting the worker',
     () async {
       build();
