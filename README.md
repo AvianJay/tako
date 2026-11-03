@@ -31,10 +31,11 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
     **Load web content automatically** is on; even then, images and page
     previews load by themselves only for links that you sent or that a search
     or tool returned, so a reply cannot quietly send data to a site.
-  - Charts (bar, line, area, pie and donut), Mermaid flowcharts, sequence
-    diagrams and mind maps, cards, stat tiles and callouts, all drawn natively
-    on the device without a web view. Charts open as a table; diagrams open
-    full screen; both can be shared as images.
+  - Charts (bar, line, area, pie, donut, radar and scatter), timelines,
+    Mermaid flowcharts, sequence diagrams, mind maps, timelines and Gantt
+    charts, cards, stat tiles and callouts, all drawn natively on the device
+    without a web view. Charts open as a table; diagrams open full screen;
+    both can be shared as images.
   - Image, PDF and text attachments.
   - Several models per provider, switched from the chat title.
   - Automatic model discovery with cached, searchable friendly names. Enable

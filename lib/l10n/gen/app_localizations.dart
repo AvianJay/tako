@@ -3189,6 +3189,48 @@ abstract class AppLocalizations {
   /// **'心智圖'**
   String get visualMindmap;
 
+  /// No description provided for @visualTimeline.
+  ///
+  /// In zh, this message translates to:
+  /// **'時間軸'**
+  String get visualTimeline;
+
+  /// No description provided for @visualGantt.
+  ///
+  /// In zh, this message translates to:
+  /// **'甘特圖'**
+  String get visualGantt;
+
+  /// No description provided for @timelineDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get timelineDone;
+
+  /// No description provided for @timelineInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'進行中'**
+  String get timelineInProgress;
+
+  /// No description provided for @timelineUpcoming.
+  ///
+  /// In zh, this message translates to:
+  /// **'即將進行'**
+  String get timelineUpcoming;
+
+  /// No description provided for @ganttCritical.
+  ///
+  /// In zh, this message translates to:
+  /// **'關鍵'**
+  String get ganttCritical;
+
+  /// No description provided for @ganttMilestone.
+  ///
+  /// In zh, this message translates to:
+  /// **'里程碑'**
+  String get ganttMilestone;
+
   /// No description provided for @calloutNote.
   ///
   /// In zh, this message translates to:

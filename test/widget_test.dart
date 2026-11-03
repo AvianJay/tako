@@ -24,6 +24,7 @@ import 'package:tako/platform/services.dart';
 import 'package:tako/ui/chat/tool_run_widgets.dart';
 import 'package:tako/ui/chat/tool_widgets.dart';
 import 'package:tako/ui/render/visuals/cards.dart';
+import 'package:tako/ui/render/visuals/timeline.dart';
 import 'package:tako/ui/render/visuals/visual_block.dart';
 import 'package:tako/ui/settings/provider_editor.dart';
 import 'package:tako/ui/settings/tool_settings_screen.dart';
@@ -408,6 +409,29 @@ sequenceDiagram
     T-->>U: 顯示圖表
 ```
 
+```chart
+{"type": "radar", "title": "手機比較", "labels": ["效能", "續航", "相機", "螢幕", "價格"], "series": [{"name": "手機 A", "data": [9, 7, 8, 8, 5]}, {"name": "手機 B", "data": [7, 9, 6, 7, 8]}], "max": 10}
+```
+
+```chart
+{"type": "scatter", "title": "價格與評分", "xLabel": "價格（千元）", "yLabel": "評分", "series": [{"name": "手機", "data": [{"x": 12.9, "y": 4.5, "label": "A"}, {"x": 8.9, "y": 4.1, "label": "B"}, {"x": 21.9, "y": 4.7, "label": "C"}, {"x": 5.5, "y": 3.6, "label": "D"}]}]}
+```
+
+```timeline
+[{"time": "09:00", "title": "出發", "text": "台北車站集合", "icon": "🚆", "status": "done"}, {"time": "11:30", "title": "**九份老街**", "text": "午餐吃芋圓", "icon": "restaurant", "status": "current"}, {"time": "15:00", "title": "十分放天燈", "icon": "🏮"}]
+```
+
+```mermaid
+gantt
+    title 發布計畫
+    dateFormat YYYY-MM-DD
+    section 開發
+    設計          :done, d1, 2026-11-02, 3d
+    實作          :active, d2, after d1, 5d
+    section 發布
+    測試          :crit, t1, after d2, 2d
+    上架          :milestone, after t1, 0d
+```
 ```mermaid
 mindmap
   root((Tako 顯示方式))
@@ -817,7 +841,8 @@ void main() {
       );
       await tester.runAsync(() => seedVisualReply(controller));
       await tester.pumpAndSettle();
-      expect(find.byType(VisualBlock), findsNWidgets(8));
+      expect(find.byType(VisualBlock), findsNWidgets(11));
+      expect(find.byType(TimelineView), findsOneWidget);
       expect(find.byType(CardsView), findsNWidgets(2));
       expect(find.text('注意資料來源'), findsOneWidget);
       await screenshot(tester, name);

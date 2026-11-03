@@ -457,8 +457,8 @@ int _tagEnd(String source) {
 /// Self-closing is canonical, but `<image src="x">` is accepted as well.
 ///
 /// Formatting tags are parsed [lenient]ly: their values may also be bare, as
-/// in <font color=red>, or missing, as in <details open>. Host tags such as
-/// <image> must quote every value.
+/// in `<font color=red>`, or missing, as in `<details open>`. Host tags such
+/// as `<image>` must quote every value.
 RenderTag? _parseTag(String source, {bool lenient = false}) {
   final head = RegExp(r'^<([A-Za-z][A-Za-z0-9_-]*)\b').firstMatch(source);
   if (head == null) return null;

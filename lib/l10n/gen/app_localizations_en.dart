@@ -1749,6 +1749,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get visualMindmap => 'Mind map';
 
   @override
+  String get visualTimeline => 'Timeline';
+
+  @override
+  String get visualGantt => 'Gantt chart';
+
+  @override
+  String get timelineDone => 'Done';
+
+  @override
+  String get timelineInProgress => 'In progress';
+
+  @override
+  String get timelineUpcoming => 'Upcoming';
+
+  @override
+  String get ganttCritical => 'Critical';
+
+  @override
+  String get ganttMilestone => 'Milestone';
+
+  @override
   String get calloutNote => 'Note';
 
   @override

@@ -1654,6 +1654,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get visualMindmap => '心智圖';
 
   @override
+  String get visualTimeline => '時間軸';
+
+  @override
+  String get visualGantt => '甘特圖';
+
+  @override
+  String get timelineDone => '已完成';
+
+  @override
+  String get timelineInProgress => '進行中';
+
+  @override
+  String get timelineUpcoming => '即將進行';
+
+  @override
+  String get ganttCritical => '關鍵';
+
+  @override
+  String get ganttMilestone => '里程碑';
+
+  @override
   String get calloutNote => '備註';
 
   @override
@@ -3590,6 +3611,27 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get visualMindmap => '心智圖';
+
+  @override
+  String get visualTimeline => '時間軸';
+
+  @override
+  String get visualGantt => '甘特圖';
+
+  @override
+  String get timelineDone => '已完成';
+
+  @override
+  String get timelineInProgress => '進行中';
+
+  @override
+  String get timelineUpcoming => '即將進行';
+
+  @override
+  String get ganttCritical => '關鍵';
+
+  @override
+  String get ganttMilestone => '里程碑';
 
   @override
   String get calloutNote => '備註';

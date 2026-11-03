@@ -9,6 +9,7 @@ import 'message_parser.dart';
 import 'revealing_text.dart';
 import 'text_colors.dart';
 import 'visuals/cards.dart';
+import 'visuals/timeline.dart';
 import 'visuals/visual_block.dart';
 import 'visuals/visual_image.dart';
 import 'visuals/visual_labels.dart';
@@ -247,6 +248,9 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
         if (widget.visuals && language == 'cards') {
           if (_cards(source) case final cards?) return cards;
         }
+        if (widget.visuals && language == 'timeline') {
+          if (_timeline(source) case final timeline?) return timeline;
+        }
         if (widget.visuals &&
             const {'replies', 'suggestions'}.contains(language)) {
           return _replies(source);
@@ -256,7 +260,8 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
           language: language,
           copyLabel: widget.copyLabel,
           onCopy: onCopy,
-          note: widget.visuals && language == 'cards'
+          note:
+              widget.visuals && (language == 'cards' || language == 'timeline')
               ? widget.visualLabels.failed
               : null,
         );
@@ -416,6 +421,32 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
           ],
         ],
       ),
+    );
+  }
+
+  /// A timeline, or null when [source] is not a timeline specification.
+  Widget? _timeline(String source) {
+    final TimelineSpec spec;
+    try {
+      spec = TimelineSpec.parse(source);
+    } on Object {
+      return null;
+    }
+    InlineSpan? span(String? text) => text == null ? null : _inlineText(text);
+    return TimelineView(
+      title: span(spec.title),
+      labels: widget.visualLabels,
+      items: [
+        for (final item in spec.items)
+          TimelineContent(
+            time: item.time,
+            icon: item.icon,
+            title: span(item.title),
+            text: span(item.text),
+            status: item.status,
+            section: item.section,
+          ),
+      ],
     );
   }
 
