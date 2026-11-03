@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../code_block.dart';
 import 'chart_painter.dart';
@@ -6,9 +7,11 @@ import 'chart_scale.dart';
 import 'chart_spec.dart';
 import 'chart_view.dart';
 import 'diagram_painter.dart';
+import 'gantt.dart';
 import 'mermaid.dart';
 import 'mindmap.dart';
 import 'sequence.dart';
+import 'timeline.dart';
 import 'visual_cache.dart';
 import 'visual_image.dart';
 import 'visual_labels.dart';
@@ -27,7 +30,9 @@ final _pendingFence = RegExp(
 String? pendingVisualLanguage(String buffered) {
   final language = _pendingFence.firstMatch(buffered)?[1]?.toLowerCase();
   return language != null &&
-          (visualLanguages.contains(language) || language == 'cards')
+          (visualLanguages.contains(language) ||
+              language == 'cards' ||
+              language == 'timeline')
       ? language
       : null;
 }
@@ -87,6 +92,9 @@ class _VisualBlockState extends State<VisualBlock> {
   late final bool _animate = widget.streaming;
   bool _alternate = false;
 
+  /// Timelines are laid out by widgets, so their image is taken from here.
+  final _capture = GlobalKey();
+
   @override
   void didUpdateWidget(VisualBlock oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -109,6 +117,8 @@ class _VisualBlockState extends State<VisualBlock> {
   String _kind(MermaidDiagram diagram) => switch (diagram) {
     SequenceDiagram() => widget.labels.sequence,
     MindmapDiagram() => widget.labels.mindmap,
+    GanttDiagram() => widget.labels.gantt,
+    TimelineDiagram() => widget.labels.timeline,
     _ => widget.labels.flowchart,
   };
 
@@ -166,6 +176,73 @@ class _VisualBlockState extends State<VisualBlock> {
     );
   }
 
+  /// A timeline never scrolls or shows a tooltip, so unlike other visuals
+  /// its image can be taken from the screen.
+  void _shareTimeline(String title) {
+    final share = widget.onShareImage;
+    final boundary = _capture.currentContext?.findRenderObject();
+    if (share == null || boundary is! RenderRepaintBoundary) return;
+    final palette = VisualPalette.of(context);
+    final text = VisualText.of(context);
+    final size = boundary.size;
+    share(
+      VisualImage(visualFileName('timeline', DateTime.now()), () async {
+        final image = await boundary.toImage(pixelRatio: 3);
+        try {
+          return await renderVisualPng(
+            size: size,
+            paint: (canvas) => canvas.drawImageRect(
+              image,
+              Offset.zero &
+                  Size(image.width.toDouble(), image.height.toDouble()),
+              Offset.zero & size,
+              Paint()..filterQuality = FilterQuality.medium,
+            ),
+            background: palette.surface,
+            text: text,
+            titleColor: palette.ink,
+            title: title,
+          );
+        } finally {
+          image.dispose();
+        }
+      }),
+    );
+  }
+
+  Widget _timeline(TimelineDiagram diagram) {
+    final labels = widget.labels;
+    final title = diagram.title ?? labels.timeline;
+    return _Frame(
+      title: title,
+      actions: [
+        _Action(
+          tooltip: _alternate ? labels.showDiagram : labels.showCode,
+          icon: _alternate ? Icons.timeline : Icons.code,
+          onPressed: () => setState(() => _alternate = !_alternate),
+        ),
+        if (widget.onShareImage != null && !_alternate)
+          _Action(
+            tooltip: labels.shareImage,
+            icon: Icons.ios_share,
+            onPressed: () => _shareTimeline(title),
+          ),
+      ],
+      child: _alternate
+          ? _code(margin: EdgeInsets.zero)
+          : RepaintBoundary(
+              key: _capture,
+              child: TimelineView(
+                labels: labels,
+                padding: const EdgeInsets.only(top: 6),
+                items: [
+                  for (final item in diagram.items) TimelineContent.plain(item),
+                ],
+              ),
+            ),
+    );
+  }
+
   Future<void> _open(DiagramDrawing drawing, String title) => showVisualViewer(
     context,
     title: title,
@@ -210,6 +287,8 @@ class _VisualBlockState extends State<VisualBlock> {
                       _code(note: labels.failed, margin: EdgeInsets.zero),
                 ),
         );
+      case final TimelineDiagram diagram:
+        return _timeline(diagram);
       case final MermaidDiagram diagram:
         final title = diagram.title ?? _kind(diagram);
         // One layout serves the column, full screen and the shared image.
@@ -224,6 +303,7 @@ class _VisualBlockState extends State<VisualBlock> {
                 diagram,
                 VisualText.of(context),
                 fitWidth: width,
+                localeName: labels.localeName,
               );
             } on Object {
               return _code(note: labels.failed);
@@ -253,7 +333,8 @@ class _VisualBlockState extends State<VisualBlock> {
                   ? _code(margin: EdgeInsets.zero)
                   : DiagramView(
                       drawing: drawing,
-                      semanticLabel: '$title. ${diagramSummary(diagram)}',
+                      semanticLabel:
+                          '$title. ${diagramSummary(diagram, labels: labels)}',
                       onOpen: () => _open(drawing, title),
                     ),
             );
@@ -346,7 +427,8 @@ class _Frame extends StatelessWidget {
   );
 }
 
-/// Holds the place of a chart, diagram or cards block while it streams in.
+/// Holds the place of a chart, diagram, cards or timeline block while it
+/// streams in.
 /// Static on purpose: no endless animation in a list that settles.
 class VisualPlaceholder extends StatelessWidget {
   const VisualPlaceholder({required this.label, super.key});

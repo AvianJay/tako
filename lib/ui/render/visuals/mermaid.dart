@@ -1,7 +1,9 @@
 import 'chart_spec.dart';
 import 'flowchart.dart';
+import 'gantt.dart';
 import 'mindmap.dart';
 import 'sequence.dart';
+import 'timeline.dart';
 
 /// A Mermaid diagram Tako can draw itself.
 abstract base class MermaidDiagram {
@@ -50,6 +52,8 @@ MermaidDiagram? parseMermaid(String source) {
     'flowchart-elk' => parseFlowchart(header, rest, title),
     'sequencediagram' => parseSequence(rest, title),
     'mindmap' => parseMindmap(rest, title),
+    'timeline' => parseTimeline(rest, title),
+    'gantt' => parseGantt(rest, title),
     'pie' => _pie(header, rest, title),
     'xychart-beta' || 'xychart' => _xyChart(header, rest, title),
     _ => null,

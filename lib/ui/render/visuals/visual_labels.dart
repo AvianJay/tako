@@ -22,6 +22,13 @@ class VisualLabels {
     this.flowchart = 'Flowchart',
     this.sequence = 'Sequence diagram',
     this.mindmap = 'Mind map',
+    this.timeline = 'Timeline',
+    this.gantt = 'Gantt chart',
+    this.done = 'Done',
+    this.inProgress = 'In progress',
+    this.upcoming = 'Upcoming',
+    this.critical = 'Critical',
+    this.milestone = 'Milestone',
     this.note = 'Note',
     this.tip = 'Tip',
     this.important = 'Important',
@@ -36,7 +43,7 @@ class VisualLabels {
     this.loadFailed = "Couldn't load",
   });
 
-  /// An intl locale name such as `zh_TW`, used to format numbers.
+  /// An intl locale name such as `zh_TW`, used to format numbers and dates.
   final String localeName;
   final String drawing;
   final String failed;
@@ -55,6 +62,15 @@ class VisualLabels {
   final String flowchart;
   final String sequence;
   final String mindmap;
+  final String timeline;
+  final String gantt;
+
+  /// Timeline and Gantt statuses, read out by screen readers.
+  final String done;
+  final String inProgress;
+  final String upcoming;
+  final String critical;
+  final String milestone;
   final String note;
   final String tip;
   final String important;
@@ -89,6 +105,13 @@ class VisualLabels {
     flowchart,
     sequence,
     mindmap,
+    timeline,
+    gantt,
+    done,
+    inProgress,
+    upcoming,
+    critical,
+    milestone,
     note,
     tip,
     important,

@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'flowchart.dart';
+import 'gantt.dart';
 import 'mermaid.dart';
 import 'mindmap.dart';
 import 'sequence.dart';
 import 'visual_cache.dart';
+import 'visual_labels.dart';
 import 'visual_palette.dart';
 import 'visual_text.dart';
 
@@ -20,18 +22,18 @@ class DiagramDrawing {
   void paint(Canvas canvas, VisualPalette palette) => _paint(canvas, palette);
 }
 
-final _drawings = LruCache<(MermaidDiagram, double?, String), DiagramDrawing>(
-  48,
-);
+final _drawings =
+    LruCache<(MermaidDiagram, double?, String, String), DiagramDrawing>(48);
 
 /// Diagrams adapt to [fitWidth]: flowcharts may turn top-to-bottom, and
-/// labels wrap narrower on small screens.
+/// labels wrap narrower on small screens. [localeName] names Gantt dates.
 DiagramDrawing drawDiagram(
   MermaidDiagram diagram,
   VisualText text, {
   double? fitWidth,
+  String localeName = 'en',
 }) => _drawings.putIfAbsent(
-  (diagram, fitWidth, text.signature),
+  (diagram, fitWidth, text.signature, localeName),
   () => switch (diagram) {
     FlowchartDiagram() => _flowchartDrawing(
       layoutFlowchart(diagram, text, fitWidth: fitWidth),
@@ -43,6 +45,10 @@ DiagramDrawing drawDiagram(
     ),
     MindmapDiagram() => _mindmapDrawing(
       layoutMindmap(diagram, text, fitWidth: fitWidth),
+      text,
+    ),
+    GanttDiagram() => _ganttDrawing(
+      layoutGantt(diagram, text, fitWidth: fitWidth, localeName: localeName),
       text,
     ),
     _ => throw ArgumentError.value(diagram, 'diagram', 'Not drawable'),
@@ -65,6 +71,12 @@ DiagramDrawing _mindmapDrawing(MindmapLayout layout, VisualText text) =>
     DiagramDrawing(
       layout.size,
       (canvas, palette) => _paintMindmap(canvas, layout, palette, text),
+    );
+
+DiagramDrawing _ganttDrawing(GanttLayout layout, VisualText text) =>
+    DiagramDrawing(
+      layout.size,
+      (canvas, palette) => _paintGantt(canvas, layout, palette, text),
     );
 
 class DiagramPainter extends CustomPainter {
@@ -134,7 +146,10 @@ class DiagramView extends StatelessWidget {
 }
 
 /// What a screen reader hears instead of the drawing.
-String diagramSummary(MermaidDiagram diagram) => switch (diagram) {
+String diagramSummary(
+  MermaidDiagram diagram, {
+  VisualLabels labels = const VisualLabels(),
+}) => switch (diagram) {
   FlowchartDiagram(:final nodes, :final edges) => [
     for (final edge in edges.take(60))
       '${nodes[edge.from].label} → ${nodes[edge.to].label}'
@@ -149,12 +164,40 @@ String diagramSummary(MermaidDiagram diagram) => switch (diagram) {
             '${participants[event.to].label}: ${event.text}',
   ].join('; '),
   MindmapDiagram(:final root) => _outline(root),
+  GanttDiagram() => _ganttSummary(diagram, labels),
   _ => '',
 };
 
 String _outline(MindmapNode node) => node.children.isEmpty
     ? node.label
     : '${node.label} (${node.children.map(_outline).join(', ')})';
+
+String _ganttSummary(GanttDiagram diagram, VisualLabels labels) {
+  final format = GanttFormat(labels.localeName);
+  String when(DateTime time) => format.when(time, clockOnly: diagram.clockOnly);
+  final parts = <String>[];
+  var section = -1;
+  for (final task in diagram.tasks.take(60)) {
+    final heading = diagram.sections[task.section];
+    final prefix = task.section != section && heading.isNotEmpty
+        ? '$heading: '
+        : '';
+    section = task.section;
+    parts.add(
+      [
+        '$prefix${task.label}',
+        task.milestone
+            ? when(task.start)
+            : '${when(task.start)} – ${when(task.end)}',
+        if (task.milestone) labels.milestone,
+        if (task.done) labels.done,
+        if (task.active) labels.inProgress,
+        if (task.critical) labels.critical,
+      ].join(', '),
+    );
+  }
+  return parts.join('; ');
+}
 
 /// Draws [path] dashed when [dash] is set.
 void _stroke(Canvas canvas, Path path, Paint paint, {double? dash}) {
@@ -821,6 +864,151 @@ void _paintMindmap(
       color: node.depth == 0 ? palette.onTerminal : palette.ink,
       maxWidth: node.depth == 0 ? layout.rootWidth : layout.labelWidth,
       align: node.depth <= 1 ? TextAlign.center : TextAlign.left,
+    );
+  }
+}
+
+/// Bars take their section's series colour. Done tasks fade, active ones get
+/// an ink outline and critical ones a red one; milestones are diamonds.
+void _paintGantt(
+  Canvas canvas,
+  GanttLayout layout,
+  VisualPalette palette,
+  VisualText text,
+) {
+  final width = layout.size.width;
+  // Every other section sits on a faint band, which groups rows without
+  // boxing them in.
+  for (final (index, section) in layout.sections.indexed) {
+    if (index.isOdd) {
+      canvas.drawRect(section.band, Paint()..color = palette.clusterFill);
+    }
+  }
+  final plot = layout.plot;
+  final grid = Paint()
+    ..color = palette.grid
+    ..strokeWidth = 1;
+  for (final tick in layout.ticks) {
+    canvas.drawLine(
+      Offset(tick.x, plot.top),
+      Offset(tick.x, plot.bottom),
+      grid,
+    );
+    if (tick.labelLeft case final left?) {
+      text.paint(
+        canvas,
+        tick.label,
+        VisualTextRole.tabular,
+        Offset(left, 0),
+        color: palette.mutedInk,
+      );
+    }
+  }
+  canvas.drawLine(
+    Offset(plot.left, plot.top),
+    Offset(plot.right, plot.top),
+    Paint()..color = palette.baseline,
+  );
+
+  final line = text.measure('A', VisualTextRole.bodyStrong).height;
+  for (final (index, section) in layout.sections.indexed) {
+    if (section.title.isEmpty) continue;
+    final origin = section.titleOffset;
+    final size = text.measure(
+      section.title,
+      VisualTextRole.bodyStrong,
+      maxWidth: width - origin.dx,
+      maxLines: 2,
+    );
+    canvas
+      ..drawRect(
+        Rect.fromLTWH(origin.dx - 4, origin.dy, size.width + 8, size.height),
+        Paint()..color = index.isOdd ? palette.clusterFill : palette.surface,
+      )
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            0,
+            origin.dy + (line - ganttSwatch) / 2,
+            ganttSwatch,
+            ganttSwatch,
+          ),
+          const Radius.circular(3),
+        ),
+        Paint()..color = palette.seriesColor(section.slot),
+      );
+    text.paint(
+      canvas,
+      section.title,
+      VisualTextRole.bodyStrong,
+      origin,
+      color: palette.ink,
+      maxWidth: width - origin.dx,
+      maxLines: 2,
+    );
+  }
+
+  final critical = palette.callouts[CalloutKind.caution]!;
+  for (final placed in layout.tasks) {
+    final task = placed.task;
+    final bar = placed.bar;
+    final color = palette.seriesColor(placed.slot);
+    final Path shape;
+    if (task.milestone) {
+      shape = Path()
+        ..addPolygon([
+          Offset(bar.center.dx, bar.top),
+          Offset(bar.right, bar.center.dy),
+          Offset(bar.center.dx, bar.bottom),
+          Offset(bar.left, bar.center.dy),
+        ], true);
+    } else {
+      shape = Path()
+        ..addRRect(
+          RRect.fromRectAndRadius(
+            bar,
+            Radius.circular(math.min(4, bar.height / 2)),
+          ),
+        );
+    }
+    // Faded bars cover the grid first, so they stay one even tint.
+    canvas
+      ..drawPath(shape, Paint()..color = palette.surface)
+      ..drawPath(
+        shape,
+        Paint()..color = task.done ? color.withValues(alpha: .45) : color,
+      );
+    if (task.critical || task.active) {
+      final outline = task.milestone
+          ? (Path()..addPolygon([
+              Offset(bar.center.dx, bar.top - 3),
+              Offset(bar.right + 3, bar.center.dy),
+              Offset(bar.center.dx, bar.bottom + 3),
+              Offset(bar.left - 3, bar.center.dy),
+            ], true))
+          : (Path()..addRRect(
+              RRect.fromRectAndRadius(
+                bar.inflate(2),
+                Radius.circular(math.min(6, bar.height / 2 + 2)),
+              ),
+            ));
+      canvas.drawPath(
+        outline,
+        Paint()
+          ..color = task.critical ? critical : palette.ink
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+    text.paint(
+      canvas,
+      task.label,
+      VisualTextRole.body,
+      placed.labelOffset,
+      color: task.done ? palette.mutedInk : palette.ink,
+      maxWidth: layout.labelWidth,
+      maxLines: 2,
     );
   }
 }

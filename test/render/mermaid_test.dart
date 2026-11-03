@@ -30,7 +30,7 @@ graph LR;
 
     test('unsupported diagram types stay code', () {
       for (final source in [
-        'gantt\n  title A',
+        'journey\n  title A',
         'classDiagram\n  A <|-- B',
         'erDiagram\n  A ||--o{ B : has',
         '',

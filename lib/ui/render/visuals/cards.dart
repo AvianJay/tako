@@ -33,7 +33,7 @@ class CardsSpec {
     final Object? items;
     if (decoded is Map) {
       final map = decoded.cast<String, Object?>();
-      layout = (_field(map, const ['layout', 'style']) ?? '').toLowerCase();
+      layout = (specField(map, const ['layout', 'style']) ?? '').toLowerCase();
       items = map['items'] ?? map['cards'];
     } else {
       items = decoded;
@@ -71,9 +71,9 @@ class CardsSpec {
 }
 
 CardItem _card(Map<String, Object?> map) => CardItem(
-  icon: _field(map, const ['icon', 'emoji']),
-  title: _field(map, const ['title', 'name', 'label', 'heading']),
-  subtitle: _field(map, const [
+  icon: specField(map, const ['icon', 'emoji']),
+  title: specField(map, const ['title', 'name', 'label', 'heading']),
+  subtitle: specField(map, const [
     'subtitle',
     'subheading',
     'tag',
@@ -81,7 +81,7 @@ CardItem _card(Map<String, Object?> map) => CardItem(
     'caption',
     'category',
   ]),
-  text: _field(map, const [
+  text: specField(map, const [
     'text',
     'body',
     'description',
@@ -89,11 +89,13 @@ CardItem _card(Map<String, Object?> map) => CardItem(
     'content',
     'detail',
   ]),
-  value: _field(map, const ['value', 'stat', 'metric', 'number']),
-  delta: _field(map, const ['delta', 'change', 'diff', 'trend']),
+  value: specField(map, const ['value', 'stat', 'metric', 'number']),
+  delta: specField(map, const ['delta', 'change', 'diff', 'trend']),
 );
 
-String? _field(Map<String, Object?> map, List<String> names) {
+/// The first of [names] that holds text or a number, trimmed and capped.
+/// Shared by the JSON visuals, which all accept a few aliases per field.
+String? specField(Map<String, Object?> map, List<String> names) {
   for (final name in names) {
     final text = switch (map[name]) {
       final String text => text.trim(),
@@ -348,10 +350,9 @@ class CardIcon extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final name = icon?.trim() ?? '';
     final data = cardIconData(name);
-    final emoji =
-        data == null && name.isNotEmpty && name.runes.any((r) => r > 0x2000);
+    final emoji = data == null ? cardEmoji(name) : null;
     final fallback = (title?.toPlainText().trim() ?? '').characters.firstOrNull;
-    if (data == null && !emoji && fallback == null) {
+    if (data == null && emoji == null && fallback == null) {
       return SizedBox(width: size, height: size);
     }
     return Container(
@@ -365,18 +366,25 @@ class CardIcon extends StatelessWidget {
       child: data != null
           ? Icon(data, size: size * .5, color: scheme.onSurfaceVariant)
           : Text(
-              emoji
-                  ? name.characters.take(2).toString()
-                  : fallback!.toUpperCase(),
+              emoji ?? fallback!.toUpperCase(),
               textScaler: TextScaler.noScaling,
               style: TextStyle(
-                fontSize: size * (emoji ? .46 : .42),
+                fontSize: size * (emoji != null ? .46 : .42),
                 fontWeight: FontWeight.w600,
                 color: scheme.onSurfaceVariant,
               ),
             ),
     );
   }
+}
+
+/// The emoji an icon field holds instead of a Material icon name, cut to two
+/// characters.
+String? cardEmoji(String name) {
+  final trimmed = name.trim();
+  return trimmed.runes.any((r) => r > 0x2000)
+      ? trimmed.characters.take(2).toString()
+      : null;
 }
 
 /// Material icon names and a few plain-word aliases. Unknown names fall back
