@@ -1764,6 +1764,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get calloutCaution => 'Caution';
 
   @override
+  String get detailsSummary => 'Details';
+
+  @override
+  String get spoilerHidden => 'Hidden text. Tap to show.';
+
+  @override
+  String get footnoteLabel => 'Note';
+
+  @override
+  String get loadImage => 'Tap to load image';
+
+  @override
+  String get loadPreview => 'Load preview';
+
+  @override
+  String get loadMap => 'Load map';
+
+  @override
+  String get loadFailed => 'Couldn\'t load';
+
+  @override
+  String get loadWebContent => 'Load web content automatically';
+
+  @override
+  String get loadWebContentHelp =>
+      'Images, link previews, video thumbnails and maps in replies appear without a tap, which tells those websites your IP address. Links the assistant wrote on its own, rather than ones you sent or a search or tool found, still wait for a tap.';
+
+  @override
   String get automations => 'Automations';
 
   @override

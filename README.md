@@ -21,6 +21,16 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - Markdown and LaTeX rendering, plus highlighted (`==text==`, `<mark>`) and
     coloured text that stays readable in light and dark themes, underline,
     subscript, superscript and keyboard keys.
+  - Footnotes that open from their number, collapsible `<details>` sections,
+    status badges, ruby annotations (pinyin, zhuyin, furigana) and
+    tap-to-reveal spoilers.
+  - Suggested replies that send with a tap, and phone, message and map links
+    that open the dialer, Messages or a maps app.
+  - Previews for links, YouTube videos, web images and places on an
+    OpenStreetMap map. They load when tapped, or by themselves when
+    **Load web content automatically** is on; even then, images and page
+    previews load by themselves only for links that you sent or that a search
+    or tool returned, so a reply cannot quietly send data to a site.
   - Charts (bar, line, area, pie and donut), Mermaid flowcharts, sequence
     diagrams and mind maps, cards, stat tiles and callouts, all drawn natively
     on the device without a web view. Charts open as a table; diagrams open
@@ -150,6 +160,8 @@ The app enforces safety; the model only proposes actions.
   - pages that `fetch_page` and the in-app browser load;
   - model downloads you start yourself: Hugging Face for recommended models, or the URL you enter. Plain HTTP is accepted only inside the local network.
   - your configured iCTRL runner, using authenticated encrypted RPC envelopes.
+  - the sites, YouTube and OpenStreetMap tiles behind previews in replies,
+    when you tap them or turn on automatic loading.
   - GitHub nightly release metadata and APK downloads, when you use the Android
     `full` updater.
 

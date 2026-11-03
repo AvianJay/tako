@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Strings for charts, diagrams and callouts. The English defaults keep the
+/// Strings for charts, diagrams, callouts and previews. The English defaults keep the
 /// renderer usable without app localizations. Compared by value, so a host
 /// that rebuilds its labels on every frame does not invalidate rendering.
 @immutable
@@ -27,6 +27,13 @@ class VisualLabels {
     this.important = 'Important',
     this.warning = 'Warning',
     this.caution = 'Caution',
+    this.details = 'Details',
+    this.spoiler = 'Hidden text. Tap to show.',
+    this.footnote = 'Note',
+    this.loadImage = 'Tap to load image',
+    this.loadPreview = 'Load preview',
+    this.loadMap = 'Load map',
+    this.loadFailed = "Couldn't load",
   });
 
   /// An intl locale name such as `zh_TW`, used to format numbers.
@@ -54,6 +61,17 @@ class VisualLabels {
   final String warning;
   final String caution;
 
+  /// Heads a collapsed section that has no summary of its own.
+  final String details;
+  final String spoiler;
+
+  /// Precedes a footnote's number.
+  final String footnote;
+  final String loadImage;
+  final String loadPreview;
+  final String loadMap;
+  final String loadFailed;
+
   List<String> get _values => [
     localeName,
     drawing,
@@ -76,6 +94,13 @@ class VisualLabels {
     important,
     warning,
     caution,
+    details,
+    spoiler,
+    footnote,
+    loadImage,
+    loadPreview,
+    loadMap,
+    loadFailed,
   ];
 
   @override

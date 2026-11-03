@@ -37,6 +37,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _composer = TextEditingController();
   final _scroll = ScrollController();
+
+  /// The last message on screen. Only its suggested replies can be sent.
+  String? _latestId;
   final _focus = FocusNode();
   String _renderStamp = '';
   late final BrowserCapability _browser = ref
@@ -965,6 +968,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     important: l.calloutImportant,
     warning: l.calloutWarning,
     caution: l.calloutCaution,
+    details: l.detailsSummary,
+    spoiler: l.spoilerHidden,
+    footnote: l.footnoteLabel,
+    loadImage: l.loadImage,
+    loadPreview: l.loadPreview,
+    loadMap: l.loadMap,
+    loadFailed: l.loadFailed,
+  );
+
+  /// Whether [url] reached the chat before a reply used it: in the user's
+  /// own messages or in tool results, not only in what a model wrote.
+  bool _seenUrl(AppController app, String url) => app.messages.any(
+    (message) =>
+        message.role != MessageRole.assistant &&
+        message.content.any(
+          (block) => switch (block) {
+            TextBlock(:final text) => text.contains(url),
+            ToolResultBlock(:final content) => content.contains(url),
+            _ => false,
+          },
+        ),
   );
 
   Widget _messageContent(
@@ -1016,6 +1040,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             failure: l.visualShareFailed,
           ),
           onLink: (uri) => _openLink(app, uri),
+          onReply:
+              message.role == MessageRole.assistant &&
+                  message.id == _latestId &&
+                  message.status == MessageStatus.done &&
+                  !app.busy
+              ? (text) => _run(() => app.send(text))
+              : null,
+          web: WebEmbeds(
+            preview: app.webPreviews.preview,
+            image: app.webPreviews.image,
+            tile: app.webPreviews.tile,
+            autoLoad: app.browserSettings.loadWebContent,
+            trusted: (url) => _seenUrl(app, url),
+            loaded: app.webPreviews.loaded,
+          ),
           onFile: (path) => _run(
             () => app.services.shareWorkspaceFile(path),
             failure: l.fileUnavailable,
@@ -1400,6 +1439,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       });
     }
     final visible = app.visibleMessages;
+    _latestId = visible.lastOrNull?.id;
     final timeline = buildChatTimeline(visible);
     final stamp = '${app.conversation?.id}:${visible.length}:${app.revision}';
     if (stamp != _renderStamp) {

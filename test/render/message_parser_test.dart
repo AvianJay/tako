@@ -317,6 +317,169 @@ void main() {
     });
   });
 
+  group('annotations, badges and spoilers', () {
+    md.Element only(String source, String tag) => elements(
+      parseMessageMarkup(source).nodes,
+    ).singleWhere((e) => e.tag == tag);
+
+    test('ruby pairs each base with its annotation', () {
+      final ruby = only('<ruby>漢<rt>hàn</rt>字<rt>zì</rt></ruby>', 'ruby');
+      expect(
+        ruby.children!.map(
+          (n) => n is md.Element ? 'rt:${n.textContent}' : n.textContent,
+        ),
+        ['漢', 'rt:hàn', '字', 'rt:zì'],
+      );
+      // As in HTML, an annotation may be left open, and <rp> is kept for
+      // the renderer to drop.
+      final open = only('<ruby>漢<rp>(</rp><rt>hàn<rt>x</ruby>', 'ruby');
+      expect(open.children!.whereType<md.Element>().map((e) => e.tag), [
+        'rp',
+        'rt',
+        'rt',
+      ]);
+    });
+
+    test('badges take one colour however it is given', () {
+      expect(only('<badge color="green">完成</badge>', 'badge').attributes, {
+        'color': 'green',
+      });
+      expect(
+        only('<badge style="background: #f00">x</badge>', 'badge').attributes,
+        {'color': '#f00'},
+      );
+      expect(only('<badge>x</badge>', 'badge').attributes, isEmpty);
+    });
+
+    test('||text|| and <spoiler> hide text; a lone || does not', () {
+      expect(only('答案是 ||42||。', 'spoiler').textContent, '42');
+      expect(only('答案是||四十二||喔', 'spoiler').textContent, '四十二');
+      expect(only('<spoiler>x</spoiler>', 'spoiler').textContent, 'x');
+      for (final source in ['a || b', 'x |y| z']) {
+        final parsed = parseMessageMarkup(source);
+        expect(
+          elements(parsed.nodes).map((e) => e.tag),
+          isNot(contains('spoiler')),
+          reason: source,
+        );
+        expect(textOf(parsed), source, reason: source);
+      }
+    });
+
+    test('formatting tags accept bare values, host tags do not', () {
+      expect(only('<font color=red>x</font>', 'span').attributes, {
+        'color': 'red',
+      });
+      expect(textOf(parseMessageMarkup('<image src=x/>')), '<image src=x/>');
+    });
+
+    test('phone, message and map autolinks', () {
+      for (final href in [
+        'tel:+886212345678',
+        'sms:+886912345678',
+        'geo:25.03,121.56',
+      ]) {
+        final link = only('Call <$href> now', 'a');
+        expect(link.attributes['href'], href);
+      }
+    });
+  });
+
+  group('details', () {
+    md.Element details(ParsedMessage parsed) =>
+        elements(parsed.nodes).firstWhere((e) => e.tag == 'details');
+
+    test('blocks inside, a summary, and what follows stays outside', () {
+      final parsed = parseMessageMarkup(
+        'Before\n<details>\n<summary>More **info**</summary>\n\n'
+        '- one\n- two\n\n```dart\nx();\n```\n</details>\n\nAfter',
+      );
+      final node = details(parsed);
+      final summary = node.children!.first as md.Element;
+      expect(summary.tag, 'tako-summary');
+      expect(summary.textContent, 'More info');
+      expect(elements(summary.children!).map((e) => e.tag), contains('strong'));
+      expect(
+        elements(node.children!.skip(1)).map((e) => e.tag),
+        containsAll(['ul', 'li', 'pre']),
+      );
+      expect(node.attributes, isEmpty);
+      expect(parsed.nodes.first.textContent, 'Before');
+      expect(parsed.nodes.last.textContent, 'After');
+      expect(textOf(parsed), isNot(contains('details')));
+    });
+
+    test('one line, open, nested, and text after the closing tag', () {
+      final parsed = parseMessageMarkup(
+        '<details open><summary>T</summary>body</details> after',
+      );
+      final node = details(parsed);
+      expect(node.attributes, {'open': ''});
+      expect(node.children!.first.textContent, 'T');
+      expect(node.children!.last.textContent, 'body');
+      expect(parsed.nodes.last.textContent, 'after');
+
+      final nested = details(
+        parseMessageMarkup(
+          '<details>\n<summary>Outer</summary>\n<details>\n<summary>Inner</summary>\n'
+          'deep\n</details>\nshallow\n</details>',
+        ),
+      );
+      final inner = nested.children!.whereType<md.Element>().firstWhere(
+        (e) => e.tag == 'details',
+      );
+      expect(inner.children!.last.textContent, 'deep');
+      expect(nested.children!.last.textContent, 'shallow');
+    });
+
+    test('streams open-ended, and stays inline mid-line', () {
+      final streaming = details(
+        parseMessageMarkup(
+          '<details>\n<summary>S</summary>\nPartial',
+          isStreaming: true,
+        ),
+      );
+      expect(streaming.children!.last.textContent, 'Partial');
+      final inline = parseMessageMarkup('See <details>x</details> here');
+      expect(inline.nodes.single, isA<md.Element>());
+      expect((inline.nodes.single as md.Element).tag, 'p');
+      expect(textOf(inline), 'See x here');
+    });
+  });
+
+  test('footnotes keep their Markdown for the reference sheet', () {
+    final parsed = parseMessageMarkup(
+      'Claim[^a] and more[^b].\n\n'
+      '[^a]: [Site](https://example.com) says \$x\$\n'
+      '    and continues.\n'
+      '[^b]: Second',
+    );
+    final notes = elements(parsed.nodes).where((e) => e.tag == 'li').toList();
+    expect(notes.map((e) => e.attributes['id']), ['fn-a', 'fn-b']);
+    expect(
+      parsed.restoreLiteralTokens(notes.first.attributes['source']!),
+      r'[Site](https://example.com) says $x$'
+      '\nand continues.',
+    );
+    expect(notes.last.attributes['source'], 'Second');
+  });
+
+  test('suggested replies from lines or JSON, at most four', () {
+    expect(parseReplies('- 好，幫我設定\n2. 「不用了」\n\n"Later"\n好，幫我設定'), [
+      '好，幫我設定',
+      '不用了',
+      'Later',
+    ]);
+    expect(parseReplies('["a", {"text": "b"}, {"label": "c"}, "d", "e"]'), [
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+    expect(parseReplies('  \n'), isEmpty);
+    expect(parseReplies('x' * 200).single, hasLength(120));
+  });
+
   group('callouts', () {
     md.Element callout(String source) => elements(
       parseMessageMarkup(source).nodes,

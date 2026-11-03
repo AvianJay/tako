@@ -1669,6 +1669,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get calloutCaution => '注意';
 
   @override
+  String get detailsSummary => '詳細內容';
+
+  @override
+  String get spoilerHidden => '隱藏內容，點一下顯示';
+
+  @override
+  String get footnoteLabel => '註腳';
+
+  @override
+  String get loadImage => '點一下載入圖片';
+
+  @override
+  String get loadPreview => '載入預覽';
+
+  @override
+  String get loadMap => '載入地圖';
+
+  @override
+  String get loadFailed => '無法載入';
+
+  @override
+  String get loadWebContent => '自動載入網路內容';
+
+  @override
+  String get loadWebContentHelp =>
+      '回覆中的圖片、連結預覽、影片縮圖和地圖不必點一下就會顯示，但這些網站會因此得知你的 IP 位址。助理自己寫出的網址（不是你傳的，也不是搜尋或工具找到的）仍然要點一下才載入。';
+
+  @override
   String get automations => '自動化';
 
   @override
@@ -3577,6 +3605,34 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get calloutCaution => '注意';
+
+  @override
+  String get detailsSummary => '詳細內容';
+
+  @override
+  String get spoilerHidden => '隱藏內容，點一下顯示';
+
+  @override
+  String get footnoteLabel => '註腳';
+
+  @override
+  String get loadImage => '點一下載入圖片';
+
+  @override
+  String get loadPreview => '載入預覽';
+
+  @override
+  String get loadMap => '載入地圖';
+
+  @override
+  String get loadFailed => '無法載入';
+
+  @override
+  String get loadWebContent => '自動載入網路內容';
+
+  @override
+  String get loadWebContentHelp =>
+      '回覆中的圖片、連結預覽、影片縮圖和地圖不必點一下就會顯示，但這些網站會因此得知你的 IP 位址。助理自己寫出的網址（不是你傳的，也不是搜尋或工具找到的）仍然要點一下才載入。';
 
   @override
   String get automations => '自動化';

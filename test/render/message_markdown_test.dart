@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,21 @@ Widget app(
     ),
   ),
 );
+
+/// The span drawing exactly [text], anywhere on screen.
+TextSpan? spanWithText(WidgetTester tester, String text) {
+  TextSpan? found;
+  void walk(InlineSpan span) {
+    if (span is! TextSpan) return;
+    if (span.text == text) found = span;
+    span.children?.forEach(walk);
+  }
+
+  for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
+    walk(rich.text);
+  }
+  return found;
+}
 
 void main() {
   testWidgets(
@@ -233,6 +249,138 @@ void main() {
     expect(find.textContaining('<', findRichText: true), findsNothing);
     expect(find.textContaining('==', findRichText: true), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('footnotes list after the reply and open from their number', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      app('Claim[^1] and[^2].\n\n[^1]: First **source**\n[^2]: Second'),
+    );
+    expect(find.textContaining('↩', findRichText: true), findsNothing);
+    expect(find.text('1.'), findsOneWidget);
+    expect(find.text('2.'), findsOneWidget);
+    expect(
+      find.textContaining('First source', findRichText: true),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Note 1'), findsOneWidget);
+    expect(
+      find.textContaining('First source', findRichText: true),
+      findsNWidgets(2),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('details open on tap, or from the start when marked open', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      app('<details>\n<summary>More</summary>\n\nHidden part\n</details>'),
+    );
+    expect(find.text('More', findRichText: true), findsOneWidget);
+    expect(find.text('Hidden part', findRichText: true), findsNothing);
+    await tester.tap(find.text('More', findRichText: true));
+    await tester.pumpAndSettle();
+    expect(find.text('Hidden part', findRichText: true), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(app('<details open>\nShown\n</details>'));
+    expect(find.text('Details', findRichText: true), findsOneWidget);
+    expect(find.text('Shown', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('spoilers hide behind a bar until tapped', (tester) async {
+    await tester.pumpWidget(app('Answer: ||<span color="red">42</span>||'));
+    var hidden = spanWithText(tester, '42')!;
+    expect(hidden.style!.color, hidden.style!.backgroundColor);
+    expect(hidden.semanticsLabel, 'Hidden text. Tap to show.');
+    (hidden.recognizer! as TapGestureRecognizer).onTap!();
+    await tester.pump();
+    hidden = spanWithText(tester, '42')!;
+    expect(hidden.recognizer, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ruby, badges and aligned table cells', (tester) async {
+    await tester.pumpWidget(
+      app(
+        '<ruby>漢<rt>hàn</rt></ruby> <badge color="green">完成</badge>\n\n'
+        '| A | B |\n|:-:|--:|\n| 1 | 2 |',
+      ),
+    );
+    final base = tester.widget<RichText>(find.text('漢', findRichText: true));
+    final annotation = tester.widget<RichText>(
+      find.text('hàn', findRichText: true),
+    );
+    expect(
+      annotation.text.style!.fontSize!,
+      lessThan(base.text.style!.fontSize!),
+    );
+    expect(find.text('完成', findRichText: true), findsOneWidget);
+    expect(
+      tester.widget<RichText>(find.text('A', findRichText: true)).textAlign,
+      TextAlign.center,
+    );
+    expect(
+      tester.widget<RichText>(find.text('2', findRichText: true)).textAlign,
+      TextAlign.right,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('suggested replies send on tap, only when offered', (
+    tester,
+  ) async {
+    String? sent;
+    Widget host({ValueChanged<String>? onReply, bool visuals = true}) =>
+        MaterialApp(
+          home: Scaffold(
+            body: MessageMarkdown(
+              data: 'Shall I?\n\n```replies\n- Yes please\n- Not now\n```',
+              copyLabel: 'Copy code',
+              imageLabel: 'Image',
+              fileLabel: 'File',
+              visuals: visuals,
+              onReply: onReply,
+            ),
+          ),
+        );
+    await tester.pumpWidget(host(onReply: (text) => sent = text));
+    expect(find.byType(ActionChip), findsNWidgets(2));
+    await tester.tap(find.text('Not now'));
+    expect(sent, 'Not now');
+    await tester.pumpWidget(host());
+    expect(find.byType(ActionChip), findsNothing);
+    expect(find.textContaining('Yes please', findRichText: true), findsNothing);
+    // In the user's own messages the block stays code.
+    await tester.pumpWidget(host(onReply: (_) {}, visuals: false));
+    expect(find.byType(ActionChip), findsNothing);
+    expect(
+      find.textContaining('Yes please', findRichText: true),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('phone and message links open through the host', (tester) async {
+    final opened = <Uri>[];
+    await tester.pumpWidget(
+      app(
+        '[Call](tel:+886212345678) or [text](sms:+886912345678)',
+        onLink: opened.add,
+      ),
+    );
+    for (final text in ['Call', 'text']) {
+      (spanWithText(tester, text)!.recognizer! as TapGestureRecognizer)
+          .onTap!();
+    }
+    expect(opened.map((uri) => '$uri'), [
+      'tel:+886212345678',
+      'sms:+886912345678',
+    ]);
   });
 
   testWidgets('unknown HTML and invalid math display as text', (tester) async {

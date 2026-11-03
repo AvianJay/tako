@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Directory;
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/automation/automation.dart';
 import '../core/browser/browser_settings.dart';
@@ -49,6 +51,7 @@ import '../core/tools/tool_registry.dart';
 import '../core/tools/tool_settings.dart';
 import '../core/util/ids.dart';
 import '../core/util/json.dart';
+import '../core/web/web_previews.dart';
 import '../data/audit_repository.dart';
 import '../data/automation_repository.dart';
 import '../data/chat_repository.dart';
@@ -148,6 +151,12 @@ class AppController extends ChangeNotifier {
   MemorySettings memorySettings = const MemorySettings();
   PersonalizationSettings personalization = const PersonalizationSettings();
   BrowserSettings browserSettings = const BrowserSettings();
+
+  /// Fetches link, image, video and map previews for replies.
+  late final webPreviews = WebPreviews(
+    cacheDirectory: () async =>
+        Directory('${(await getTemporaryDirectory()).path}/web-previews'),
+  );
   DeviceControlSettings controlSettings = const DeviceControlSettings();
 
   /// Whether the app is in front, reported by the UI's lifecycle observer.

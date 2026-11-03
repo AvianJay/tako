@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:markdown/markdown.dart' as md;
 
 /// Non-Markdown content is retained separately so it cannot become raw HTML.
@@ -225,7 +227,7 @@ ParsedMessage parseMessageMarkup(
     if (rest.startsWith('<') &&
         (rest.length == 1 || RegExp(r'^</?[A-Za-z!]').hasMatch(rest)) &&
         !RegExp(
-          r'^<(?:https?://|mailto:)',
+          r'^<(?:https?://|mailto:|tel:|sms:|geo:)',
           caseSensitive: false,
         ).hasMatch(rest)) {
       final end = _tagEnd(rest);
@@ -248,7 +250,12 @@ ParsedMessage parseMessageMarkup(
             // Models sometimes close a custom tag like HTML; drop the closer.
             : customTags.contains(closing)
             ? const RenderLiteral('')
-            : _formatTag(source, tag, closing) ?? RenderLiteral(source),
+            : _formatTag(
+                    source,
+                    tag ?? _parseTag(source, lenient: true),
+                    closing,
+                  ) ??
+                  RenderLiteral(source),
       );
       position += source.length;
       continue;
@@ -258,11 +265,16 @@ ParsedMessage parseMessageMarkup(
     position++;
   }
 
+  final fragmentSyntax = _FragmentSyntax(prefix, fragments);
   final document = md.Document(
     extensionSet: md.ExtensionSet.gitHubFlavored,
     encodeHtml: false,
-    blockSyntaxes: const [_CalloutSyntax()],
-    inlineSyntaxes: [_FragmentSyntax(prefix, fragments), _HighlightSyntax()],
+    blockSyntaxes: [
+      const _CalloutSyntax(),
+      _DetailsSyntax(fragmentSyntax.pattern, fragments),
+      const _FootnoteSyntax(),
+    ],
+    inlineSyntaxes: [fragmentSyntax, _HighlightSyntax(), _SpoilerSyntax()],
   );
   return ParsedMessage(
     nodes: _pairFormats(document.parse(output.toString()), fragments),
@@ -289,6 +301,13 @@ const _formatElements = {
   's': 'del',
   'del': 'del',
   'strike': 'del',
+  'ruby': 'ruby',
+  'rt': 'rt',
+  'rp': 'rp',
+  'badge': 'badge',
+  'spoiler': 'spoiler',
+  'details': 'details',
+  'summary': 'summary',
 };
 
 /// The formatting tag [source] is, or null for any other tag. Colours are
@@ -305,7 +324,14 @@ RenderFormat? _formatTag(String source, RenderTag? tag, String? closing) {
   }
   final element = _formatElements[tag?.name];
   if (tag == null || element == null) return null;
-  if (element != 'mark' && element != 'span') {
+  if (element == 'details') {
+    return RenderFormat(
+      source,
+      element: element,
+      attributes: {if (tag.attributes.containsKey('open')) 'open': ''},
+    );
+  }
+  if (element != 'mark' && element != 'span' && element != 'badge') {
     return RenderFormat(source, element: element);
   }
   final css = {
@@ -327,7 +353,10 @@ RenderFormat? _formatTag(String source, RenderTag? tag, String? closing) {
   return RenderFormat(
     source,
     element: element,
-    attributes: {'color': ?color, 'background': ?background},
+    // A badge has a single hue, whichever way it was given.
+    attributes: element == 'badge'
+        ? {'color': ?color ?? background}
+        : {'color': ?color, 'background': ?background},
   );
 }
 
@@ -364,6 +393,11 @@ List<md.Node> _pairFormats(
     } else if (format.element == 'br') {
       open.last.$2.add(md.Element.empty('br'));
     } else if (!format.closing) {
+      // As in HTML, a new annotation ends the one before it.
+      if ({'rt', 'rp'}.contains(format.element) &&
+          {'rt', 'rp'}.contains(open.last.$1?.element)) {
+        closeLast();
+      }
       open.add((format, []));
     } else {
       final index = open.lastIndexWhere(
@@ -421,22 +455,31 @@ int _tagEnd(String source) {
 }
 
 /// Self-closing is canonical, but `<image src="x">` is accepted as well.
-RenderTag? _parseTag(String source) {
+///
+/// Formatting tags are parsed [lenient]ly: their values may also be bare, as
+/// in <font color=red>, or missing, as in <details open>. Host tags such as
+/// <image> must quote every value.
+RenderTag? _parseTag(String source, {bool lenient = false}) {
   final head = RegExp(r'^<([A-Za-z][A-Za-z0-9_-]*)\b').firstMatch(source);
   if (head == null) return null;
   final attributes = <String, String>{};
   final contents = source
       .substring(head.end, source.length - 1)
       .replaceFirst(RegExp(r'/\s*$'), '');
-  final attribute = RegExp(
-    r'''\s+([A-Za-z_][A-Za-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')''',
-  );
+  final attribute = lenient
+      ? RegExp(
+          r'''\s+([A-Za-z_][A-Za-z0-9_:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?''',
+        )
+      : RegExp(
+          r'''\s+([A-Za-z_][A-Za-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')''',
+        );
   var position = 0;
   while (position < contents.length) {
     if (contents.substring(position).trim().isEmpty) break;
     final match = attribute.matchAsPrefix(contents, position);
     if (match == null) return null;
-    attributes[match[1]!.toLowerCase()] = match[2] ?? match[3]!;
+    attributes[match[1]!.toLowerCase()] =
+        match[2] ?? match[3] ?? match[4] ?? '';
     position = match.end;
   }
   return RenderTag(
@@ -515,6 +558,141 @@ class _HighlightSyntax extends md.DelimiterSyntax {
       );
 }
 
+/// `||text||` hides text until it is tapped, as in Discord.
+class _SpoilerSyntax extends md.DelimiterSyntax {
+  _SpoilerSyntax()
+    : super(
+        r'\|+',
+        requiresDelimiterRun: true,
+        allowIntraWord: true,
+        startCharacter: 0x7c,
+        tags: [md.DelimiterTag('spoiler', 2)],
+      );
+}
+
+/// A `<details>` that starts a line, as a `details` element whose first child
+/// may be a `tako-summary`. The lines up to the matching `</details>` are
+/// parsed as blocks, so lists, code and quotes inside keep working. A
+/// `<details>` inside a line stays inline and simply shows its content.
+class _DetailsSyntax extends md.BlockSyntax {
+  _DetailsSyntax(this._marker, this.fragments)
+    : pattern = RegExp('^[ \t]{0,3}(?:${_marker.pattern})');
+
+  /// Matches any fragment marker, as [_FragmentSyntax] does.
+  final RegExp _marker;
+  final Map<String, MarkupFragment> fragments;
+
+  @override
+  final RegExp pattern;
+
+  RenderFormat? _format(Match match, String element) =>
+      switch (fragments[match[0]]) {
+        final RenderFormat format when format.element == element => format,
+        _ => null,
+      };
+
+  @override
+  bool canParse(md.BlockParser parser) {
+    final line = parser.current.content.trimLeft();
+    final match = pattern.hasMatch(parser.current.content)
+        ? _marker.matchAsPrefix(line)
+        : null;
+    final format = match == null ? null : _format(match, 'details');
+    return format != null && !format.closing;
+  }
+
+  @override
+  md.Node parse(md.BlockParser parser) {
+    final lines = <String>[];
+    String? summary;
+    var open = false;
+    var depth = 0;
+    while (!parser.isDone) {
+      var line = parser.current.content;
+      if (depth == 0) {
+        final opener = _marker.firstMatch(line)!;
+        open = _format(opener, 'details')!.attributes.containsKey('open');
+        line = line.substring(opener.end);
+        depth = 1;
+      }
+      // The summary comes before any content, on this line or the next.
+      final trimmed = line.trimLeft();
+      if (summary == null && lines.every((l) => l.trim().isEmpty)) {
+        final summaryOpen = _marker.matchAsPrefix(trimmed);
+        if (summaryOpen != null &&
+            !(_format(summaryOpen, 'summary')?.closing ?? true)) {
+          final close = _marker
+              .allMatches(trimmed, summaryOpen.end)
+              .where((m) => _format(m, 'summary')?.closing ?? false)
+              .firstOrNull;
+          summary = trimmed.substring(summaryOpen.end, close?.start).trim();
+          line = close == null ? '' : trimmed.substring(close.end);
+        }
+      }
+      String? leftover;
+      for (final match in _marker.allMatches(line)) {
+        final format = _format(match, 'details');
+        if (format == null) continue;
+        depth += format.closing ? -1 : 1;
+        if (depth == 0) {
+          leftover = line.substring(match.end);
+          line = line.substring(0, match.start);
+          break;
+        }
+      }
+      if (line.trim().isNotEmpty || lines.isNotEmpty) lines.add(line);
+      if (depth == 0 && leftover != null && leftover.trim().isNotEmpty) {
+        // Text after the closing tag is put back as the next line, so it
+        // starts the next block instead of disappearing.
+        try {
+          parser.lines[parser.lines.indexOf(parser.current)] = md.Line(
+            leftover.trimLeft(),
+          );
+          break;
+        } on UnsupportedError {
+          lines.add(leftover);
+        }
+      }
+      parser.advance();
+      if (depth == 0) break;
+    }
+    final children = md.BlockParser(
+      lines.map(md.Line.new).toList(),
+      parser.document,
+    ).parseLines();
+    return md.Element('details', [
+      if (summary != null && summary.isNotEmpty)
+        md.Element('tako-summary', [md.UnparsedContent(summary)]),
+      ...children,
+    ])..attributes.addAll({if (open) 'open': ''});
+  }
+}
+
+/// Footnote definitions that keep their Markdown in a `source` attribute,
+/// so a tapped reference can show the note on its own.
+class _FootnoteSyntax extends md.FootnoteDefSyntax {
+  const _FootnoteSyntax();
+
+  @override
+  md.Node? parse(md.BlockParser parser) {
+    final start = parser.lines.indexOf(parser.current);
+    final node = super.parse(parser);
+    final end = parser.isDone
+        ? parser.lines.length
+        : parser.lines.indexOf(parser.current);
+    if (node is md.Element && start >= 0 && end > start) {
+      final lines = [
+        for (final (i, line) in parser.lines.sublist(start, end).indexed)
+          i == 0
+              ? line.content.substring(pattern.firstMatch(line.content)!.end)
+              : line.content.replaceFirst(RegExp('^ {1,4}|^\t'), ''),
+      ];
+      node.attributes['source'] = lines.join('\n').trim();
+    }
+    return node;
+  }
+}
+
 class _FragmentSyntax extends md.InlineSyntax {
   _FragmentSyntax(String prefix, this.fragments)
     : super('${RegExp.escape(prefix)}[0-9]+\uE001');
@@ -533,4 +711,35 @@ class _FragmentSyntax extends md.InlineSyntax {
     }
     return true;
   }
+}
+
+/// The suggestions in a ` ```replies ` block: a JSON array of strings, or
+/// one per line with any list markers and quotes dropped. At most four.
+List<String> parseReplies(String source) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(source);
+  } on FormatException {
+    decoded = null;
+  }
+  final values = decoded is List
+      ? [
+          for (final item in decoded)
+            if (item is Map)
+              '${item['text'] ?? item['label'] ?? ''}'
+            else
+              '$item',
+        ]
+      : source
+            .split('\n')
+            .map(
+              (line) =>
+                  line.replaceFirst(RegExp(r'^\s*(?:[-*+•]|\d+[.)])\s+'), ''),
+            );
+  return {
+    for (final value in values)
+      if (value.trim().replaceAll(RegExp('^["“「]|["”」]\$'), '').trim()
+          case final text when text.isNotEmpty)
+        text.length > 120 ? '${text.substring(0, 119)}…' : text,
+  }.take(4).toList();
 }

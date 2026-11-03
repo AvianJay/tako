@@ -1,12 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:re_highlight/languages/bash.dart';
+import 'package:re_highlight/languages/c.dart';
+import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/csharp.dart';
 import 'package:re_highlight/languages/css.dart';
 import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/languages/diff.dart';
+import 'package:re_highlight/languages/dockerfile.dart';
+import 'package:re_highlight/languages/go.dart';
+import 'package:re_highlight/languages/graphql.dart';
+import 'package:re_highlight/languages/ini.dart';
 import 'package:re_highlight/languages/java.dart';
 import 'package:re_highlight/languages/javascript.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/languages/kotlin.dart';
+import 'package:re_highlight/languages/lua.dart';
+import 'package:re_highlight/languages/makefile.dart';
+import 'package:re_highlight/languages/markdown.dart';
+import 'package:re_highlight/languages/nginx.dart';
+import 'package:re_highlight/languages/objectivec.dart';
+import 'package:re_highlight/languages/perl.dart';
+import 'package:re_highlight/languages/php.dart';
+import 'package:re_highlight/languages/powershell.dart';
+import 'package:re_highlight/languages/protobuf.dart';
 import 'package:re_highlight/languages/python.dart';
+import 'package:re_highlight/languages/r.dart';
+import 'package:re_highlight/languages/ruby.dart';
+import 'package:re_highlight/languages/rust.dart';
+import 'package:re_highlight/languages/scala.dart';
+import 'package:re_highlight/languages/shell.dart';
 import 'package:re_highlight/languages/sql.dart';
 import 'package:re_highlight/languages/swift.dart';
 import 'package:re_highlight/languages/typescript.dart';
@@ -14,16 +36,40 @@ import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/re_highlight.dart';
 
+import 'text_colors.dart';
+
 final _highlighter = Highlight()
   ..registerLanguages({
     'bash': langBash,
+    'c': langC,
+    'cpp': langCpp,
+    'csharp': langCsharp,
     'css': langCss,
     'dart': langDart,
+    'diff': langDiff,
+    'dockerfile': langDockerfile,
+    'go': langGo,
+    'graphql': langGraphql,
+    'ini': langIni,
     'java': langJava,
     'javascript': langJavascript,
     'json': langJson,
     'kotlin': langKotlin,
+    'lua': langLua,
+    'makefile': langMakefile,
+    'markdown': langMarkdown,
+    'nginx': langNginx,
+    'objectivec': langObjectivec,
+    'perl': langPerl,
+    'php': langPhp,
+    'powershell': langPowershell,
+    'protobuf': langProtobuf,
     'python': langPython,
+    'r': langR,
+    'ruby': langRuby,
+    'rust': langRust,
+    'scala': langScala,
+    'shell': langShell,
     'sql': langSql,
     'swift': langSwift,
     'typescript': langTypescript,
@@ -54,6 +100,7 @@ class CodeBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final background = scheme.surfaceContainerHighest;
     final style = TextStyle(
       fontFamily: 'monospace',
       color: scheme.onSurface,
@@ -76,6 +123,12 @@ class CodeBlock extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
           'attr': TextStyle(color: scheme.secondary),
+          'addition': TextStyle(
+            color: readableTextColor(textColors['green']!, background),
+          ),
+          'deletion': TextStyle(
+            color: readableTextColor(textColors['red']!, background),
+          ),
         });
         _highlighter.highlight(code: code, language: language).render(renderer);
         span = renderer.span ?? span;
@@ -86,7 +139,7 @@ class CodeBlock extends StatelessWidget {
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: background,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

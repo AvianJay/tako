@@ -3219,6 +3219,60 @@ abstract class AppLocalizations {
   /// **'注意'**
   String get calloutCaution;
 
+  /// No description provided for @detailsSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'詳細內容'**
+  String get detailsSummary;
+
+  /// No description provided for @spoilerHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'隱藏內容，點一下顯示'**
+  String get spoilerHidden;
+
+  /// No description provided for @footnoteLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'註腳'**
+  String get footnoteLabel;
+
+  /// No description provided for @loadImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'點一下載入圖片'**
+  String get loadImage;
+
+  /// No description provided for @loadPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'載入預覽'**
+  String get loadPreview;
+
+  /// No description provided for @loadMap.
+  ///
+  /// In zh, this message translates to:
+  /// **'載入地圖'**
+  String get loadMap;
+
+  /// No description provided for @loadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法載入'**
+  String get loadFailed;
+
+  /// No description provided for @loadWebContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'自動載入網路內容'**
+  String get loadWebContent;
+
+  /// No description provided for @loadWebContentHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'回覆中的圖片、連結預覽、影片縮圖和地圖不必點一下就會顯示，但這些網站會因此得知你的 IP 位址。助理自己寫出的網址（不是你傳的，也不是搜尋或工具找到的）仍然要點一下才載入。'**
+  String get loadWebContentHelp;
+
   /// No description provided for @automations.
   ///
   /// In zh, this message translates to:

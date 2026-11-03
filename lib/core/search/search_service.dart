@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -287,6 +288,32 @@ Future<(String, String)> boundedRequest(
   Set<String>? allowedContentTypes,
   int maxRedirects = 0,
 }) async {
+  final (bytes, contentType) = await boundedBytes(
+    uri,
+    cancel: cancel,
+    clientFactory: clientFactory,
+    method: method,
+    headers: headers,
+    body: body,
+    allowedContentTypes: allowedContentTypes,
+    maxRedirects: maxRedirects,
+  );
+  return (utf8.decode(bytes, allowMalformed: true), contentType);
+}
+
+/// [boundedRequest] for any content, such as images: the raw body, at most
+/// [maxBytes] long.
+Future<(Uint8List, String)> boundedBytes(
+  Uri uri, {
+  required CancelToken cancel,
+  required http.Client Function() clientFactory,
+  String method = 'GET',
+  Map<String, String> headers = const {},
+  String? body,
+  Set<String>? allowedContentTypes,
+  int maxRedirects = 0,
+  int maxBytes = 2 * 1024 * 1024,
+}) async {
   cancel.throwIfCancelled();
   final client = clientFactory();
   cancel.addListener(client.close);
@@ -347,9 +374,7 @@ Future<(String, String)> boundedRequest(
             )) {
       throw const SearchFailure('downloads_not_supported');
     }
-    final bytes = <int>[];
-    final text = await _readBody(response, bytes, cancel);
-    return (text, contentType);
+    return (await _readBody(response, cancel, maxBytes), contentType);
   } on RequestCancelled {
     rethrow;
   } on SearchFailure {
@@ -363,26 +388,27 @@ Future<(String, String)> boundedRequest(
   }
 }
 
-Future<String> _readBody(
+Future<Uint8List> _readBody(
   http.StreamedResponse response,
-  List<int> bytes,
   CancelToken cancel,
+  int maxBytes,
 ) async {
+  final bytes = BytesBuilder(copy: false);
   final reader = StreamIterator(
     response.stream.timeout(const Duration(seconds: 25)),
   );
   try {
     while (await cancel.bind(reader.moveNext())) {
       final chunk = reader.current;
-      if (bytes.length + chunk.length > 2 * 1024 * 1024) {
+      if (bytes.length + chunk.length > maxBytes) {
         throw const SearchFailure('response_too_large');
       }
-      bytes.addAll(chunk);
+      bytes.add(chunk);
     }
   } finally {
     await reader.cancel();
   }
-  return utf8.decode(bytes, allowMalformed: true);
+  return bytes.takeBytes();
 }
 
 /// Conservative permission classification, not a DNS/IP isolation boundary.

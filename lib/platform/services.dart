@@ -18,6 +18,7 @@ import '../core/on_device/on_device_capability.dart';
 import '../core/screen/screen_capability.dart';
 import '../core/shell/shell_capability.dart';
 import '../core/shortcuts/shortcuts_capability.dart';
+import '../core/web/web_links.dart';
 import 'android/aicore_on_device.dart';
 import 'android/device_control.dart';
 import 'app_services.dart';
@@ -191,12 +192,40 @@ class PlatformServices implements AppServices, AutomationServiceProvider {
     await SharePlus.instance.share(ShareParams(text: text));
   }
 
+  /// Web links, and the mail, phone, message and map links replies use. The
+  /// phone and message apps open with the number filled in; nothing is
+  /// dialled or sent without the user.
   @override
   Future<void> openLink(Uri uri) async {
-    if (!{'https', 'http'}.contains(uri.scheme) ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty) {
+    final web =
+        {'https', 'http'}.contains(uri.scheme) &&
+        uri.host.isNotEmpty &&
+        uri.userInfo.isEmpty;
+    if (!web && !{'mailto', 'tel', 'sms', 'geo'}.contains(uri.scheme)) {
       throw const FormatException('Unsupported link');
+    }
+    if (uri.scheme == 'geo') {
+      final point = mapPoint(uri);
+      if (point == null) throw const FormatException('Unsupported link');
+      final where = point.located
+          ? '${point.latitude},${point.longitude}'
+          : point.query!;
+      // iOS has no geo: handler; elsewhere a missing maps app falls back
+      // to the web.
+      final fallback = Platform.isIOS
+          ? Uri.https('maps.apple.com', '/', {
+              if (point.located) 'll': where,
+              'q': point.query ?? where,
+            })
+          : Uri.https('www.google.com', '/maps/search/', {
+              'api': '1',
+              'query': point.query ?? where,
+            });
+      if (!Platform.isIOS &&
+          await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+      uri = fallback;
     }
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       throw const FormatException('Unable to open link');

@@ -329,6 +329,18 @@ const visualReply = r'''
 
 重點可以用 ==螢光筆== 或 <mark color="green">綠色螢光</mark> 標出來，也能把字換成 <span color="red">紅色</span>、<span color="blue">藍色</span>、<span color="purple">紫色</span>，或加上<u>底線</u>。H<sub>2</sub>O、x<sup>2</sup>、<kbd>Ctrl</kbd> + <kbd>C</kbd> 和 <small>小字附註</small>也都可以。
 
+狀態可以加標籤：<badge color="green">已完成</badge> <badge color="orange">進行中</badge> <badge>待辦</badge>；注音也行：<ruby>章<rt>ㄓㄤ</rt>魚<rt>ㄩˊ</rt></ruby>。謎底先藏起來：||是章魚||。資料來源放在註腳[^1]。
+
+<details>
+<summary>展開看更多細節</summary>
+
+這段預設收起來，點標題才會展開。
+</details>
+
+https://github.com/AvianJay/tako
+
+[台北 101](geo:25.0340,121.5645)
+
 ```cards
 [
   {"icon": "dashboard", "title": "① 卡片式介面", "subtitle": "適合：專案介紹、功能清單、資訊儀表板", "text": "把不同資訊拆成獨立區塊，有標題、圖示、摘要與操作，不必在一大坨文字裡考古。"},
@@ -422,6 +434,13 @@ mindmap
 
 > [!WARNING] 注意資料來源
 > 圖表只用模型手上真的有的資料。
+
+```replies
+再畫一張圖表
+換成表格
+```
+
+[^1]: [Tako on GitHub](https://github.com/AvianJay/tako)
 ''';
 
 /// A reply that uses every visual block, for layout checks and screenshots.

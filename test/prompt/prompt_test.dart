@@ -133,13 +133,31 @@ void main() {
     expect(visuals, contains('> [!NOTE]'));
     expect(visuals, contains('==text=='));
     expect(visuals, contains('<span color="red">'));
+    for (final syntax in [
+      '```replies',
+      '<details>',
+      '(tel:',
+      '(geo:',
+      '||text||',
+    ]) {
+      expect(visuals, contains(syntax));
+    }
     expect(visuals, isNot(contains('{{')));
     final plain = builder.render({'visuals': false});
     expect(plain, contains('## Formatting'));
     expect(plain, isNot(contains('```chart')));
     expect(plain, isNot(contains('[!NOTE]')));
     expect(plain, isNot(contains('==text==')));
+    expect(plain, isNot(contains('```replies')));
     expect(builder.render({'markdown': false}), isNot(contains('```chart')));
+    expect(
+      builder.render({'web_search': true}),
+      contains('[^1]: [Site name](url)'),
+    );
+    expect(
+      builder.render({'web_search': true, 'markdown': false}),
+      isNot(contains('[^1]')),
+    );
   });
 
   test(

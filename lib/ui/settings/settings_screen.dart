@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_controller.dart';
 import '../../app/app_info.dart';
-import '../../core/browser/browser_settings.dart';
 import '../../core/providers/provider_config.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../platform/android/app_updater.dart';
@@ -170,11 +169,25 @@ class SettingsScreen extends ConsumerWidget {
                       ? null
                       : (value) => run(
                           () => app.saveBrowserSettings(
-                            BrowserSettings(openLinksInApp: value),
+                            app.browserSettings.copyWith(openLinksInApp: value),
                           ),
                         ),
                 ),
               ],
+              SwitchListTile(
+                key: const ValueKey('settings-load-web-content'),
+                secondary: const Icon(Icons.image_search_outlined),
+                title: Text(l.loadWebContent),
+                subtitle: Text(l.loadWebContentHelp),
+                value: app.browserSettings.loadWebContent,
+                onChanged: app.busy
+                    ? null
+                    : (value) => run(
+                        () => app.saveBrowserSettings(
+                          app.browserSettings.copyWith(loadWebContent: value),
+                        ),
+                      ),
+              ),
               const Divider(height: 24),
               Row(
                 children: [
