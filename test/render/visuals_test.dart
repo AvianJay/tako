@@ -15,6 +15,25 @@ const chart =
     '```chart\n{"type":"bar","title":"Requests","labels":["Jan","Feb","Mar"],'
     '"series":[{"name":"API","data":[120,210,170]}]}\n```';
 const flowchart = '```mermaid\nflowchart TD\n  A[Start] --> B{Ready?}\n```';
+const radar =
+    '```chart\n{"type":"radar","title":"Phones","labels":["Speed","Price",'
+    '"Battery","Camera","Screen"],"series":[{"name":"A","data":[8,6,9,7,8]},'
+    '{"name":"B","data":[7,9,6,8,null]}],"max":10}\n```';
+const longRadar =
+    '```chart\n{"type":"spider","labels":["Keyboard and trackpad","Display",'
+    '"Software updates","Charging speed","Price","Performance",'
+    '"Build quality","Battery life"],"series":[{"name":"Model One",'
+    '"data":[72,85,90,60,88,80,70,65]},{"name":"Model Two Pro Max",'
+    '"data":[90,70,75,80,65,85,90,95]}]}\n```';
+const scatter =
+    '```chart\n{"type":"scatter","title":"Price and rating","xLabel":"Price",'
+    '"yLabel":"Rating","series":[{"name":"Phones","data":[{"x":12900,'
+    '"y":4.5,"label":"iPhone 17"},[8990,4.1],[24900,4.7,"Galaxy S26"]]}]}\n```';
+final manyScatter =
+    '```chart\n{"type":"xy","xLabel":"Height","xUnit":"cm","yLabel":"Weight",'
+    '"unit":"kg","series":[${[
+      for (var s = 0; s < 3; s++) '{"name":"Group ${s + 1}","data":[${[for (var i = 0; i < 40; i++) '[${150 + (i * 7 + s * 13) % 45},${50 + (i * 11 + s * 5) % 60}]'].join(',')}]}',
+    ].join(',')}]}\n```';
 
 Widget app(
   String data, {
@@ -247,6 +266,110 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(VisualBlock), findsNWidgets(6));
       expect(tester.takeException(), isNull, reason: '$width $scale');
+    }
+  });
+
+  testWidgets('radar and scatter charts read out, select and open as tables', (
+    tester,
+  ) async {
+    Finder paint() => find
+        .descendant(
+          of: find.byType(ChartView),
+          matching: find.byType(CustomPaint),
+        )
+        .first;
+    ChartPainter painter() =>
+        tester.widget<CustomPaint>(paint()).painter! as ChartPainter;
+
+    await tester.pumpWidget(app(radar));
+    await tester.pumpAndSettle();
+    expect(find.text('Phones'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Phones.*Speed: A 8, B 7.*Screen: A 8')),
+      findsOneWidget,
+    );
+    await tester.tapAt(tester.getTopLeft(paint()) + painter().layout.spokes[1]);
+    await tester.pumpAndSettle();
+    expect(painter().selected, 1);
+    await tester.tap(find.byTooltip('Show as table'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Table), findsOneWidget);
+    expect(find.text('Battery'), findsOneWidget);
+    expect(find.text('9'), findsNWidgets(2));
+
+    await tester.pumpWidget(app(scatter));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel(
+        RegExp(r'Price and rating.*iPhone 17, Price 12,900, Rating 4\.5'),
+      ),
+      findsOneWidget,
+    );
+    final dot = painter().layout.dots.first.center;
+    await tester.tapAt(tester.getTopLeft(paint()) + dot + const Offset(6, 4));
+    await tester.pumpAndSettle();
+    expect(painter().selected, 0);
+    await tester.tap(find.byTooltip('Show as table'));
+    await tester.pumpAndSettle();
+    expect(find.text('iPhone 17'), findsOneWidget);
+    expect(find.text('8,990'), findsOneWidget);
+    expect(find.text('Rating'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('radar and scatter charts fit narrow, large-text and dark '
+      'layouts', (tester) async {
+    for (final source in [radar, longRadar, scatter, manyScatter]) {
+      for (final (width, scale, dark) in [
+        (240.0, 2.0, false),
+        (320.0, 1.4, true),
+        (700.0, 1.0, false),
+      ]) {
+        final reason = '$width $scale $source';
+        // A fresh block: the last one was left showing its table.
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          app(
+            source,
+            width: width,
+            textScale: scale,
+            theme: dark ? ThemeData.dark() : null,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final painter =
+            tester
+                    .widget<CustomPaint>(
+                      find
+                          .descendant(
+                            of: find.byType(ChartView),
+                            matching: find.byType(CustomPaint),
+                          )
+                          .first,
+                    )
+                    .painter!
+                as ChartPainter;
+        final layout = painter.layout;
+        final bounds = (Offset.zero & layout.size).inflate(1);
+        for (final placed in [...layout.texts, ...layout.underlay]) {
+          final size = painter.text.measure(
+            placed.text,
+            placed.role,
+            maxWidth: placed.maxWidth,
+            maxLines: placed.maxLines,
+          );
+          expect(
+            bounds.contains(placed.offset) &&
+                bounds.contains((placed.offset & size).bottomRight),
+            isTrue,
+            reason: '${placed.text} $reason',
+          );
+        }
+        await tester.tap(find.byTooltip('Show as table'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Table), findsOneWidget, reason: reason);
+        expect(tester.takeException(), isNull, reason: reason);
+      }
     }
   });
 

@@ -39,6 +39,41 @@ class NiceScale {
     return best ?? NiceScale(low, high, span);
   }
 
+  /// From zero to exactly [max], the top of a rating or a percentage. A top
+  /// off the usual steps, such as seven, takes whichever clean step divides
+  /// it into two to eight intervals, nearest four. Whole tops keep whole
+  /// steps: a ten-point rating reads 2, 4, 6 rather than 2.5, 5, 7.5.
+  factory NiceScale.upTo(double max) {
+    final nice = NiceScale.of(0, max, includeZero: true);
+    final whole = max >= 2 && max == max.roundToDouble();
+    bool fits(double step) => !whole || step == step.roundToDouble();
+    if ((nice.max - max).abs() <= max * 1e-9 && fits(nice.step)) return nice;
+    final base = math
+        .pow(10, (math.log(max) / math.ln10).floor() - 1)
+        .toDouble();
+    NiceScale? best;
+    for (final exponent in [base, base * 10]) {
+      for (final multiplier in const [1, 2, 2.5, 5]) {
+        final step = exponent * multiplier;
+        final intervals = max / step;
+        if (!fits(step) ||
+            (intervals - intervals.round()).abs() > 1e-6 ||
+            intervals.round() < 2 ||
+            intervals.round() > 8) {
+          continue;
+        }
+        if (best == null ||
+            (intervals - 4).abs() < ((best.max / best.step) - 4).abs()) {
+          best = NiceScale(0, max, step);
+        }
+      }
+    }
+    if (best != null) return best;
+    return (nice.max - max).abs() <= max * 1e-9
+        ? nice
+        : NiceScale(0, max, max / 4);
+  }
+
   final double min;
   final double max;
   final double step;
@@ -75,6 +110,10 @@ class ChartFormat {
   }
 
   ChartFormat._(this.unit, this._compact, this._decimal, this._percent);
+
+  /// The same locale for a second axis with its own unit.
+  ChartFormat withUnit(String unit) =>
+      ChartFormat._(unit, _compact, _decimal, _percent);
 
   final String unit;
   final NumberFormat _compact;

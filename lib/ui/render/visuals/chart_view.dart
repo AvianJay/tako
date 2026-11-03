@@ -85,9 +85,12 @@ class _ChartViewState extends State<ChartView>
   }
 
   void _select(ChartLayout layout, Offset position, {bool toggle = true}) {
-    final index = layout.form == ChartForm.pie
-        ? layout.sliceAt(position)
-        : layout.categoryAt(position);
+    final index = switch (layout.form) {
+      ChartForm.pie => layout.sliceAt(position),
+      ChartForm.radar => layout.axisAt(position),
+      ChartForm.scatter => layout.dotAt(position),
+      _ => layout.categoryAt(position),
+    };
     setState(() {
       _selected = toggle && index == _selected ? null : index;
     });
@@ -147,6 +150,22 @@ class _ChartViewState extends State<ChartView>
 String chartSummary(ChartSpec spec, VisualLabels labels) {
   final format = ChartFormat(labels.localeName, spec.unit);
   final values = <String>[];
+  if (spec.type == ChartType.scatter) {
+    final x = format.withUnit(spec.xUnit);
+    final several = spec.series.length > 1;
+    for (final series in spec.series) {
+      for (final point in series.points.take(60 - values.length)) {
+        values.add(
+          [
+            if (several) series.name,
+            ?point.label,
+            '${spec.xLabel ?? 'x'} ${x.full(point.x)}',
+            '${spec.yLabel ?? 'y'} ${format.full(point.y)}',
+          ].join(', '),
+        );
+      }
+    }
+  }
   for (var i = 0; i < spec.labels.length && i < 60; i++) {
     final parts = [
       for (final series in spec.series)
@@ -213,6 +232,33 @@ class ChartTable extends StatelessWidget {
               ),
             ],
           ),
+      ];
+    } else if (spec.type == ChartType.scatter) {
+      // One row per point; series and point names only when there are any.
+      final x = format.withUnit(spec.xUnit);
+      final several = spec.series.length > 1;
+      final named = spec.series.any(
+        (s) => s.points.any((p) => p.label != null),
+      );
+      rows = [
+        TableRow(
+          children: [
+            if (several) cell('', header: true),
+            if (named) cell('', header: true),
+            cell(spec.xLabel ?? 'x', header: true, number: true),
+            cell(spec.yLabel ?? 'y', header: true, number: true),
+          ],
+        ),
+        for (final series in spec.series)
+          for (final point in series.points)
+            TableRow(
+              children: [
+                if (several) cell(series.name),
+                if (named) cell(point.label ?? ''),
+                cell(x.full(point.x), number: true),
+                cell(format.full(point.y), number: true),
+              ],
+            ),
       ];
     } else {
       rows = [

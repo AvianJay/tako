@@ -8,8 +8,18 @@ import 'chart_spec.dart';
 import 'visual_palette.dart';
 import 'visual_text.dart';
 
+/// What a tooltip reads: a header, optionally keyed to a series, then rows
+/// of (series key, value, name), placed by the marks it points at.
+typedef _Readout = ({
+  String header,
+  int? key,
+  List<(int?, String, String)> rows,
+  Rect target,
+});
+
 /// Paints a [ChartLayout]. [progress] grows the marks from their baseline;
-/// [selected] is a category, or a slice for pies, and shows its values.
+/// [selected] is a category, a slice for pies, a spoke for radars or a dot
+/// for scatter charts, and shows its values.
 class ChartPainter extends CustomPainter {
   ChartPainter({
     required this.layout,
@@ -39,10 +49,15 @@ class ChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (layout.form == ChartForm.pie) {
-      _pie(canvas);
-    } else {
-      _axes(canvas);
+    switch (layout.form) {
+      case ChartForm.pie:
+        _pie(canvas);
+      case ChartForm.radar:
+        _radar(canvas);
+      case ChartForm.scatter:
+        _scatter(canvas);
+      case ChartForm.columns || ChartForm.rows || ChartForm.lines:
+        _axes(canvas);
     }
     for (final placed in layout.texts) {
       text.paint(
@@ -57,10 +72,15 @@ class ChartPainter extends CustomPainter {
       );
     }
     for (final key in layout.keys) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(key.rect, Radius.circular(key.line ? 1 : 2)),
-        Paint()..color = palette.seriesColor(key.color),
-      );
+      final paint = Paint()..color = palette.seriesColor(key.color);
+      if (key.dot) {
+        canvas.drawCircle(key.rect.center, key.rect.shortestSide / 2, paint);
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(key.rect, Radius.circular(key.line ? 1 : 2)),
+          paint,
+        );
+      }
     }
     if (selected != null && _settled) _tooltip(canvas, size);
   }
@@ -233,6 +253,168 @@ class ChartPainter extends CustomPainter {
     }
   }
 
+  void _radar(Canvas canvas) {
+    final center = layout.center;
+    final spokes = layout.spokes;
+    final grid = Paint()
+      ..color = palette.grid
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final edge = Paint()
+      ..color = palette.baseline
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final (index, ring) in layout.rings.indexed) {
+      canvas.drawPath(
+        Path()..addPolygon([
+          for (final spoke in spokes)
+            center + (spoke - center) * (ring / layout.radius),
+        ], true),
+        index == layout.rings.length - 1 ? edge : grid,
+      );
+    }
+    for (final (index, spoke) in spokes.indexed) {
+      canvas.drawLine(center, spoke, index == selected ? edge : grid);
+    }
+    // Ring values mask the grid behind them; the series pass over them.
+    for (final placed in layout.underlay) {
+      final size = text.measure(placed.text, placed.role);
+      canvas.drawRRect(
+        RRect.fromLTRBR(
+          placed.offset.dx - 2,
+          placed.offset.dy,
+          placed.offset.dx + size.width + 2,
+          placed.offset.dy + size.height,
+          const Radius.circular(3),
+        ),
+        Paint()..color = palette.surface,
+      );
+      text.paint(
+        canvas,
+        placed.text,
+        placed.role,
+        placed.offset,
+        color: palette.mutedInk,
+      );
+    }
+
+    // Webs grow out from the centre. Fills go first, so no series hides
+    // another's outline; a series with a missing value has no closed shape
+    // and is only outlined, broken at the gap.
+    final t = _t;
+    Offset grow(Offset point) => center + (point - center) * t;
+    for (final line in layout.lines) {
+      if (line.points.contains(null)) continue;
+      canvas.drawPath(
+        Path()
+          ..addPolygon([for (final point in line.points) grow(point!)], true),
+        Paint()
+          ..color = palette.seriesColor(line.series).withValues(alpha: .12),
+      );
+    }
+    for (final line in layout.lines) {
+      final color = palette.seriesColor(line.series);
+      final points = line.points;
+      final path = Path();
+      final gap = points.indexOf(null);
+      if (gap < 0) {
+        path.addPolygon([for (final point in points) grow(point!)], true);
+      } else {
+        // Start just past a gap, so no run wraps around the end of the list.
+        var open = false;
+        for (var step = 1; step <= points.length; step++) {
+          final point = points[(gap + step) % points.length];
+          if (point == null) {
+            open = false;
+          } else if (open) {
+            path.lineTo(grow(point).dx, grow(point).dy);
+          } else {
+            path.moveTo(grow(point).dx, grow(point).dy);
+            open = true;
+          }
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round
+          ..strokeCap = StrokeCap.round,
+      );
+      for (final (index, point) in points.indexed) {
+        if (point == null) continue;
+        final radius = selected == index ? 5.0 : 4.0;
+        canvas
+          ..drawCircle(
+            grow(point),
+            radius + 2,
+            Paint()..color = palette.surface,
+          )
+          ..drawCircle(grow(point), radius, Paint()..color = color);
+      }
+    }
+  }
+
+  void _scatter(Canvas canvas) {
+    final plot = layout.plot;
+    final grid = Paint()
+      ..color = palette.grid
+      ..strokeWidth = 1;
+    final edge = Paint()
+      ..color = palette.baseline
+      ..strokeWidth = 1;
+    for (final y in layout.grid) {
+      if ((y - layout.baseline).abs() < .5) continue;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
+    }
+    for (final x in layout.verticals) {
+      canvas.drawLine(Offset(x, plot.top), Offset(x, plot.bottom), grid);
+    }
+    canvas.drawLine(
+      Offset(plot.left, layout.baseline),
+      Offset(plot.right, layout.baseline),
+      edge,
+    );
+    final index = selected;
+    final chosen = index != null && index < layout.dots.length
+        ? layout.dots[index]
+        : null;
+    // Guides read the chosen point off both axes.
+    if (chosen != null && _settled) {
+      canvas
+        ..drawLine(chosen.center, Offset(chosen.center.dx, plot.bottom), edge)
+        ..drawLine(chosen.center, Offset(plot.left, chosen.center.dy), edge);
+    }
+    // Dots grow in place. Each carries a surface ring, so overlapping dots
+    // stay apart; dense clouds use smaller dots.
+    final t = _t;
+    final radius = (layout.dots.length > 150 ? 3.0 : 4.0) * t;
+    final ring = Paint()..color = palette.surface;
+    for (final (i, dot) in layout.dots.indexed) {
+      if (i == index) continue;
+      final color = palette.seriesColor(dot.series);
+      canvas
+        ..drawCircle(dot.center, radius * 1.5, ring)
+        ..drawCircle(
+          dot.center,
+          radius,
+          Paint()
+            ..color = chosen == null ? color : color.withValues(alpha: .35),
+        );
+    }
+    if (chosen != null) {
+      canvas
+        ..drawCircle(chosen.center, 6 * t + 2, ring)
+        ..drawCircle(
+          chosen.center,
+          6 * t,
+          Paint()..color = palette.seriesColor(chosen.series),
+        );
+    }
+  }
+
   double get _total =>
       layout.slices.fold<double>(0, (sum, slice) => sum + slice.value);
 
@@ -335,23 +517,21 @@ class ChartPainter extends CustomPainter {
       );
   }
 
-  void _tooltip(Canvas canvas, Size size) {
-    final index = selected!;
-    final String header;
-    // (series key, value, name)
-    final rows = <(int?, String, String)>[];
-    final Rect target;
-    if (layout.form == ChartForm.pie) {
-      // A donut already reads the selection in its centre.
-      if (layout.hole > 0 || index >= layout.slices.length) return;
-      final slice = layout.slices[index];
-      header = slice.label;
-      rows.add((
-        null,
-        format.full(slice.value),
-        spec.unit == '%' ? '' : format.percent(slice.value / _total),
-      ));
-      target = Rect.fromCircle(
+  _Readout? _sliceReadout(int index) {
+    // A donut already reads the selection in its centre.
+    if (layout.hole > 0 || index >= layout.slices.length) return null;
+    final slice = layout.slices[index];
+    return (
+      header: slice.label,
+      key: null,
+      rows: [
+        (
+          null,
+          format.full(slice.value),
+          spec.unit == '%' ? '' : format.percent(slice.value / _total),
+        ),
+      ],
+      target: Rect.fromCircle(
         center:
             layout.center +
             Offset.fromDirection(
@@ -359,44 +539,86 @@ class ChartPainter extends CustomPainter {
               layout.radius * .6,
             ),
         radius: 1,
-      );
-    } else {
-      if (index >= spec.labels.length) return;
-      header = spec.labels[index];
-      for (final (s, series) in spec.series.indexed) {
-        final value = series.data[index];
-        if (value == null) continue;
-        rows.add((
-          spec.series.length > 1 ? s : null,
-          format.full(value),
-          series.name,
-        ));
-      }
-      if (rows.isEmpty) return;
-      final marks = [
-        for (final bar in layout.bars)
-          if (bar.index == index) bar.rect,
-        for (final line in layout.lines)
-          if (line.points[index] case final point?)
-            Rect.fromCircle(center: point, radius: 6),
-      ];
-      target = marks.isEmpty
+      ),
+    );
+  }
+
+  /// Every series at one category, or at one radar spoke.
+  _Readout? _categoryReadout(int index) {
+    if (index >= spec.labels.length) return null;
+    final rows = <(int?, String, String)>[];
+    for (final (s, series) in spec.series.indexed) {
+      final value = series.data[index];
+      if (value == null) continue;
+      rows.add((
+        spec.series.length > 1 ? s : null,
+        format.full(value),
+        series.name,
+      ));
+    }
+    if (rows.isEmpty) return null;
+    final marks = [
+      for (final bar in layout.bars)
+        if (bar.index == index) bar.rect,
+      for (final line in layout.lines)
+        if (line.points[index] case final point?)
+          Rect.fromCircle(center: point, radius: 6),
+    ];
+    return (
+      header: spec.labels[index],
+      key: null,
+      rows: rows,
+      target: marks.isEmpty
           ? Rect.fromCircle(
-              center: Offset(layout.centers[index], layout.plot.top),
+              center: index < layout.spokes.length
+                  ? layout.spokes[index]
+                  : Offset(layout.centers[index], layout.plot.top),
               radius: 1,
             )
-          : marks.reduce((a, b) => a.expandToInclude(b));
-    }
+          : marks.reduce((a, b) => a.expandToInclude(b)),
+    );
+  }
+
+  /// A scatter point: its name, keyed to its series when there are several,
+  /// then x and y under their axis titles.
+  _Readout? _dotReadout(int index) {
+    if (index >= layout.dots.length) return null;
+    final dot = layout.dots[index];
+    final series = spec.series[dot.series];
+    final point = series.points[dot.index];
+    final several = spec.series.length > 1;
+    return (
+      header: [?point.label, if (several) series.name].join(' · '),
+      key: several ? dot.series : null,
+      rows: [
+        (null, format.withUnit(spec.xUnit).full(point.x), spec.xLabel ?? 'x'),
+        (null, format.full(point.y), spec.yLabel ?? 'y'),
+      ],
+      target: Rect.fromCircle(center: dot.center, radius: 8),
+    );
+  }
+
+  void _tooltip(Canvas canvas, Size size) {
+    final readout = switch (layout.form) {
+      ChartForm.pie => _sliceReadout(selected!),
+      ChartForm.scatter => _dotReadout(selected!),
+      _ => _categoryReadout(selected!),
+    };
+    if (readout == null) return;
+    final (:header, :key, :rows, :target) = readout;
 
     const padding = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
     final maxWidth = math.min(size.width, 260.0);
     final inner = maxWidth - padding.horizontal;
-    final headerSize = text.measure(
-      header,
-      VisualTextRole.caption,
-      maxWidth: inner,
-      maxLines: 2,
-    );
+    final indent = key == null ? 0.0 : 14.0;
+    final headerSize = header.isEmpty
+        ? Size.zero
+        : text.measure(
+            header,
+            VisualTextRole.caption,
+            maxWidth: inner - indent,
+            maxLines: 2,
+          );
     final sizes = [
       for (final row in rows)
         (
@@ -409,8 +631,8 @@ class ChartPainter extends CustomPainter {
           ),
         ),
     ];
-    double width = headerSize.width;
-    var height = headerSize.height + 2;
+    double width = header.isEmpty ? 0 : indent + headerSize.width;
+    var height = header.isEmpty ? 0.0 : headerSize.height + 2;
     for (final (i, row) in rows.indexed) {
       final (value, name) = sizes[i];
       width = math.max(
@@ -438,16 +660,26 @@ class ChartPainter extends CustomPainter {
     );
     final muted = palette.onTooltip.withValues(alpha: .8);
     var y = top + padding.top;
-    text.paint(
-      canvas,
-      header,
-      VisualTextRole.caption,
-      Offset(left + padding.left, y),
-      color: muted,
-      maxWidth: inner,
-      maxLines: 2,
-    );
-    y += headerSize.height + 2;
+    if (header.isNotEmpty) {
+      if (key != null) {
+        final line = text.measure('Ag', VisualTextRole.caption).height;
+        canvas.drawCircle(
+          Offset(left + padding.left + 4, y + line / 2),
+          4,
+          Paint()..color = palette.seriesColor(key),
+        );
+      }
+      text.paint(
+        canvas,
+        header,
+        VisualTextRole.caption,
+        Offset(left + padding.left + indent, y),
+        color: muted,
+        maxWidth: inner - indent,
+        maxLines: 2,
+      );
+      y += headerSize.height + 2;
+    }
     for (final (i, row) in rows.indexed) {
       final (value, name) = sizes[i];
       final lineHeight = math.max(value.height, name.height);
