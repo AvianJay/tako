@@ -18,7 +18,9 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - Streaming replies with branches, edit and regenerate, and rewind.
   - Automatic conversation titles after the first reply, with manual renaming.
     Incognito chats do not request titles.
-  - Markdown and LaTeX rendering.
+  - Markdown and LaTeX rendering, plus highlighted (`==text==`, `<mark>`) and
+    coloured text that stays readable in light and dark themes, underline,
+    subscript, superscript and keyboard keys.
   - Charts (bar, line, area, pie and donut), Mermaid flowcharts, sequence
     diagrams and mind maps, cards, stat tiles and callouts, all drawn natively
     on the device without a web view. Charts open as a table; diagrams open

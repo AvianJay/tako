@@ -22,6 +22,25 @@ class RenderLiteral extends MarkupFragment {
   const RenderLiteral(super.source);
 }
 
+/// An HTML formatting tag such as `<mark>`, `</span>` or `<br>`. The parser
+/// pairs openers with closers into [element]s, so renderers never see one.
+class RenderFormat extends MarkupFragment {
+  const RenderFormat(
+    super.source, {
+    required this.element,
+    this.attributes = const {},
+    this.closing = false,
+  });
+
+  /// The Markdown element it becomes: `<b>` becomes `strong`, for example.
+  final String element;
+
+  /// For `mark` and `span`: `color` for the text, `background` for the
+  /// highlighter.
+  final Map<String, String> attributes;
+  final bool closing;
+}
+
 class ParsedMessage {
   const ParsedMessage({
     required this.nodes,
@@ -227,7 +246,9 @@ ParsedMessage parseMessageMarkup(
         tag != null && customTags.contains(tag.name)
             ? tag
             // Models sometimes close a custom tag like HTML; drop the closer.
-            : RenderLiteral(customTags.contains(closing) ? '' : source),
+            : customTags.contains(closing)
+            ? const RenderLiteral('')
+            : _formatTag(source, tag, closing) ?? RenderLiteral(source),
       );
       position += source.length;
       continue;
@@ -241,13 +262,124 @@ ParsedMessage parseMessageMarkup(
     extensionSet: md.ExtensionSet.gitHubFlavored,
     encodeHtml: false,
     blockSyntaxes: const [_CalloutSyntax()],
-    inlineSyntaxes: [_FragmentSyntax(prefix, fragments)],
+    inlineSyntaxes: [_FragmentSyntax(prefix, fragments), _HighlightSyntax()],
   );
   return ParsedMessage(
-    nodes: document.parse(output.toString()),
+    nodes: _pairFormats(document.parse(output.toString()), fragments),
     fragments: Map.unmodifiable(fragments),
     buffered: buffered,
   );
+}
+
+/// HTML formatting tags models write, and the element each one becomes.
+const _formatElements = {
+  'mark': 'mark',
+  'span': 'span',
+  'font': 'span',
+  'u': 'u',
+  'ins': 'u',
+  'sub': 'sub',
+  'sup': 'sup',
+  'small': 'small',
+  'kbd': 'kbd',
+  'b': 'strong',
+  'strong': 'strong',
+  'i': 'em',
+  'em': 'em',
+  's': 'del',
+  'del': 'del',
+  'strike': 'del',
+};
+
+/// The formatting tag [source] is, or null for any other tag. Colours are
+/// read from `color`, `background` and inline CSS alike.
+RenderFormat? _formatTag(String source, RenderTag? tag, String? closing) {
+  if (closing == 'br' || tag?.name == 'br') {
+    return RenderFormat(source, element: 'br');
+  }
+  if (closing != null) {
+    final element = _formatElements[closing];
+    return element == null
+        ? null
+        : RenderFormat(source, element: element, closing: true);
+  }
+  final element = _formatElements[tag?.name];
+  if (tag == null || element == null) return null;
+  if (element != 'mark' && element != 'span') {
+    return RenderFormat(source, element: element);
+  }
+  final css = {
+    for (final declaration in (tag.attributes['style'] ?? '').split(';'))
+      if (declaration.indexOf(':') case final colon when colon > 0)
+        declaration.substring(0, colon).trim().toLowerCase(): declaration
+            .substring(colon + 1)
+            .trim(),
+  };
+  final mark = element == 'mark';
+  final color = mark ? css['color'] : tag.attributes['color'] ?? css['color'];
+  final background =
+      (mark ? tag.attributes['color'] : null) ??
+      tag.attributes['background'] ??
+      tag.attributes['bg'] ??
+      tag.attributes['highlight'] ??
+      css['background-color'] ??
+      css['background'];
+  return RenderFormat(
+    source,
+    element: element,
+    attributes: {'color': ?color, 'background': ?background},
+  );
+}
+
+/// Pairs formatting tags among siblings as a browser does: an opener without
+/// a closer runs to the end of its parent, and a stray closer is dropped.
+/// Children pair first, so a tag never reaches outside its parent.
+List<md.Node> _pairFormats(
+  List<md.Node> nodes,
+  Map<String, MarkupFragment> fragments,
+) {
+  final open = <(RenderFormat?, List<md.Node>)>[(null, [])];
+  void closeLast() {
+    final (format, children) = open.removeLast();
+    open.last.$2.add(
+      md.Element(format!.element, children)
+        ..attributes.addAll(format.attributes),
+    );
+  }
+
+  for (final node in nodes) {
+    final format = node is md.Element && node.tag == 'tako-fragment'
+        ? fragments[node.attributes['marker']]
+        : null;
+    if (format is! RenderFormat) {
+      // Some child lists are fixed-length, so the element is rebuilt.
+      open.last.$2.add(
+        node is md.Element && (node.children?.isNotEmpty ?? false)
+            ? (md.Element(node.tag, _pairFormats(node.children!, fragments))
+                ..attributes.addAll(node.attributes)
+                ..generatedId = node.generatedId
+                ..footnoteLabel = node.footnoteLabel)
+            : node,
+      );
+    } else if (format.element == 'br') {
+      open.last.$2.add(md.Element.empty('br'));
+    } else if (!format.closing) {
+      open.add((format, []));
+    } else {
+      final index = open.lastIndexWhere(
+        (entry) => entry.$1?.element == format.element,
+      );
+      if (index > 0) {
+        while (open.length > index) {
+          closeLast();
+        }
+      }
+    }
+  }
+  while (open.length > 1) {
+    closeLast();
+  }
+  return open.single.$2;
 }
 
 bool _isWhitespace(String value) => value.trim().isEmpty;
@@ -368,6 +500,19 @@ class _CalloutSyntax extends md.BlockquoteSyntax {
       ...?quote.children,
     ])..attributes['type'] = calloutTypes[match[1]!.toLowerCase()]!;
   }
+}
+
+/// `==text==` marks text with a highlighter, as in Obsidian and many other
+/// editors. Like `~~`, it may sit inside a word, which Chinese needs.
+class _HighlightSyntax extends md.DelimiterSyntax {
+  _HighlightSyntax()
+    : super(
+        '=+',
+        requiresDelimiterRun: true,
+        allowIntraWord: true,
+        startCharacter: 0x3d,
+        tags: [md.DelimiterTag('mark', 2)],
+      );
 }
 
 class _FragmentSyntax extends md.InlineSyntax {

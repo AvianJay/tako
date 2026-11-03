@@ -131,11 +131,14 @@ void main() {
     expect(visuals, contains('```mermaid'));
     expect(visuals, contains('```cards'));
     expect(visuals, contains('> [!NOTE]'));
+    expect(visuals, contains('==text=='));
+    expect(visuals, contains('<span color="red">'));
     expect(visuals, isNot(contains('{{')));
     final plain = builder.render({'visuals': false});
     expect(plain, contains('## Formatting'));
     expect(plain, isNot(contains('```chart')));
     expect(plain, isNot(contains('[!NOTE]')));
+    expect(plain, isNot(contains('==text==')));
     expect(builder.render({'markdown': false}), isNot(contains('```chart')));
   });
 

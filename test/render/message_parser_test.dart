@@ -159,8 +159,8 @@ void main() {
       expect(textOf(parsed), isNot(contains('</')), reason: source);
     }
     expect(
-      textOf(parseMessageMarkup('<b>bold</b> </span>')),
-      '<b>bold</b> </span>',
+      textOf(parseMessageMarkup('<div>block</div> </section>')),
+      '<div>block</div> </section>',
     );
   });
 
@@ -199,6 +199,122 @@ void main() {
   test('literal marker-like user content cannot impersonate a fragment', () {
     const source = '\uE000tako0\uE001';
     expect(textOf(parseMessageMarkup('$source \$x\$')), contains(source));
+  });
+
+  group('text formatting', () {
+    md.Element only(String source, String tag) => elements(
+      parseMessageMarkup(source).nodes,
+    ).singleWhere((e) => e.tag == tag);
+
+    test('==text== highlights, also inside Chinese words', () {
+      expect(only('Read ==this== now', 'mark').textContent, 'this');
+      expect(only('這是==重點==文字', 'mark').textContent, '重點');
+      expect(only('「==重點==」', 'mark').textContent, '重點');
+      for (final source in ['a == b', 'x = 1', '==', 'a ==b c']) {
+        final parsed = parseMessageMarkup(source);
+        expect(
+          elements(parsed.nodes).map((e) => e.tag),
+          isNot(contains('mark')),
+          reason: source,
+        );
+        expect(textOf(parsed), source, reason: source);
+      }
+      expect(textOf(parseMessageMarkup(r'\==no==')), '==no==');
+    });
+
+    test('HTML formatting tags become their Markdown elements', () {
+      for (final (source, tag) in [
+        ('<b>x</b>', 'strong'),
+        ('<strong>x</strong>', 'strong'),
+        ('<i>x</i>', 'em'),
+        ('<s>x</s>', 'del'),
+        ('<strike>x</strike>', 'del'),
+        ('<u>x</u>', 'u'),
+        ('<ins>x</ins>', 'u'),
+        ('<sub>x</sub>', 'sub'),
+        ('<sup>x</sup>', 'sup'),
+        ('<small>x</small>', 'small'),
+        ('<kbd>x</kbd>', 'kbd'),
+        ('<MARK>x</Mark>', 'mark'),
+      ]) {
+        final parsed = parseMessageMarkup('a $source b');
+        expect(only('a $source b', tag).textContent, 'x', reason: source);
+        expect(textOf(parsed), 'a x b', reason: source);
+      }
+    });
+
+    test('colours come from attributes and inline CSS alike', () {
+      for (final (source, tag, attributes) in [
+        ('<mark>x</mark>', 'mark', <String, String>{}),
+        ('<mark color="green">x</mark>', 'mark', {'background': 'green'}),
+        (
+          '<mark style="background-color: lightgreen">x</mark>',
+          'mark',
+          {'background': 'lightgreen'},
+        ),
+        ('<span color="red">x</span>', 'span', {'color': 'red'}),
+        ("<font color='#f00'>x</font>", 'span', {'color': '#f00'}),
+        (
+          '<span style="color: blue; background-color: yellow;">x</span>',
+          'span',
+          {'color': 'blue', 'background': 'yellow'},
+        ),
+        ('<span bg="pink">x</span>', 'span', {'background': 'pink'}),
+      ]) {
+        expect(only(source, tag).attributes, attributes, reason: source);
+      }
+    });
+
+    test('tags pair as in a browser and keep Markdown inside', () {
+      final nested = only('<mark>**bold** and `<code>`</mark>', 'mark');
+      expect(
+        elements(nested.children!).map((e) => e.tag),
+        containsAll(['strong', 'code']),
+      );
+      expect(nested.textContent, 'bold and <code>');
+      // A closer inside another element cannot close an opener outside it.
+      final crossed = parseMessageMarkup('<mark>a **b</mark> c** d');
+      expect(textOf(crossed), 'a b c d');
+      expect(only('<mark>a **b</mark> c** d', 'mark').textContent, 'a b c d');
+      // An unclosed opener runs to the end of its paragraph only.
+      final open = parseMessageMarkup('<u>one\n\ntwo </u> three');
+      expect(textOf(open), 'one\ntwo  three');
+      expect(only('<u>one\n\ntwo', 'u').textContent, 'one');
+      final inner = only('<span color="red">a <b>b</span> c', 'span');
+      expect(elements(inner.children!).single.tag, 'strong');
+      expect(inner.textContent, 'a b');
+    });
+
+    test('<br> breaks lines, also inside table cells', () {
+      final parsed = parseMessageMarkup(
+        '| A |\n|---|\n| one<br>two<br/>three</br> |',
+      );
+      final cell = elements(parsed.nodes).firstWhere((e) => e.tag == 'td');
+      expect(elements(cell.children!).map((e) => e.tag), ['br', 'br', 'br']);
+      expect(cell.textContent, 'onetwothree');
+    });
+
+    test('an opener streams styled before its closer arrives', () {
+      final parsed = parseMessageMarkup('Say <mark>hel', isStreaming: true);
+      expect(parsed.buffered, isEmpty);
+      expect(
+        elements(parsed.nodes).singleWhere((e) => e.tag == 'mark').textContent,
+        'hel',
+      );
+      expect(parseMessageMarkup('Say <ma', isStreaming: true).buffered, '<ma');
+    });
+
+    test('code keeps tags, and host tags win over formatting', () {
+      expect(textOf(parseMessageMarkup('`<b>x</b>` ==y==')), '<b>x</b> y');
+      final parsed = parseMessageMarkup(
+        '<mark value="1"/>',
+        customTags: {'mark'},
+      );
+      expect(
+        parsed.fragments.values.whereType<RenderTag>().single.name,
+        'mark',
+      );
+    });
   });
 
   group('callouts', () {

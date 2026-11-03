@@ -6,6 +6,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'code_block.dart';
 import 'message_parser.dart';
 import 'revealing_text.dart';
+import 'text_colors.dart';
 import 'visuals/cards.dart';
 import 'visuals/visual_block.dart';
 import 'visuals/visual_image.dart';
@@ -489,7 +490,7 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
             child: _math(fragment),
           ),
           RenderTag() => _tag(fragment),
-          RenderLiteral() => Text(fragment.source),
+          RenderLiteral() || RenderFormat() => Text(fragment.source),
         },
       );
     }
@@ -560,6 +561,47 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
           children: renderChildren(),
           style: const TextStyle(decoration: TextDecoration.lineThrough),
         );
+      case 'u':
+        return TextSpan(
+          children: renderChildren(),
+          style: const TextStyle(decoration: TextDecoration.underline),
+        );
+      case 'mark':
+      case 'span':
+        return TextSpan(
+          children: renderChildren(),
+          style: _colors(node.attributes, highlight: node.tag == 'mark'),
+        );
+      case 'small':
+        return TextSpan(
+          children: renderChildren(),
+          style: TextStyle(fontSize: _fontSize * .85),
+        );
+      case 'kbd':
+        return TextSpan(
+          children: renderChildren(),
+          style: TextStyle(
+            fontFamily: 'monospace',
+            backgroundColor: scheme.surfaceContainerHighest,
+          ),
+        );
+      case 'sub':
+      case 'sup':
+        // Text styles cannot shift the baseline, so the smaller text is
+        // aligned on it and then painted up or down.
+        return WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Transform.translate(
+            offset: Offset(0, _fontSize * (node.tag == 'sup' ? -.35 : .2)),
+            child: Text.rich(
+              TextSpan(children: renderChildren()),
+              style: TextStyle(fontSize: _fontSize * .75),
+              // The span already scales with the text around it.
+              textScaler: TextScaler.noScaling,
+            ),
+          ),
+        );
       case 'input':
         return WidgetSpan(
           child: Icon(
@@ -572,6 +614,28 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
       default:
         return TextSpan(children: renderChildren());
     }
+  }
+
+  double get _fontSize => DefaultTextStyle.of(context).style.fontSize ?? 14;
+
+  /// The text and highlighter colours a `span` or `mark` asks for, moved as
+  /// far as needed to stay readable in the current theme.
+  TextStyle _colors(Map<String, String> attributes, {required bool highlight}) {
+    final theme = Theme.of(context);
+    final surface = theme.scaffoldBackgroundColor;
+    final ink =
+        DefaultTextStyle.of(context).style.color ?? theme.colorScheme.onSurface;
+    final background =
+        parseTextColor(attributes['background'] ?? '') ??
+        (highlight ? textColors['yellow'] : null);
+    final fill = background == null
+        ? null
+        : highlightColor(background, surface, ink);
+    final color = parseTextColor(attributes['color'] ?? '');
+    return TextStyle(
+      color: color == null ? null : readableTextColor(color, fill ?? surface),
+      backgroundColor: fill,
+    );
   }
 
   Widget _math(RenderMath fragment) => Math.tex(

@@ -43,6 +43,7 @@ You run on {{provider_name}}. Messages in this conversation, including tool resu
   - ```mermaid for a flowchart, sequenceDiagram or mindmap. Keep it to about 15 nodes and skip styling.
   - ```cards with a JSON array of {"icon":"…","title":"…","subtitle":"…","text":"…"} for options, features or steps; icon is an emoji or a Material icon name. For key figures give each card "value" and optionally "delta" instead of "text".
 - For a note or warning, start a quote with > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING] or > [!CAUTION].
+- To make the few words that matter most stand out, highlight them with ==text== or <mark color="green">text</mark>, or colour them with <span color="red">text</span>. Colours: red, orange, yellow, green, teal, blue, purple, pink, gray. <u>, <sub>, <sup>, <small> and <kbd> work too. Use these sparingly.
 {{/visuals}}
 {{/markdown}}
 {{^markdown}}

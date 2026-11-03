@@ -327,6 +327,8 @@ Future<void> seedConversation(AppController controller) async {
 const visualReply = r'''
 ## 文字以外，我還能怎麼呈現？
 
+重點可以用 ==螢光筆== 或 <mark color="green">綠色螢光</mark> 標出來，也能把字換成 <span color="red">紅色</span>、<span color="blue">藍色</span>、<span color="purple">紫色</span>，或加上<u>底線</u>。H<sub>2</sub>O、x<sup>2</sup>、<kbd>Ctrl</kbd> + <kbd>C</kbd> 和 <small>小字附註</small>也都可以。
+
 ```cards
 [
   {"icon": "dashboard", "title": "① 卡片式介面", "subtitle": "適合：專案介紹、功能清單、資訊儀表板", "text": "把不同資訊拆成獨立區塊，有標題、圖示、摘要與操作，不必在一大坨文字裡考古。"},
