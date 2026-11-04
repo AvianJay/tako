@@ -196,6 +196,59 @@ void main() {
     }
   });
 
+  test('a stray backtick stays in its paragraph, also while streaming', () {
+    const source =
+        '- **STRONG**: may stay red, which is normal (´・ω・`)\n\n'
+        '<details><summary>If it still fails</summary>\n\n'
+        '- Send a screenshot\n</details>\n\n'
+        '```replies\nRebooted, all green\nStill red\n```';
+    final parsed = parseMessageMarkup(source);
+    expect(parsed.nodes.first.textContent, endsWith('normal (´・ω・`)'));
+    expect(
+      elements(parsed.nodes).map((e) => e.tag),
+      containsAll(['details', 'tako-summary', 'pre']),
+    );
+    expect(
+      elements(parsed.nodes).singleWhere((e) => e.tag == 'code').attributes,
+      {'class': 'language-replies'},
+    );
+
+    final firstLine = source.substring(0, source.indexOf('\n'));
+    expect(parseMessageMarkup(firstLine, isStreaming: true).buffered, '`)');
+    final streamed = parseMessageMarkup(
+      source.substring(0, source.indexOf('- Send')),
+      isStreaming: true,
+    );
+    expect(streamed.buffered, isEmpty);
+    expect(elements(streamed.nodes).map((e) => e.tag), contains('details'));
+  });
+
+  test('unclosed math and tags do not reach into the next block', () {
+    final parsed = parseMessageMarkup(
+      '- sigh (´・ω・`) \\(^o^)/ \$5\n'
+      '- run `ls`, see \$x\$ and \\(y\\)\n\n'
+      'if a<b, it works\n\n<mark>marked</mark>',
+    );
+    expect(
+      elements(parsed.nodes).singleWhere((e) => e.tag == 'code').textContent,
+      'ls',
+    );
+    expect(mathOf(parsed).map((e) => e.tex), ['x', 'y']);
+    expect(
+      elements(parsed.nodes).singleWhere((e) => e.tag == 'mark').textContent,
+      'marked',
+    );
+    expect(textOf(parsed), contains(r'sigh (´・ω・`) \(^o^)/ $5'));
+    expect(textOf(parsed), contains('if a<b, it works'));
+
+    // Display math may span lines, so it waits for a blank line.
+    const display = 'Before\n\n\$\$\nx = 1\n';
+    expect(
+      parseMessageMarkup(display, isStreaming: true).buffered,
+      '\$\$\nx = 1\n',
+    );
+  });
+
   test('literal marker-like user content cannot impersonate a fragment', () {
     const source = '\uE000tako0\uE001';
     expect(textOf(parseMessageMarkup('$source \$x\$')), contains(source));

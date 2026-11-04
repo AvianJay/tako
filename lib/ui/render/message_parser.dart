@@ -154,20 +154,24 @@ ParsedMessage parseMessageMarkup(
 
     if (rest.startsWith('`')) {
       final run = RegExp(r'^`+').firstMatch(rest)![0]!;
-      var end = rest.indexOf(run, run.length);
+      final scope = rest.substring(0, _paragraphEnd(rest));
+      var end = scope.indexOf(run, run.length);
       while (end >= 0 &&
-          ((end > 0 && rest[end - 1] == '`') ||
-              (end + run.length < rest.length &&
-                  rest[end + run.length] == '`'))) {
-        end = rest.indexOf(run, end + run.length);
+          ((end > 0 && scope[end - 1] == '`') ||
+              (end + run.length < scope.length &&
+                  scope[end + run.length] == '`'))) {
+        end = scope.indexOf(run, end + run.length);
       }
       if (end < 0) {
-        if (isStreaming) {
+        // Only the line being written may still bring the closer. Otherwise,
+        // as in CommonMark, the run is literal, like the one in (´・ω・`).
+        if (isStreaming && !rest.contains('\n')) {
           buffered = rest;
-        } else {
-          addFragment(RenderLiteral(rest));
+          break;
         }
-        break;
+        addFragment(RenderLiteral(run));
+        position += run.length;
+        continue;
       }
       final length = end + run.length;
       output.write(rest.substring(0, length));
@@ -193,9 +197,19 @@ ParsedMessage parseMessageMarkup(
       opener = closer = r'$';
     }
     if (opener != null) {
-      final end = _mathEnd(rest, opener.length, closer!, opener == r'$');
+      // Inline math closes in its paragraph, display math before a blank line.
+      final scope = display
+          ? _blankLine.firstMatch(rest)?.start ?? rest.length
+          : _paragraphEnd(rest);
+      final end = _mathEnd(
+        rest.substring(0, scope),
+        opener.length,
+        closer!,
+        opener == r'$',
+      );
       if (end < 0) {
-        if (isStreaming) {
+        if (isStreaming &&
+            (display ? scope == rest.length : !rest.contains('\n'))) {
           buffered = rest;
           break;
         }
@@ -230,14 +244,16 @@ ParsedMessage parseMessageMarkup(
           r'^<(?:https?://|mailto:|tel:|sms:|geo:)',
           caseSensitive: false,
         ).hasMatch(rest)) {
-      final end = _tagEnd(rest);
+      final end = _tagEnd(rest.substring(0, _paragraphEnd(rest)));
       if (end < 0) {
-        if (isStreaming) {
+        if (isStreaming && !rest.contains('\n')) {
           buffered = rest;
-        } else {
-          addFragment(RenderLiteral(rest));
+          break;
         }
-        break;
+        // A comparison such as `a<b` in prose.
+        addFragment(const RenderLiteral('<'));
+        position++;
+        continue;
       }
       final source = rest.substring(0, end + 1);
       final tag = _parseTag(source);
@@ -415,6 +431,18 @@ List<md.Node> _pairFormats(
   }
   return open.single.$2;
 }
+
+/// Where the paragraph [rest] starts in ends: at a blank line or a line that
+/// starts another block. Code spans, inline math and tags close before it, so
+/// a stray delimiter never swallows the rest of the message.
+int _paragraphEnd(String rest) =>
+    _paragraphBreak.firstMatch(rest)?.start ?? rest.length;
+
+final _paragraphBreak = RegExp(
+  r'\n(?=[ \t]*(?:\r?\n|$|>|\||[-+*][ \t]|\d{1,9}[.)][ \t]'
+  r'|#{1,6}(?:[ \t]|\r?\n|$)|`{3}|~{3}|</?[A-Za-z]))',
+);
+final _blankLine = RegExp(r'\n[ \t]*\r?\n');
 
 bool _isWhitespace(String value) => value.trim().isEmpty;
 bool _isDigit(String value) => RegExp(r'^[0-9]$').hasMatch(value);
