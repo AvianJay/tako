@@ -1,0 +1,22 @@
+name: tako_den
+description: "Tako Den: a self-hostable sync server, model gateway and web app for Tako."
+publish_to: 'none'
+version: 0.2.0
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  crypto: ^3.0.7
+  cryptography: ^2.9.0
+  jose: ^0.3.5
+  http: ^1.6.0
+  path: ^1.9.1
+  qr: ^4.0.0
+  shelf: ^1.4.2
+  sqlite3: ^3.5.2
+  yaml: ^3.1.3
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.2

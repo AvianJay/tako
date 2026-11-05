@@ -9,6 +9,27 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  # Tako Den, the self-hosted server, is a separate Dart package.
+  den:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: den
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.6'
+          channel: stable
+          cache: true
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed lib bin test tool
+      - run: dart analyze
+      # Includes the check that the web app embedded in the server is current.
+      - run: dart test
+
   check:
     runs-on: ubuntu-latest
     permissions:

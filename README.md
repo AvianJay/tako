@@ -8,7 +8,7 @@ A local-first AI assistant for Android, built with Flutter. Bring your own model
 - use a local server such as llama-server in Termux;
 - or use any OpenAI-compatible, OpenAI Responses or Anthropic Messages endpoint.
 
-Conversations stay on the device in SQLite. API keys and headers are kept in secure storage, never in the database or logs.
+Conversations stay on the device in SQLite. API keys and headers are kept in secure storage, never in the database or logs. To use the same chats on several devices, you can sign in to a [Tako Den](den/README.md), a server you run yourself; without one, nothing leaves the phone except what you send to your model providers.
 
 An iOS build is included and has been tested on a physical iPhone with iCTRL; see [iOS](#ios) and [device validation](docs/ictrl-validation.md) for the tested scope.
 
@@ -138,6 +138,10 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - Local iCTRL tasks return to Tako when the response ends or you press Stop,
     before releasing the native session's background time.
   - A Live Activity shows progress on the Lock Screen and Dynamic Island, with a link to stop. iOS grants finite background time; expiration stops the agent. Reopen Tako to continue.
+- **Tako Den** (optional), a server you run yourself, in [`den/`](den/README.md):
+  - Sign in from the first screen (**Or connect to Den…**) or **Settings → Tako Den**: through a browser (password, Google, Discord, GitHub or OpenID Connect), with a password, or with a pairing code.
+  - Chats, memory and personalization sync between your devices and the Den's web app. What is already on the phone joins the account. Incognito chats, API keys, automations and device-control settings stay on the device.
+  - The Den's models appear as one provider. Its administrator chooses who may use which models and sets daily limits; users can add their own providers on the web.
 
 ## Safety
 
@@ -158,6 +162,7 @@ The app enforces safety; the model only proposes actions.
 - **Untrusted content.** Web pages, screen contents, notifications, command output and Shortcut output are passed to the model as untrusted data.
 - **Network.** Tako connects only to:
   - your model and search providers;
+  - the Tako Den you sign in to, if any, for sync and its models;
   - pages that `fetch_page` and the in-app browser load;
   - model downloads you start yourself: Hugging Face for recommended models, or the URL you enter. Plain HTTP is accepted only inside the local network.
   - your configured iCTRL runner, using authenticated encrypted RPC envelopes.
@@ -315,6 +320,7 @@ CI builds it with `flutter build ios --release --no-codesign` and packages `Tako
 | `test` | Unit, agent-loop and widget tests. |
 | `integration_test` | On-device checks of screen control, Termux, notifications and the browser. |
 | `tool/browser_runtime_check` | A jsdom check of the browser's injected page script. It needs Node.js and runs in CI. |
+| `den` | Tako Den: the self-hosted sync server, model gateway and web app (Dart, separate package). |
 - **Automations** in **Settings → Automations**:
   - Scheduled AI tasks, Android notification filters, collection windows and scheduled digests.
   - Basic filters or safe expressions such as `package == "jp.naver.line" and "班群" in title`.

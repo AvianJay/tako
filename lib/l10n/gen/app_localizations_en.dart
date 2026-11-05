@@ -718,7 +718,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyBody =>
-      'Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider; with an on-device model they never leave this phone. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.';
+      'Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider; with an on-device model they never leave this phone. API keys and extra headers are stored in secure storage. No analytics or telemetry. If you sign in to a Tako Den, a server you run yourself, chats, memory and personalization also sync to it.';
 
   @override
   String get about => 'About';
@@ -2072,4 +2072,171 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get automationRunTool => 'Run automation';
+
+  @override
+  String get denConnectEntry => 'Or connect to Den…';
+
+  @override
+  String get denTitle => 'Tako Den';
+
+  @override
+  String get denConnectTitle => 'Connect to Den';
+
+  @override
+  String get denConnectIntro =>
+      'A Den is a Tako server run by you or someone you trust. Sign in to sync chats, memory and personalization across your devices, and to use the models it offers.';
+
+  @override
+  String get denServerAddress => 'Server address';
+
+  @override
+  String get denServerAddressHint =>
+      'For example den.example.com or 192.168.1.20:8787';
+
+  @override
+  String get denContinue => 'Continue';
+
+  @override
+  String get denInvalidAddress => 'Enter a valid address.';
+
+  @override
+  String get denNotDen => 'This address is not a Tako Den.';
+
+  @override
+  String denUnreachable(String detail) {
+    return 'Can\'t reach the server: $detail';
+  }
+
+  @override
+  String get denSetupRequired =>
+      'This Den is not set up yet. Open it in a browser and create the administrator with the setup link from the server log.';
+
+  @override
+  String get denUsername => 'Username';
+
+  @override
+  String get denPassword => 'Password';
+
+  @override
+  String get denSignIn => 'Sign in';
+
+  @override
+  String get denSignInWithBrowser => 'Sign in with a browser';
+
+  @override
+  String denContinueWith(String provider) {
+    return 'Continue with $provider';
+  }
+
+  @override
+  String get denUsePairCode => 'Enter a pairing code';
+
+  @override
+  String get denPairCodeHelp =>
+      'Create a pairing code on the Den web page, under Settings → Devices and API keys.';
+
+  @override
+  String get denPairCode => 'Pairing code';
+
+  @override
+  String get denCreateAccount => 'Create an account';
+
+  @override
+  String get denInviteCode => 'Invite code';
+
+  @override
+  String denWaitingForBrowser(String code) {
+    return 'Finish signing in in your browser, and check that it shows the code $code.';
+  }
+
+  @override
+  String get denOpenBrowserAgain => 'Open the browser again';
+
+  @override
+  String get denSignInDenied => 'Sign-in was denied.';
+
+  @override
+  String get denSignInExpired => 'Sign-in timed out. Try again.';
+
+  @override
+  String get denInvalidLogin => 'Wrong username or password.';
+
+  @override
+  String get denInvalidCode => 'The pairing code is wrong or has expired.';
+
+  @override
+  String denConnected(String name) {
+    return 'Connected to $name';
+  }
+
+  @override
+  String get denSettingsSubtitle => 'Sync chats and use the server\'s models';
+
+  @override
+  String get denSync => 'Sync';
+
+  @override
+  String get denSyncNow => 'Sync now';
+
+  @override
+  String get denSyncing => 'Syncing…';
+
+  @override
+  String denSyncedAt(String time) {
+    return 'Last synced $time';
+  }
+
+  @override
+  String get denNeverSynced => 'Not synced yet';
+
+  @override
+  String denPendingChanges(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count changes waiting to upload',
+      one: '1 change waiting to upload',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String denSyncFailed(String message) {
+    return 'Sync failed: $message';
+  }
+
+  @override
+  String get denLive => 'Live';
+
+  @override
+  String get denSyncScope =>
+      'Chats, memory and personalization sync. Incognito chats, API keys, automations and device control settings stay on this device. Attachments and images do not sync yet.';
+
+  @override
+  String get denAccount => 'Account';
+
+  @override
+  String get denRoleAdmin => 'Administrator';
+
+  @override
+  String get denOpenWeb => 'Open Den in a browser';
+
+  @override
+  String get denOpenWebHelp =>
+      'Manage devices, your own models and your account on the web. Administrators configure the server there.';
+
+  @override
+  String get denSignOut => 'Sign out';
+
+  @override
+  String get denSignOutTitle => 'Sign out of Den?';
+
+  @override
+  String get denSignOutBody =>
+      'This device stops syncing and the Den provider is removed. Chats and memory already on this device stay.';
+
+  @override
+  String denWelcomeBody(String name) {
+    return 'Ask, explore, or work something out. Your conversations sync with $name.';
+  }
 }

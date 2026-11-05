@@ -84,7 +84,7 @@ void main() {
         (await retry.customSelect('PRAGMA user_version').getSingle()).read<int>(
           'user_version',
         ),
-        4,
+        retry.schemaVersion,
       );
       await retry.close();
     },

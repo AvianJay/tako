@@ -10,6 +10,8 @@ import '../../platform/app_services.dart';
 import '../automation/automation_screen.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
+import '../den/den_connect_screen.dart';
+import '../den/den_screen.dart';
 import '../files/files_screen.dart';
 import '../memory/memory_screen.dart';
 import 'app_update_screen.dart';
@@ -47,6 +49,25 @@ class SettingsScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              ListTile(
+                key: const ValueKey('settings-den'),
+                title: Text(l.denTitle),
+                subtitle: Text(switch (app.den.account) {
+                  final account? =>
+                    '${account.user.label} · ${account.server.host}',
+                  null => l.denSettingsSubtitle,
+                }),
+                leading: const Icon(Icons.cottage_outlined),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => app.den.connected
+                        ? const DenScreen()
+                        : const DenConnectScreen(),
+                  ),
+                ),
+              ),
               if (app.services.automation.isAvailable)
                 ListTile(
                   key: const ValueKey('settings-automations'),

@@ -228,7 +228,7 @@
   "textSize": "Text size",
   "language": "Language",
   "privacy": "Local first",
-  "privacyBody": "Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider; with an on-device model they never leave this phone. API keys and extra headers are stored in secure storage. No accounts, analytics, or telemetry.",
+  "privacyBody": "Chats and memories are saved on this device. When you chat, your messages and what tools read, such as the screen or notifications, are sent to your selected model provider; with an on-device model they never leave this phone. API keys and extra headers are stored in secure storage. No analytics or telemetry. If you sign in to a Tako Den, a server you run yourself, chats, memory and personalization also sync to it.",
   "about": "About",
   "developerContext": "Stored context",
   "noChats": "Your conversations will appear here.",
@@ -827,5 +827,107 @@
   "automationGetTool": "Read automation",
   "automationSaveTool": "Save automation",
   "automationDeleteTool": "Delete automation",
-  "automationRunTool": "Run automation"
+  "automationRunTool": "Run automation",
+  "denConnectEntry": "Or connect to Den…",
+  "denTitle": "Tako Den",
+  "denConnectTitle": "Connect to Den",
+  "denConnectIntro": "A Den is a Tako server run by you or someone you trust. Sign in to sync chats, memory and personalization across your devices, and to use the models it offers.",
+  "denServerAddress": "Server address",
+  "denServerAddressHint": "For example den.example.com or 192.168.1.20:8787",
+  "denContinue": "Continue",
+  "denInvalidAddress": "Enter a valid address.",
+  "denNotDen": "This address is not a Tako Den.",
+  "denUnreachable": "Can't reach the server: {detail}",
+  "@denUnreachable": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "denSetupRequired": "This Den is not set up yet. Open it in a browser and create the administrator with the setup link from the server log.",
+  "denUsername": "Username",
+  "denPassword": "Password",
+  "denSignIn": "Sign in",
+  "denSignInWithBrowser": "Sign in with a browser",
+  "denContinueWith": "Continue with {provider}",
+  "@denContinueWith": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "denUsePairCode": "Enter a pairing code",
+  "denPairCodeHelp": "Create a pairing code on the Den web page, under Settings → Devices and API keys.",
+  "denPairCode": "Pairing code",
+  "denCreateAccount": "Create an account",
+  "denInviteCode": "Invite code",
+  "denWaitingForBrowser": "Finish signing in in your browser, and check that it shows the code {code}.",
+  "@denWaitingForBrowser": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "denOpenBrowserAgain": "Open the browser again",
+  "denSignInDenied": "Sign-in was denied.",
+  "denSignInExpired": "Sign-in timed out. Try again.",
+  "denInvalidLogin": "Wrong username or password.",
+  "denInvalidCode": "The pairing code is wrong or has expired.",
+  "denConnected": "Connected to {name}",
+  "@denConnected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "denSettingsSubtitle": "Sync chats and use the server's models",
+  "denSync": "Sync",
+  "denSyncNow": "Sync now",
+  "denSyncing": "Syncing…",
+  "denSyncedAt": "Last synced {time}",
+  "@denSyncedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "denNeverSynced": "Not synced yet",
+  "denPendingChanges": "{count, plural, one{1 change waiting to upload} other{{count} changes waiting to upload}}",
+  "@denPendingChanges": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "denSyncFailed": "Sync failed: {message}",
+  "@denSyncFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "denLive": "Live",
+  "denSyncScope": "Chats, memory and personalization sync. Incognito chats, API keys, automations and device control settings stay on this device. Attachments and images do not sync yet.",
+  "denAccount": "Account",
+  "denRoleAdmin": "Administrator",
+  "denOpenWeb": "Open Den in a browser",
+  "denOpenWebHelp": "Manage devices, your own models and your account on the web. Administrators configure the server there.",
+  "denSignOut": "Sign out",
+  "denSignOutTitle": "Sign out of Den?",
+  "denSignOutBody": "This device stops syncing and the Den provider is removed. Chats and memory already on this device stay.",
+  "denWelcomeBody": "Ask, explore, or work something out. Your conversations sync with {name}.",
+  "@denWelcomeBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

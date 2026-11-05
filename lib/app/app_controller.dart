@@ -18,6 +18,8 @@ import '../core/chat/generated_image_store.dart';
 import '../core/chat/message.dart';
 import '../core/chat/response_accumulator.dart';
 import '../core/chat/title_generator.dart';
+import '../core/den/den_client.dart';
+import '../core/den/sync_engine.dart';
 import '../core/memory/memory.dart';
 import '../core/memory/settings.dart';
 import '../core/on_device/on_device_capability.dart';
@@ -64,6 +66,7 @@ import '../platform/capabilities.dart';
 import '../platform/repl/quickjs_repl.dart';
 import 'app_info.dart';
 import 'automation_controller.dart';
+import 'den_controller.dart';
 
 part '../core/chat/agent_runner.dart';
 part 'automation_agent.dart';
@@ -88,7 +91,9 @@ class AppController extends ChangeNotifier {
     List<Tool>? extraTools,
     PermissionPolicyState? permissionState,
     this.bindControls = true,
-  }) : _adapterFactory =
+    DenClient Function(Uri server, String? token)? denClientFactory,
+  }) : _denClientFactory = denClientFactory,
+       _adapterFactory =
            adapterFactory ??
            ((config, key, headers) => ProviderAdapter.create(
              config,
@@ -142,6 +147,7 @@ class AppController extends ChangeNotifier {
   final AppServices services;
   final String promptTemplate;
   final AdapterFactory _adapterFactory;
+  final DenClient Function(Uri server, String? token)? _denClientFactory;
   final TitleGenerator _titleGenerator;
   final _titleJobs = <String, CancelToken>{};
   bool get isGeneratingTitle => _titleJobs.containsKey(conversation?.id);
@@ -871,7 +877,45 @@ class AppController extends ChangeNotifier {
       unawaited(refreshProviderModels());
       automation.addListener(_emit);
       await automation.initialize();
+      if (bindControls && !_disposed) {
+        den.addListener(_emit);
+        unawaited(den.initialize());
+      }
     }
+  }
+
+  /// Signing in to a Den and syncing with it. The automation engine shares
+  /// the database but never syncs: its changes are marked and this engine
+  /// uploads them.
+  late final DenController den = DenController(
+    this,
+    clientFactory: _denClientFactory,
+  );
+
+  /// Shows records another device changed. A reply in progress keeps its
+  /// in-memory state; the chat reloads when it ends.
+  Future<void> reloadAfterSync(ApplyResult result) async {
+    if (_disposed) return;
+    conversations = await chats.listConversations();
+    final current = conversation;
+    if (current != null && result.conversations.contains(current.id) && !busy) {
+      final loaded = await (
+        chats.getConversation(current.id),
+        chats.getMessages(current.id),
+      ).wait;
+      conversation = loaded.$1;
+      messages = loaded.$1 == null ? [] : loaded.$2;
+    }
+    if (result.settings) {
+      personalization = PersonalizationSettings.fromJson(
+        tryDecodeObject(
+              await settings.getString(PersonalizationSettings.settingsKey) ??
+                  '',
+            ) ??
+            {},
+      );
+    }
+    _emit();
   }
 
   static const _modelListLifetime = Duration(minutes: 15);
@@ -2011,6 +2055,7 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     if (bindControls) automation.dispose();
+    if (bindControls && initialized) den.dispose();
     _disposed = true;
     for (final token in _titleJobs.values) {
       token.cancel();

@@ -16,6 +16,7 @@ import '../../l10n/gen/app_localizations.dart';
 import '../automation/automation_screen.dart';
 import '../brand/tako_mark.dart';
 import '../browser/browser_screen.dart';
+import '../den/den_connect_screen.dart';
 import '../render/message_markdown.dart';
 import '../settings/on_device_models_screen.dart';
 import '../settings/provider_editor.dart';
@@ -1655,6 +1656,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ? l.setupBody
                                           : app.incognito
                                           ? l.incognitoBody
+                                          : app.den.account != null
+                                          ? l.denWelcomeBody(
+                                              app.den.account!.serverName,
+                                            )
                                           : l.welcomeBody,
                                       textAlign: TextAlign.center,
                                       style: Theme.of(context)
@@ -1696,6 +1701,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                             Icons.smartphone_outlined,
                                           ),
                                           label: Text(l.useOnDeviceModel),
+                                        ),
+                                      ),
+                                    if (app.providers.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: TextButton.icon(
+                                          key: const ValueKey('setup-den'),
+                                          onPressed: () => Navigator.push<void>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const DenConnectScreen(),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.cottage_outlined,
+                                          ),
+                                          label: Text(l.denConnectEntry),
                                         ),
                                       ),
                                   ],

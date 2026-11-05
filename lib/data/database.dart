@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -128,6 +128,7 @@ class AppDatabase extends _$AppDatabase {
         await _createAuditIndex();
         await _createMemoryIndex();
         await _createAutomationTables();
+        await _createSyncTables();
       } else {
         if (from < 2) {
           await m.createTable(auditRecords);
@@ -138,6 +139,7 @@ class AppDatabase extends _$AppDatabase {
           await _createMemoryIndex();
         }
         if (from < 4) await _createAutomationTables();
+        if (from < 5) await _createSyncTables();
       }
       // Commit the version with its schema, rather than in Drift's later step.
       await customStatement('PRAGMA user_version = $schemaVersion');
@@ -164,6 +166,97 @@ class AppDatabase extends _$AppDatabase {
       'CREATE TABLE execution_leases (name TEXT PRIMARY KEY, owner TEXT NOT NULL, expires_at INTEGER NOT NULL)',
     );
   }
+
+  /// Den sync bookkeeping. Triggers mark every change to a synced record, so
+  /// no write path (chat, memory tools, imports, rewinds, the automation
+  /// engine) can bypass sync. They record nothing until sync is enabled, and
+  /// nothing while remote changes are applied (`applying`), which would echo.
+  /// Incognito and automation chats never leave the device. Safe to run on a
+  /// database that already has these objects.
+  Future<void> _createSyncTables() async {
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS sync_state (
+        collection TEXT NOT NULL,
+        id TEXT NOT NULL,
+        server_version INTEGER NOT NULL DEFAULT 0,
+        dirty INTEGER NOT NULL DEFAULT 0,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        rev INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (collection, id)
+      )
+    ''');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS sync_state_dirty ON sync_state (dirty)',
+    );
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS sync_flags (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        enabled INTEGER NOT NULL DEFAULT 0,
+        applying INTEGER NOT NULL DEFAULT 0,
+        seq INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await customStatement('INSERT OR IGNORE INTO sync_flags (id) VALUES (1)');
+    const active =
+        '(SELECT enabled = 1 AND applying = 0 FROM sync_flags WHERE id = 1)';
+    // Not INSERT OR IGNORE: an outer upsert's conflict policy overrides the
+    // one of statements inside a trigger.
+    String mark(String collection, String id, {required bool deleted}) =>
+        '''
+      INSERT INTO sync_state (collection, id) SELECT '$collection', $id
+        WHERE NOT EXISTS (SELECT 1 FROM sync_state WHERE collection = '$collection' AND id = $id);
+      UPDATE sync_state SET dirty = 1, deleted = ${deleted ? 1 : 0}, rev = rev + 1
+        WHERE collection = '$collection' AND id = $id;''';
+    String privateChat(String data) =>
+        "(json_extract($data, '\$.incognito') IS 1 OR "
+        "json_extract($data, '\$.automationRuleId') IS NOT NULL)";
+    String inPrivateChat(String conversationId) =>
+        'EXISTS (SELECT 1 FROM conversation_records c '
+        'WHERE c.id = $conversationId AND ${privateChat('c.data')})';
+    final triggers = {
+      'conversations': (
+        table: 'conversation_records',
+        id: 'id',
+        upsertWhen: 'NOT ${privateChat('NEW.data')}',
+        deleteWhen: 'NOT ${privateChat('OLD.data')}',
+      ),
+      'messages': (
+        table: 'message_records',
+        id: 'id',
+        upsertWhen: 'NOT ${inPrivateChat('NEW.conversation_id')}',
+        deleteWhen: 'NOT ${inPrivateChat('OLD.conversation_id')}',
+      ),
+      'memories': (
+        table: 'memories',
+        id: 'id',
+        upsertWhen: '1',
+        deleteWhen: '1',
+      ),
+      'settings': (
+        table: 'setting_records',
+        id: 'key',
+        upsertWhen: 'NEW.key IN ($syncedSettingKeys)',
+        deleteWhen: 'OLD.key IN ($syncedSettingKeys)',
+      ),
+    };
+    for (final MapEntry(key: collection, value: t) in triggers.entries) {
+      for (final event in ['INSERT', 'UPDATE', 'DELETE']) {
+        final row = event == 'DELETE' ? 'OLD' : 'NEW';
+        final when = event == 'DELETE' ? t.deleteWhen : t.upsertWhen;
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS sync_${collection}_${event.toLowerCase()}
+          AFTER $event ON ${t.table}
+          WHEN $active AND $when
+          BEGIN
+            ${mark(collection, '$row.${t.id}', deleted: event == 'DELETE')}
+          END
+        ''');
+      }
+    }
+  }
+
+  /// Setting keys that follow the account to other devices, as an SQL list.
+  static const syncedSettingKeys = "'personalization.settings'";
 
   Future<void> _createAuditIndex() => customStatement(
     'CREATE INDEX audit_started_at ON audit_records (started_at DESC)',

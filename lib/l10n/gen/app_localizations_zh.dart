@@ -674,7 +674,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get privacyBody =>
-      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。';
+      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有分析或遙測。若登入 Tako Den（你自己架設的伺服器），對話、記憶與個人化也會同步到那裡。';
 
   @override
   String get about => '關於';
@@ -1961,6 +1961,167 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get automationRunTool => '啟動自動化任務';
+
+  @override
+  String get denConnectEntry => '或者連線至 Den…';
+
+  @override
+  String get denTitle => 'Tako Den';
+
+  @override
+  String get denConnectTitle => '連線至 Den';
+
+  @override
+  String get denConnectIntro =>
+      'Den 是你自己或你信任的人架設的 Tako 伺服器。登入後，對話、記憶和個人化設定會在你的裝置之間同步，也能使用伺服器提供的模型。';
+
+  @override
+  String get denServerAddress => '伺服器網址';
+
+  @override
+  String get denServerAddressHint => '例如 den.example.com 或 192.168.1.20:8787';
+
+  @override
+  String get denContinue => '繼續';
+
+  @override
+  String get denInvalidAddress => '請輸入有效的網址。';
+
+  @override
+  String get denNotDen => '這個網址不是 Tako Den。';
+
+  @override
+  String denUnreachable(String detail) {
+    return '連不到伺服器：$detail';
+  }
+
+  @override
+  String get denSetupRequired => '這個 Den 還沒設定好。請用瀏覽器打開它，並用伺服器記錄裡的設定連結建立管理員。';
+
+  @override
+  String get denUsername => '使用者名稱';
+
+  @override
+  String get denPassword => '密碼';
+
+  @override
+  String get denSignIn => '登入';
+
+  @override
+  String get denSignInWithBrowser => '用瀏覽器登入';
+
+  @override
+  String denContinueWith(String provider) {
+    return '使用 $provider 繼續';
+  }
+
+  @override
+  String get denUsePairCode => '輸入配對碼';
+
+  @override
+  String get denPairCodeHelp => '在 Den 網頁的「設定 → 裝置與 API key」產生配對碼。';
+
+  @override
+  String get denPairCode => '配對碼';
+
+  @override
+  String get denCreateAccount => '建立帳號';
+
+  @override
+  String get denInviteCode => '邀請碼';
+
+  @override
+  String denWaitingForBrowser(String code) {
+    return '請在瀏覽器完成登入，並確認頁面上的代碼是 $code。';
+  }
+
+  @override
+  String get denOpenBrowserAgain => '再開一次瀏覽器';
+
+  @override
+  String get denSignInDenied => '登入被拒絕。';
+
+  @override
+  String get denSignInExpired => '登入逾時，請再試一次。';
+
+  @override
+  String get denInvalidLogin => '使用者名稱或密碼錯誤。';
+
+  @override
+  String get denInvalidCode => '配對碼錯誤或已過期。';
+
+  @override
+  String denConnected(String name) {
+    return '已連線至 $name';
+  }
+
+  @override
+  String get denSettingsSubtitle => '同步對話，使用伺服器的模型';
+
+  @override
+  String get denSync => '同步';
+
+  @override
+  String get denSyncNow => '立即同步';
+
+  @override
+  String get denSyncing => '同步中…';
+
+  @override
+  String denSyncedAt(String time) {
+    return '上次同步：$time';
+  }
+
+  @override
+  String get denNeverSynced => '尚未同步';
+
+  @override
+  String denPendingChanges(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 項變更等待上傳',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String denSyncFailed(String message) {
+    return '同步失敗：$message';
+  }
+
+  @override
+  String get denLive => '即時同步中';
+
+  @override
+  String get denSyncScope =>
+      '同步對話、記憶和個人化設定。無痕對話、API key、自動化和裝置控制設定只留在這台裝置。附件和圖片目前還不會同步。';
+
+  @override
+  String get denAccount => '帳號';
+
+  @override
+  String get denRoleAdmin => '管理員';
+
+  @override
+  String get denOpenWeb => '在瀏覽器開啟 Den';
+
+  @override
+  String get denOpenWebHelp => '在網頁上管理裝置、自己的模型和帳號；管理員也在那裡設定伺服器。';
+
+  @override
+  String get denSignOut => '登出';
+
+  @override
+  String get denSignOutTitle => '登出 Den？';
+
+  @override
+  String get denSignOutBody => '這台裝置會停止同步，並移除 Den 供應商。已經在這台裝置上的對話和記憶會保留。';
+
+  @override
+  String denWelcomeBody(String name) {
+    return '提問、探索，或一起理清思緒。對話會同步到 $name。';
+  }
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -2633,7 +2794,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get privacyBody =>
-      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。';
+      '對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有分析或遙測。若登入 Tako Den（你自己架設的伺服器），對話、記憶與個人化也會同步到那裡。';
 
   @override
   String get about => '關於';
@@ -3920,4 +4081,165 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get automationRunTool => '啟動自動化任務';
+
+  @override
+  String get denConnectEntry => '或者連線至 Den…';
+
+  @override
+  String get denTitle => 'Tako Den';
+
+  @override
+  String get denConnectTitle => '連線至 Den';
+
+  @override
+  String get denConnectIntro =>
+      'Den 是你自己或你信任的人架設的 Tako 伺服器。登入後，對話、記憶和個人化設定會在你的裝置之間同步，也能使用伺服器提供的模型。';
+
+  @override
+  String get denServerAddress => '伺服器網址';
+
+  @override
+  String get denServerAddressHint => '例如 den.example.com 或 192.168.1.20:8787';
+
+  @override
+  String get denContinue => '繼續';
+
+  @override
+  String get denInvalidAddress => '請輸入有效的網址。';
+
+  @override
+  String get denNotDen => '這個網址不是 Tako Den。';
+
+  @override
+  String denUnreachable(String detail) {
+    return '連不到伺服器：$detail';
+  }
+
+  @override
+  String get denSetupRequired => '這個 Den 還沒設定好。請用瀏覽器打開它，並用伺服器記錄裡的設定連結建立管理員。';
+
+  @override
+  String get denUsername => '使用者名稱';
+
+  @override
+  String get denPassword => '密碼';
+
+  @override
+  String get denSignIn => '登入';
+
+  @override
+  String get denSignInWithBrowser => '用瀏覽器登入';
+
+  @override
+  String denContinueWith(String provider) {
+    return '使用 $provider 繼續';
+  }
+
+  @override
+  String get denUsePairCode => '輸入配對碼';
+
+  @override
+  String get denPairCodeHelp => '在 Den 網頁的「設定 → 裝置與 API key」產生配對碼。';
+
+  @override
+  String get denPairCode => '配對碼';
+
+  @override
+  String get denCreateAccount => '建立帳號';
+
+  @override
+  String get denInviteCode => '邀請碼';
+
+  @override
+  String denWaitingForBrowser(String code) {
+    return '請在瀏覽器完成登入，並確認頁面上的代碼是 $code。';
+  }
+
+  @override
+  String get denOpenBrowserAgain => '再開一次瀏覽器';
+
+  @override
+  String get denSignInDenied => '登入被拒絕。';
+
+  @override
+  String get denSignInExpired => '登入逾時，請再試一次。';
+
+  @override
+  String get denInvalidLogin => '使用者名稱或密碼錯誤。';
+
+  @override
+  String get denInvalidCode => '配對碼錯誤或已過期。';
+
+  @override
+  String denConnected(String name) {
+    return '已連線至 $name';
+  }
+
+  @override
+  String get denSettingsSubtitle => '同步對話，使用伺服器的模型';
+
+  @override
+  String get denSync => '同步';
+
+  @override
+  String get denSyncNow => '立即同步';
+
+  @override
+  String get denSyncing => '同步中…';
+
+  @override
+  String denSyncedAt(String time) {
+    return '上次同步：$time';
+  }
+
+  @override
+  String get denNeverSynced => '尚未同步';
+
+  @override
+  String denPendingChanges(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 項變更等待上傳',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String denSyncFailed(String message) {
+    return '同步失敗：$message';
+  }
+
+  @override
+  String get denLive => '即時同步中';
+
+  @override
+  String get denSyncScope =>
+      '同步對話、記憶和個人化設定。無痕對話、API key、自動化和裝置控制設定只留在這台裝置。附件和圖片目前還不會同步。';
+
+  @override
+  String get denAccount => '帳號';
+
+  @override
+  String get denRoleAdmin => '管理員';
+
+  @override
+  String get denOpenWeb => '在瀏覽器開啟 Den';
+
+  @override
+  String get denOpenWebHelp => '在網頁上管理裝置、自己的模型和帳號；管理員也在那裡設定伺服器。';
+
+  @override
+  String get denSignOut => '登出';
+
+  @override
+  String get denSignOutTitle => '登出 Den？';
+
+  @override
+  String get denSignOutBody => '這台裝置會停止同步，並移除 Den 供應商。已經在這台裝置上的對話和記憶會保留。';
+
+  @override
+  String denWelcomeBody(String name) {
+    return '提問、探索，或一起理清思緒。對話會同步到 $name。';
+  }
 }

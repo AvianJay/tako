@@ -1,0 +1,35 @@
+# docker compose up -d
+# Then open the setup link from `docker compose logs tako-den`, or set
+# TAKO_ADMIN_PASSWORD below and sign in as admin.
+services:
+  tako-den:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      - tako-data:/data
+      # - ./tako-den.yaml:/app/tako-den.yaml:ro
+    environment:
+      # TAKO_ADMIN_PASSWORD: change-me
+      # TAKO_PUBLIC_URL: https://den.example.com
+      # TAKO_TRUST_PROXY: "1"
+      # OPENAI_API_KEY: sk-...
+      # OPENROUTER_API_KEY: sk-or-...
+      # OLLAMA_URL: http://ollama:11434
+      # TAKO_OAUTH_GOOGLE_CLIENT_ID: ...
+      # TAKO_OAUTH_GOOGLE_CLIENT_SECRET: ...
+      # TAKO_CONFIG: /app/tako-den.yaml
+
+  # A local model runner (docker compose --profile ollama up -d), then set
+  # OLLAMA_URL above to http://ollama:11434.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ollama]
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  tako-data:
+  ollama:

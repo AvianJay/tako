@@ -1410,7 +1410,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyBody.
   ///
   /// In zh, this message translates to:
-  /// **'對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。'**
+  /// **'對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有分析或遙測。若登入 Tako Den（你自己架設的伺服器），對話、記憶與個人化也會同步到那裡。'**
   String get privacyBody;
 
   /// No description provided for @about.
@@ -3794,6 +3794,282 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'啟動自動化任務'**
   String get automationRunTool;
+
+  /// No description provided for @denConnectEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'或者連線至 Den…'**
+  String get denConnectEntry;
+
+  /// No description provided for @denTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Tako Den'**
+  String get denTitle;
+
+  /// No description provided for @denConnectTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'連線至 Den'**
+  String get denConnectTitle;
+
+  /// No description provided for @denConnectIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'Den 是你自己或你信任的人架設的 Tako 伺服器。登入後，對話、記憶和個人化設定會在你的裝置之間同步，也能使用伺服器提供的模型。'**
+  String get denConnectIntro;
+
+  /// No description provided for @denServerAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'伺服器網址'**
+  String get denServerAddress;
+
+  /// No description provided for @denServerAddressHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如 den.example.com 或 192.168.1.20:8787'**
+  String get denServerAddressHint;
+
+  /// No description provided for @denContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'繼續'**
+  String get denContinue;
+
+  /// No description provided for @denInvalidAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'請輸入有效的網址。'**
+  String get denInvalidAddress;
+
+  /// No description provided for @denNotDen.
+  ///
+  /// In zh, this message translates to:
+  /// **'這個網址不是 Tako Den。'**
+  String get denNotDen;
+
+  /// No description provided for @denUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'連不到伺服器：{detail}'**
+  String denUnreachable(String detail);
+
+  /// No description provided for @denSetupRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'這個 Den 還沒設定好。請用瀏覽器打開它，並用伺服器記錄裡的設定連結建立管理員。'**
+  String get denSetupRequired;
+
+  /// No description provided for @denUsername.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用者名稱'**
+  String get denUsername;
+
+  /// No description provided for @denPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密碼'**
+  String get denPassword;
+
+  /// No description provided for @denSignIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'登入'**
+  String get denSignIn;
+
+  /// No description provided for @denSignInWithBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'用瀏覽器登入'**
+  String get denSignInWithBrowser;
+
+  /// No description provided for @denContinueWith.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用 {provider} 繼續'**
+  String denContinueWith(String provider);
+
+  /// No description provided for @denUsePairCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'輸入配對碼'**
+  String get denUsePairCode;
+
+  /// No description provided for @denPairCodeHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 Den 網頁的「設定 → 裝置與 API key」產生配對碼。'**
+  String get denPairCodeHelp;
+
+  /// No description provided for @denPairCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'配對碼'**
+  String get denPairCode;
+
+  /// No description provided for @denCreateAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'建立帳號'**
+  String get denCreateAccount;
+
+  /// No description provided for @denInviteCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'邀請碼'**
+  String get denInviteCode;
+
+  /// No description provided for @denWaitingForBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'請在瀏覽器完成登入，並確認頁面上的代碼是 {code}。'**
+  String denWaitingForBrowser(String code);
+
+  /// No description provided for @denOpenBrowserAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'再開一次瀏覽器'**
+  String get denOpenBrowserAgain;
+
+  /// No description provided for @denSignInDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'登入被拒絕。'**
+  String get denSignInDenied;
+
+  /// No description provided for @denSignInExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'登入逾時，請再試一次。'**
+  String get denSignInExpired;
+
+  /// No description provided for @denInvalidLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用者名稱或密碼錯誤。'**
+  String get denInvalidLogin;
+
+  /// No description provided for @denInvalidCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'配對碼錯誤或已過期。'**
+  String get denInvalidCode;
+
+  /// No description provided for @denConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已連線至 {name}'**
+  String denConnected(String name);
+
+  /// No description provided for @denSettingsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步對話，使用伺服器的模型'**
+  String get denSettingsSubtitle;
+
+  /// No description provided for @denSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步'**
+  String get denSync;
+
+  /// No description provided for @denSyncNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步'**
+  String get denSyncNow;
+
+  /// No description provided for @denSyncing.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步中…'**
+  String get denSyncing;
+
+  /// No description provided for @denSyncedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次同步：{time}'**
+  String denSyncedAt(String time);
+
+  /// No description provided for @denNeverSynced.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未同步'**
+  String get denNeverSynced;
+
+  /// No description provided for @denPendingChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 項變更等待上傳}}'**
+  String denPendingChanges(int count);
+
+  /// No description provided for @denSyncFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步失敗：{message}'**
+  String denSyncFailed(String message);
+
+  /// No description provided for @denLive.
+  ///
+  /// In zh, this message translates to:
+  /// **'即時同步中'**
+  String get denLive;
+
+  /// No description provided for @denSyncScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步對話、記憶和個人化設定。無痕對話、API key、自動化和裝置控制設定只留在這台裝置。附件和圖片目前還不會同步。'**
+  String get denSyncScope;
+
+  /// No description provided for @denAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'帳號'**
+  String get denAccount;
+
+  /// No description provided for @denRoleAdmin.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理員'**
+  String get denRoleAdmin;
+
+  /// No description provided for @denOpenWeb.
+  ///
+  /// In zh, this message translates to:
+  /// **'在瀏覽器開啟 Den'**
+  String get denOpenWeb;
+
+  /// No description provided for @denOpenWebHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'在網頁上管理裝置、自己的模型和帳號；管理員也在那裡設定伺服器。'**
+  String get denOpenWebHelp;
+
+  /// No description provided for @denSignOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'登出'**
+  String get denSignOut;
+
+  /// No description provided for @denSignOutTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登出 Den？'**
+  String get denSignOutTitle;
+
+  /// No description provided for @denSignOutBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'這台裝置會停止同步，並移除 Den 供應商。已經在這台裝置上的對話和記憶會保留。'**
+  String get denSignOutBody;
+
+  /// No description provided for @denWelcomeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'提問、探索，或一起理清思緒。對話會同步到 {name}。'**
+  String denWelcomeBody(String name);
 }
 
 class _AppLocalizationsDelegate

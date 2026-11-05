@@ -1,0 +1,40 @@
+# Copy to tako-den.yaml. Environment variables override these settings:
+# TAKO_HOST, TAKO_PORT, TAKO_DATA, TAKO_PUBLIC_URL, TAKO_REGISTRATION,
+# TAKO_ADMIN_USERNAME and TAKO_ADMIN_PASSWORD. Most settings live on the web
+# page's admin section instead; values here only seed them on first start.
+
+port: 8787
+data_dir: data
+
+# The public address, for OAuth sign-in and the links the server hands out.
+# This seeds the admin page's setting; TAKO_PUBLIC_URL locks it instead.
+# public_url: https://den.example.com
+
+# closed: only administrators add users. invite: people need an invite from
+# the admin page. open: anyone who can reach the server may create an account.
+registration: closed
+
+# Behind one reverse proxy you run (Caddy, nginx, Cloudflare Tunnel), take the
+# client address from X-Forwarded-For so sign-in limits count each client.
+# trust_proxy: true
+
+# Shared model providers, listed on the admin page but edited only here.
+# Clients see their models as `<name>/<model>`.
+# OPENAI_API_KEY, OPENROUTER_API_KEY and OLLAMA_URL add the matching
+# upstream without this file.
+upstreams:
+  - name: openai
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+
+  # Ollama, llama-server or LM Studio on your own computer.
+  - name: home
+    base_url: http://192.168.1.20:11434/v1
+
+  # Offer only some models instead of the upstream's whole list.
+  - name: openrouter
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    models:
+      - anthropic/claude-sonnet-5.5
+      - google/gemini-3-flash

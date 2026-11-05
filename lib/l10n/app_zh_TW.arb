@@ -228,7 +228,7 @@
   "textSize": "文字大小",
   "language": "語言",
   "privacy": "以本機為本",
-  "privacyBody": "對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有帳號、分析或遙測。",
+  "privacyBody": "對話與記憶保存在此裝置。聊天時，你的訊息以及工具讀到的內容（例如畫面或通知）會傳送給你選擇的模型供應商；使用裝置上模型時，這些內容不會離開這支手機。API 金鑰與額外標頭保存在安全儲存空間。沒有分析或遙測。若登入 Tako Den（你自己架設的伺服器），對話、記憶與個人化也會同步到那裡。",
   "about": "關於",
   "developerContext": "已儲存的上下文",
   "noChats": "你的對話會顯示在這裡。",
@@ -827,5 +827,107 @@
   "automationGetTool": "讀取自動化規則",
   "automationSaveTool": "儲存自動化規則",
   "automationDeleteTool": "刪除自動化規則",
-  "automationRunTool": "啟動自動化任務"
+  "automationRunTool": "啟動自動化任務",
+  "denConnectEntry": "或者連線至 Den…",
+  "denTitle": "Tako Den",
+  "denConnectTitle": "連線至 Den",
+  "denConnectIntro": "Den 是你自己或你信任的人架設的 Tako 伺服器。登入後，對話、記憶和個人化設定會在你的裝置之間同步，也能使用伺服器提供的模型。",
+  "denServerAddress": "伺服器網址",
+  "denServerAddressHint": "例如 den.example.com 或 192.168.1.20:8787",
+  "denContinue": "繼續",
+  "denInvalidAddress": "請輸入有效的網址。",
+  "denNotDen": "這個網址不是 Tako Den。",
+  "denUnreachable": "連不到伺服器：{detail}",
+  "@denUnreachable": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "denSetupRequired": "這個 Den 還沒設定好。請用瀏覽器打開它，並用伺服器記錄裡的設定連結建立管理員。",
+  "denUsername": "使用者名稱",
+  "denPassword": "密碼",
+  "denSignIn": "登入",
+  "denSignInWithBrowser": "用瀏覽器登入",
+  "denContinueWith": "使用 {provider} 繼續",
+  "@denContinueWith": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "denUsePairCode": "輸入配對碼",
+  "denPairCodeHelp": "在 Den 網頁的「設定 → 裝置與 API key」產生配對碼。",
+  "denPairCode": "配對碼",
+  "denCreateAccount": "建立帳號",
+  "denInviteCode": "邀請碼",
+  "denWaitingForBrowser": "請在瀏覽器完成登入，並確認頁面上的代碼是 {code}。",
+  "@denWaitingForBrowser": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "denOpenBrowserAgain": "再開一次瀏覽器",
+  "denSignInDenied": "登入被拒絕。",
+  "denSignInExpired": "登入逾時，請再試一次。",
+  "denInvalidLogin": "使用者名稱或密碼錯誤。",
+  "denInvalidCode": "配對碼錯誤或已過期。",
+  "denConnected": "已連線至 {name}",
+  "@denConnected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "denSettingsSubtitle": "同步對話，使用伺服器的模型",
+  "denSync": "同步",
+  "denSyncNow": "立即同步",
+  "denSyncing": "同步中…",
+  "denSyncedAt": "上次同步：{time}",
+  "@denSyncedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "denNeverSynced": "尚未同步",
+  "denPendingChanges": "{count, plural, other{{count} 項變更等待上傳}}",
+  "@denPendingChanges": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "denSyncFailed": "同步失敗：{message}",
+  "@denSyncFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "denLive": "即時同步中",
+  "denSyncScope": "同步對話、記憶和個人化設定。無痕對話、API key、自動化和裝置控制設定只留在這台裝置。附件和圖片目前還不會同步。",
+  "denAccount": "帳號",
+  "denRoleAdmin": "管理員",
+  "denOpenWeb": "在瀏覽器開啟 Den",
+  "denOpenWebHelp": "在網頁上管理裝置、自己的模型和帳號；管理員也在那裡設定伺服器。",
+  "denSignOut": "登出",
+  "denSignOutTitle": "登出 Den？",
+  "denSignOutBody": "這台裝置會停止同步，並移除 Den 供應商。已經在這台裝置上的對話和記憶會保留。",
+  "denWelcomeBody": "提問、探索，或一起理清思緒。對話會同步到 {name}。",
+  "@denWelcomeBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -109,6 +109,8 @@ void main() {
       statusCode: 429,
       code: 'billing_hard_limit_reached',
     ),
+    ProviderError('Den limit', statusCode: 429, code: 'quota_exceeded'),
+    ProviderError('Den key refused', statusCode: 502, code: 'upstream_auth'),
     ProviderError('Guardrail', code: 'apple_guardrail'),
     ProviderError('Bad tools', code: 'aicore_invalid_tools'),
   ]) {

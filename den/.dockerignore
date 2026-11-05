@@ -1,0 +1,8 @@
+.dart_tool/
+build/
+data/
+tako-den.yaml
+.env
+.env.*
+**/secret.key
+**/secret.key.lock

@@ -76,6 +76,10 @@ bool _isTransient(ProviderError error) {
     'invalid_api_key',
     'authentication_error',
     'permission_error',
+    // Tako Den: the daily shared-model limit, or the provider refused the
+    // server's key.
+    'quota_exceeded',
+    'upstream_auth',
   }.contains(error.code)) {
     return false;
   }
