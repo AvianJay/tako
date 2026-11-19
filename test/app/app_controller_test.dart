@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tako/app/app_controller.dart';
 import 'package:tako/core/chat/content_block.dart';
+import 'package:tako/core/chat/context_compaction.dart';
 import 'package:tako/core/chat/message.dart';
 import 'package:tako/core/permissions/permission_gate.dart';
 import 'package:tako/core/providers/providers.dart';
@@ -43,6 +44,9 @@ class FakeAdapter implements ProviderAdapter {
     TextDelta('A useful answer'),
     Done('stop'),
   ];
+  List<ProviderEvent>? summaryEvents;
+  Completer<void>? summaryStarted;
+  bool waitForSummaryStop = false;
   Completer<void>? started;
   bool waitForStop = false;
   List<ModelInfo> models = [];
@@ -63,8 +67,17 @@ class FakeAdapter implements ProviderAdapter {
     required CancelToken cancel,
   }) async* {
     requests.add(request);
+    if (request.systemPrompt == summaryPrompt && waitForSummaryStop) {
+      summaryStarted?.complete();
+      await cancel.whenCancelled;
+      return;
+    }
     started?.complete();
-    for (final event in events) {
+    for (final event
+        in request.systemPrompt == summaryPrompt
+            ? summaryEvents ??
+                  const [TextDelta('Prior project: lantern.'), Done('stop')]
+            : events) {
       if (cancel.isCancelled) return;
       yield event;
     }
@@ -411,6 +424,107 @@ void main() {
         isFalse,
       );
       expect(adapter.requests.last.replayOpaqueReasoning, isFalse);
+    },
+  );
+
+  test(
+    'compaction preserves originals, survives reopening and stays branch-local',
+    () async {
+      await app.saveProvider(config(context: 2700));
+      final old = 'Use lantern. ${'old detail ' * 510}Last detail.';
+      await app.send(old);
+      final original = app.visibleMessages.first;
+      final firstAnswer = app.visibleMessages.last;
+      final chat = app.conversation!.id;
+      expect(adapter.requests.single.messages.single.text, old);
+      adapter.requests.clear();
+
+      // Force a compacted prefix while a short completed turn remains verbatim.
+      await app.send('Keep this short turn.');
+      await app.send('Newest instruction. ${'new detail ' * 200}');
+      expect(app.errorCode, isNull);
+      expect(app.contextCompacted, isTrue);
+      final summaries = adapter.requests.where(
+        (r) => r.systemPrompt == summaryPrompt,
+      );
+      expect(summaries, isNotEmpty);
+      expect(summaries.first.messages.single.text, contains('Use lantern.'));
+      expect(summaries.last.messages.single.text, contains('Last detail.'));
+      for (final request in summaries) {
+        expect(request.tools, isEmpty);
+        expect(request.builtInWebSearch, isFalse);
+        expect(request.messages.single.content.single, isA<TextBlock>());
+      }
+      final compactedRequest = adapter.requests.last;
+      expect(
+        compactedRequest.messages.first.text,
+        contains('Prior project: lantern.'),
+      );
+      expect(compactedRequest.messages[1].text, 'Keep this short turn.');
+      expect(
+        compactedRequest.messages.last.text,
+        startsWith('Newest instruction.'),
+      );
+      expect(app.visibleMessages.first.text, old);
+      expect(app.visibleMessages, hasLength(6));
+
+      await app.newChat();
+      await app.openConversation(chat);
+      adapter.requests.clear();
+      await app.send('Continue.');
+      expect(adapter.requests, hasLength(1));
+      expect(
+        adapter.requests.single.messages.first.text,
+        contains('Prior project: lantern.'),
+      );
+
+      await app.rewind(original);
+      adapter.requests.clear();
+      await app.regenerate(firstAnswer);
+      expect(adapter.requests.single.messages.single.text, old);
+      expect(app.contextCompacted, isFalse);
+      await app.rewind(original, deleteAfter: true);
+      expect(await app.chats.getContextSummaries(chat), isEmpty);
+    },
+  );
+
+  test(
+    'failed and cancelled summaries never fall back to cropped requests',
+    () async {
+      await app.saveProvider(config(context: 2700));
+      final old = 'old ' * 1440;
+      await app.send(old);
+      adapter.requests.clear();
+      adapter.summaryEvents = const [TextDelta('partial'), Done('length')];
+      await app.send('Next. ${'new ' * 575}');
+      expect(app.errorCode, 'contextCompactionFailed');
+      expect(adapter.requests.single.systemPrompt, summaryPrompt);
+      expect(
+        await app.chats.getContextSummaries(app.conversation!.id),
+        isEmpty,
+      );
+      expect(app.visibleMessages, hasLength(3));
+
+      adapter.waitForSummaryStop = true;
+      adapter.summaryStarted = Completer<void>();
+      expect(app.canRetryContextCompaction, isTrue);
+      final sending = app.retryContextCompaction();
+      await adapter.summaryStarted!.future.timeout(const Duration(seconds: 3));
+      expect(app.isCompactingContext, isTrue);
+      app.stop();
+      await sending;
+      expect(app.isCompactingContext, isFalse);
+      expect(app.errorCode, isNull);
+      expect(
+        adapter.requests.every((r) => r.systemPrompt == summaryPrompt),
+        isTrue,
+      );
+      expect(
+        await app.chats.getContextSummaries(app.conversation!.id),
+        isEmpty,
+      );
+      expect(app.visibleMessages, hasLength(3));
+      expect(app.visibleMessages.first.text, old.trim());
     },
   );
 

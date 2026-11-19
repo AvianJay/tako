@@ -233,7 +233,7 @@ extension AgentRunner on AppController {
       final receiptId = existingReceipt?.id ?? newId();
       Future<void> saveReceipts() async {
         if (results.isEmpty) return;
-        await chats.saveMessage(
+        await _saveChatMessage(
           ChatMessage(
             id: receiptId,
             conversationId: response!.conversationId,
@@ -246,7 +246,6 @@ extension AgentRunner on AppController {
             model: provider.model,
           ),
         );
-        await _refresh();
       }
 
       final seen = <String>{};
@@ -365,8 +364,7 @@ extension AgentRunner on AppController {
         model: provider.model,
       );
       // Receipts are persisted even when Stop raced with a committed action.
-      await chats.saveMessage(resultMessage);
-      await _refresh();
+      await _saveChatMessage(resultMessage);
       if (token.isCancelled) {
         final expired = results.whereType<ToolResultBlock>().any(
           (r) =>
@@ -374,7 +372,7 @@ extension AgentRunner on AppController {
               tryDecodeObject(r.content)?['stop_reason'] == 'system_expiration',
         );
         if (expired) {
-          await chats.saveMessage(
+          await _saveChatMessage(
             ChatMessage(
               id: newId(),
               conversationId: response.conversationId,
@@ -391,7 +389,6 @@ extension AgentRunner on AppController {
               timezoneOffsetMinutes: DateTime.now().timeZoneOffset.inMinutes,
             ),
           );
-          await _refresh();
         }
         return;
       }
@@ -431,7 +428,7 @@ extension AgentRunner on AppController {
                     .whereType<String>()
                     .join(' · ');
           final now = DateTime.now();
-          await chats.saveMessage(
+          await _saveChatMessage(
             ChatMessage(
               id: newId(),
               conversationId: response.conversationId,
@@ -446,7 +443,6 @@ extension AgentRunner on AppController {
               model: outcome?['worker_model'] as String?,
             ),
           );
-          await _refresh();
           return;
         }
       }
@@ -482,12 +478,94 @@ extension AgentRunner on AppController {
   }) async {
     _lastStopReason = null;
     final current = conversation!;
-    final systemPrompt = contextHint == null
+    var systemPrompt = contextHint == null
         ? current.systemPrompt
         : '${current.systemPrompt}\n\n$contextHint';
     final token = _cancel!;
     token.throwIfCancelled();
-    final rawPath = tree.pathTo(parentId);
+    final imagesOnly = provider.capabilities.imagesOnly;
+    ContextSummary? summary;
+    final checkpoints = imagesOnly
+        ? const <String, ContextSummary>{}
+        : await chats.getContextSummaries(current.id);
+    token.throwIfCancelled();
+    final history = tree.pathTo(
+      parentId,
+      stopAt: (message) {
+        if (message.role != MessageRole.user) return false;
+        summary = checkpoints[message.id];
+        return imagesOnly || summary != null;
+      },
+    );
+    final screenHistory = limitRemoteScreenImages(history);
+    var rawPath = imagesOnly
+        ? screenHistory.messages
+              .where((m) => m.role == MessageRole.user)
+              .toList()
+        : screenHistory.messages;
+    if (!imagesOnly) {
+      final contextWindow = provider.capabilities.contextWindow ?? 32768;
+      try {
+        final plan = ContextCompactionPlan.build(
+          path: rawPath,
+          previous: summary,
+          systemPrompt: systemPrompt,
+          inputBudget:
+              contextWindow -
+              provider.maxOutputTokens -
+              ContextBudget.estimateTokens(
+                jsonEncode([
+                  for (final definition in definitions)
+                    [
+                      definition.name,
+                      definition.description,
+                      definition.schema,
+                    ],
+                ]),
+              ),
+        );
+        if (plan.needsSummary) {
+          isCompactingContext = true;
+          _emit();
+          try {
+            final resumeAt = rawPath[plan.keepFrom];
+            final text = await summarizeContext(
+              adapterFor: () => adapterFor(
+                provider.copyWith(reasoningMode: ReasoningMode.off),
+              ),
+              resumeAt: resumeAt,
+              history: history.sublist(0, plan.keepFrom),
+              previous: summary,
+              contextWindow: contextWindow,
+              maxOutputTokens: plan.summaryTokens,
+              cancel: token,
+            );
+            token.throwIfCancelled();
+            final checkpoint = ContextSummary(
+              resumeAt: resumeAt.id,
+              text: text,
+            );
+            await chats.saveContextSummary(checkpoint);
+            token.throwIfCancelled();
+            summary = checkpoint;
+            rawPath = rawPath.sublist(plan.keepFrom);
+          } finally {
+            isCompactingContext = false;
+            _emit();
+          }
+        }
+      } on ContextTooLarge {
+        errorCode = 'contextTooLarge';
+        return null;
+      } on ContextCompactionFailed {
+        errorCode = 'contextCompactionFailed';
+        _compactionRetry = (parent: parentId, active: current.activeLeafId);
+        return null;
+      }
+    }
+    final checkpoint = summary;
+    contextCompacted = checkpoint != null;
+    if (checkpoint != null) systemPrompt += ContextSummary.instruction;
     // Providers may reuse call IDs across turns. Pair within the actual
     // assistant -> tool edge, never against a global set of IDs in history.
     final pairedIds = <String, Set<String>>{};
@@ -513,7 +591,7 @@ extension AgentRunner on AppController {
       pairedIds[results.id] = completed;
     }
     final path = <ChatMessage>[];
-    var historyChanged = false;
+    var historyChanged = screenHistory.changed;
     for (final message in rawPath) {
       final content = message.content
           .where(
@@ -549,38 +627,10 @@ extension AgentRunner on AppController {
             : message.copyWith(content: content),
       );
     }
-    final screenHistory = limitRemoteScreenImages(path);
-    historyChanged |= screenHistory.changed;
-    final imagesOnly = provider.capabilities.imagesOnly;
-    final budget = imagesOnly
-        ? ContextBudgetResult(
-            messages: [
-              ?path.reversed
-                  .where((m) => m.role == MessageRole.user)
-                  .firstOrNull,
-            ],
-            estimatedTokens: 0,
-            removedMessages: 0,
-            removedToolOutputs: 0,
-            exceedsBudget: false,
-          )
-        : ContextBudget.trim(
-            systemPrompt: systemPrompt,
-            messages: screenHistory.messages,
-            contextWindow: provider.capabilities.contextWindow ?? 32768,
-            reserveOutputTokens:
-                provider.maxOutputTokens +
-                ContextBudget.estimateTokens(
-                  jsonEncode(definitions.map((d) => d.schema).toList()),
-                ),
-          );
-    contextTrimmed = budget.wasTrimmed;
-    if (budget.exceedsBudget) {
-      errorCode = 'contextTooLarge';
-      return null;
-    }
-    final preparedMessages = <ChatMessage>[];
-    for (final message in budget.messages) {
+    final preparedMessages = <ChatMessage>[
+      if (checkpoint != null) checkpoint.asMessage(rawPath.first),
+    ];
+    for (final message in path) {
       final hasAttachments = message.content.any(
         (b) =>
             b is ImageBlock ||
@@ -614,9 +664,10 @@ extension AgentRunner on AppController {
       model: provider.model,
       status: MessageStatus.streaming,
     );
-    await chats.saveMessage(response);
-    await _refresh();
-    final fingerprint = promptFingerprint(systemPrompt);
+    await _saveChatMessage(response);
+    final fingerprint = promptFingerprint(
+      checkpoint == null ? systemPrompt : '$systemPrompt\n${checkpoint.text}',
+    );
     var accumulator = ResponseAccumulator(
       sourceApi: provider.apiType.name,
       promptHash: fingerprint,
@@ -633,11 +684,7 @@ extension AgentRunner on AppController {
         usage: accumulator.usage,
         clearUsage: accumulator.usage == null,
       );
-      final index = messages.indexWhere((m) => m.id == response.id);
-      if (index >= 0) {
-        messages = List.of(messages)..[index] = response;
-      }
-      _emit();
+      liveResponse.value = response;
     }
 
     try {
@@ -650,7 +697,7 @@ extension AgentRunner on AppController {
             builtInWebSearch: builtInWebSearch,
             maxTokens: provider.maxOutputTokens,
             promptHash: fingerprint,
-            replayOpaqueReasoning: !budget.wasTrimmed && !historyChanged,
+            replayOpaqueReasoning: !historyChanged,
           ),
           cancel: token,
           onRetry: () {
@@ -778,8 +825,8 @@ extension AgentRunner on AppController {
       status: status,
       error: error,
     );
-    await chats.saveMessage(response);
-    await _refresh();
+    await _saveChatMessage(response);
+    if (!_disposed) liveResponse.value = null;
     return response;
   }
 }

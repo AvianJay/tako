@@ -42,7 +42,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// The last message on screen. Only its suggested replies can be sent.
   String? _latestId;
   final _focus = FocusNode();
-  String _renderStamp = '';
+  List<ChatMessage>? _timelinePath;
+  List<ChatTimelineEntry> _timeline = const [];
+  Map<String, int> _timelineIndices = const {};
   late final BrowserCapability _browser = ref
       .read(appControllerProvider)
       .services
@@ -762,6 +764,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   String _error(String? code, AppLocalizations l) => switch (code) {
     'contextTooLarge' => l.contextTooLarge,
+    'contextCompactionFailed' => l.contextCompactionFailed,
     'visionRequired' => l.visionRequired,
     'imageReferenceLimit' => l.imageReferenceLimit,
     'attachmentLimit' => l.attachmentLimit,
@@ -1275,6 +1278,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  Widget _timelineAssistant(
+    ChatTimelineEntry entry,
+    AppController app,
+    AppLocalizations l,
+  ) {
+    final last = entry.messages.last;
+    if (last.status != MessageStatus.streaming) {
+      return _assistantTurn(entry, app, l);
+    }
+    return ValueListenableBuilder<ChatMessage?>(
+      valueListenable: app.liveResponse,
+      builder: (context, live, _) =>
+          _assistantTurn(entry.withLiveResponse(live), app, l),
+    );
+  }
+
   Widget _assistantTurn(
     ChatTimelineEntry entry,
     AppController app,
@@ -1447,28 +1466,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       });
     }
     final visible = app.visibleMessages;
+    final previousLeaf = _latestId;
     _latestId = visible.lastOrNull?.id;
-    final timeline = buildChatTimeline(visible);
-    final stamp = '${app.conversation?.id}:${visible.length}:${app.revision}';
-    if (stamp != _renderStamp) {
-      final changedConversation = !stamp.startsWith(
-        '${_renderStamp.split(':').first}:',
-      );
-      final nearBottom =
-          !_scroll.hasClients || _scroll.position.extentAfter < 180;
-      _renderStamp = stamp;
-      if (changedConversation || nearBottom) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _scroll.hasClients) {
-            _scroll.jumpTo(_scroll.position.maxScrollExtent);
-          }
-        });
-      }
+    if (previousLeaf != null &&
+        previousLeaf != _latestId &&
+        !identical(_timelinePath, visible) &&
+        !visible.any((message) => message.id == previousLeaf)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
+      });
     }
+    if (!identical(_timelinePath, visible)) {
+      _timelinePath = visible;
+      _timeline = buildChatTimeline(visible);
+      _timelineIndices = {
+        for (var index = 0; index < _timeline.length; index++)
+          _timeline[index].anchor.id: _timeline.length - 1 - index,
+      };
+    }
+    final timeline = _timeline;
     final wide = MediaQuery.sizeOf(context).width >= 1000;
     final continuations = visible.isEmpty
-        ? <ChatMessage>[]
-        : app.messages.where((m) => m.parentId == visible.last.id).toList();
+        ? const <ChatMessage>[]
+        : app.tree.childrenOf(visible.last.id);
+    final continuationRows = continuations.isEmpty ? 0 : 1;
     return Scaffold(
       drawer: wide ? null : Drawer(child: _history(app, l, drawer: true)),
       body: Row(
@@ -1735,16 +1756,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 keyboardDismissBehavior:
                                     ScrollViewKeyboardDismissBehavior.onDrag,
                                 controller: _scroll,
+                                reverse: true,
+                                findChildIndexCallback: (key) {
+                                  if (key ==
+                                      const ValueKey('chat-continuations')) {
+                                    return continuationRows == 0 ? null : 0;
+                                  }
+                                  if (key is! ValueKey<String>) return null;
+                                  final index = _timelineIndices[key.value];
+                                  return index == null
+                                      ? null
+                                      : index + continuationRows;
+                                },
                                 padding: const EdgeInsets.only(
                                   top: 8,
                                   bottom: 24,
                                 ),
-                                itemCount:
-                                    timeline.length +
-                                    (continuations.isEmpty ? 0 : 1),
-                                itemBuilder: (context, index) {
-                                  if (index == timeline.length) {
+                                itemCount: timeline.length + continuationRows,
+                                itemBuilder: (context, reverseIndex) {
+                                  if (reverseIndex < continuationRows) {
                                     return Padding(
+                                      key: const ValueKey('chat-continuations'),
                                       padding: const EdgeInsets.all(20),
                                       child: Wrap(
                                         spacing: 8,
@@ -1770,6 +1802,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       ),
                                     );
                                   }
+                                  final index =
+                                      timeline.length -
+                                      1 -
+                                      (reverseIndex - continuationRows);
                                   final entry = timeline[index];
                                   final message = entry.anchor;
                                   final date = DateFormat.yMMMd(
@@ -1781,6 +1817,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           timeline[index - 1].anchor.wallTime,
                                         );
                                   return Column(
+                                    key: ValueKey(message.id),
                                     children: [
                                       if (date != previousDate)
                                         Padding(
@@ -1795,7 +1832,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ),
                                         ),
                                       entry.isAssistantTurn
-                                          ? _assistantTurn(entry, app, l)
+                                          ? _timelineAssistant(entry, app, l)
                                           : _message(message, app, l),
                                     ],
                                   );
@@ -1825,6 +1862,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             onPressed: () => _run(app.continueAfterLimit),
                             child: Text(l.continueAction),
                           ),
+                        if (app.canRetryContextCompaction)
+                          TextButton(
+                            onPressed: () => _run(app.retryContextCompaction),
+                            child: Text(l.retry),
+                          ),
                       ],
                     ),
                   ),
@@ -1833,11 +1875,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     onPressed: _chooseProvider,
                     child: Text(l.providerRemoved),
                   ),
-                if (app.contextTrimmed)
+                if (app.isCompactingContext || app.contextCompacted)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      l.contextTrimmed,
+                      app.isCompactingContext
+                          ? l.contextCompacting
+                          : l.contextCompacted,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ),

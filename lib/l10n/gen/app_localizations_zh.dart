@@ -628,10 +628,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileUnavailable => '此工作區檔案目前無法使用。';
 
   @override
-  String get contextTrimmed => '已裁剪較舊的上下文以符合模型限制';
+  String get contextCompacted => '已摘要較早的對話，原始紀錄仍完整保留。';
 
   @override
-  String get contextTooLarge => '此訊息超過模型上下文長度，請縮短訊息或在供應商設定中調整長度。';
+  String get contextCompacting => '正在摘要較早的對話…';
+
+  @override
+  String get contextCompactionFailed => '無法摘要較早的對話。原始紀錄已保留，請重試或切換模型。';
+
+  @override
+  String get contextTooLarge => '最新一輪與必要的上下文超出模型上限。請縮短訊息，或換用上下文視窗較大的模型。';
 
   @override
   String get noProviderSelected => '請先在設定中選擇供應商。';
@@ -2748,10 +2754,16 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get fileUnavailable => '此工作區檔案目前無法使用。';
 
   @override
-  String get contextTrimmed => '已裁剪較舊的上下文以符合模型限制';
+  String get contextCompacted => '已摘要較早的對話，原始紀錄仍完整保留。';
 
   @override
-  String get contextTooLarge => '此訊息超過模型上下文長度，請縮短訊息或在供應商設定中調整長度。';
+  String get contextCompacting => '正在摘要較早的對話…';
+
+  @override
+  String get contextCompactionFailed => '無法摘要較早的對話。原始紀錄已保留，請重試或切換模型。';
+
+  @override
+  String get contextTooLarge => '最新一輪與必要的上下文超出模型上限。請縮短訊息，或換用上下文視窗較大的模型。';
 
   @override
   String get noProviderSelected => '請先在設定中選擇供應商。';

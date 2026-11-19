@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tako/core/chat/content_block.dart';
+import 'package:tako/core/chat/context_compaction.dart';
 import 'package:tako/core/chat/message.dart';
-import 'package:tako/core/prompt/context_budget.dart';
 import 'package:tako/core/prompt/context_envelope.dart';
 import 'package:tako/core/prompt/prompt_builder.dart';
 
@@ -237,65 +237,41 @@ void main() {
   );
 
   test(
-    'budget replaces old tool output without touching persistent originals',
+    'compaction plans keep the newest whole turn without mutating history',
     () {
       final messages = [
-        message('u1', MessageRole.user, const [TextBlock('first')]),
-        message('call', MessageRole.assistant, const [
-          ToolCallBlock(id: 't', name: 'read', arguments: '{}'),
+        message('u1', MessageRole.user, [TextBlock('x' * 900)]),
+        message('a1', MessageRole.assistant, [TextBlock('x' * 900)]),
+        message('u2', MessageRole.user, const [TextBlock('next')]),
+        message('a2', MessageRole.assistant, const [
+          ToolCallBlock(id: 'read', name: 'read', arguments: '{}'),
         ]),
-        message('result', MessageRole.tool, [
+        message('t2', MessageRole.tool, const [
           ToolResultBlock(
-            toolCallId: 't',
+            toolCallId: 'read',
             toolName: 'read',
-            content: 'x' * 6000,
+            content: 'result',
           ),
         ]),
-        message('u2', MessageRole.user, const [TextBlock('next')]),
       ];
-      final result = ContextBudget.trim(
+      final plan = ContextCompactionPlan.build(
+        path: messages,
+        previous: null,
         systemPrompt: 'system',
-        messages: messages,
-        contextWindow: 500,
-        reserveOutputTokens: 50,
+        inputBudget: 420,
       );
-      expect(result.wasTrimmed, isTrue);
-      expect(result.exceedsBudget, isFalse);
-      expect(result.removedToolOutputs, 1);
-      expect(result.removedMessages, 0);
+      expect(plan.needsSummary, isTrue);
+      expect(messages.skip(plan.keepFrom).map((m) => m.id), ['u2', 'a2', 't2']);
+      expect(messages.first.text, 'x' * 900);
       expect(
-        (result.messages[2].content.single as ToolResultBlock).content,
-        '[older tool output removed]',
-      );
-      expect(
-        (messages[2].content.single as ToolResultBlock).content.length,
-        6000,
+        () => ContextCompactionPlan.build(
+          path: [messages.first],
+          previous: null,
+          systemPrompt: 'system',
+          inputBudget: 100,
+        ),
+        throwsA(isA<ContextTooLarge>()),
       );
     },
   );
-
-  test('budget drops whole turns and preserves newest oversized turn', () {
-    final messages = [
-      message('u1', MessageRole.user, [TextBlock('x' * 900)]),
-      message('a1', MessageRole.assistant, [TextBlock('x' * 900)]),
-      message('u2', MessageRole.user, const [TextBlock('next')]),
-    ];
-    final result = ContextBudget.trim(
-      systemPrompt: 'system',
-      messages: messages,
-      contextWindow: 100,
-      reserveOutputTokens: 10,
-    );
-    expect(result.messages.map((m) => m.id), ['u2']);
-    expect(result.removedMessages, 2);
-    expect(result.exceedsBudget, isFalse);
-    final oversized = ContextBudget.trim(
-      systemPrompt: 'system',
-      messages: [messages.first],
-      contextWindow: 100,
-      reserveOutputTokens: 10,
-    );
-    expect(oversized.messages.single.id, 'u1');
-    expect(oversized.exceedsBudget, isTrue);
-  });
 }

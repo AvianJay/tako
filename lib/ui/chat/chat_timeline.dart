@@ -20,6 +20,18 @@ final class ChatTimelineEntry {
 
   ChatMessage get anchor => messages.first;
 
+  ChatTimelineEntry withLiveResponse(ChatMessage? live) {
+    if (live == null ||
+        messages.last.status != MessageStatus.streaming ||
+        messages.last.id != live.id) {
+      return this;
+    }
+    return ChatTimelineEntry(
+      messages: [...messages.take(messages.length - 1), live],
+      isAssistantTurn: isAssistantTurn,
+    );
+  }
+
   ChatMessage? get lastAssistant {
     for (final message in messages.reversed) {
       if (message.role == MessageRole.assistant) return message;

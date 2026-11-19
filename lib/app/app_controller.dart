@@ -12,6 +12,7 @@ import '../core/automation/automation.dart';
 import '../core/browser/browser_settings.dart';
 import '../core/chat/agent_suspended.dart';
 import '../core/chat/content_block.dart';
+import '../core/chat/context_compaction.dart';
 import '../core/chat/conversation.dart';
 import '../core/chat/conversation_tree.dart';
 import '../core/chat/generated_image_store.dart';
@@ -727,12 +728,15 @@ class AppController extends ChangeNotifier {
   bool _mutating = false;
   bool _probingHostedSearch = false;
   bool get busy => _generating || _mutating || _probingHostedSearch;
-  bool contextTrimmed = false;
+  bool contextCompacted = false;
+  bool isCompactingContext = false;
+  final liveResponse = ValueNotifier<ChatMessage?>(null);
   String? errorCode;
   String? providerError;
 
   /// The last message of a response stopped for a repeated tool loop.
   String? _limitedAt;
+  ({String parent, String? active})? _compactionRetry;
   ThemeMode themeMode = ThemeMode.system;
   Locale locale = const Locale('zh', 'TW');
   double textScale = 1;
@@ -766,8 +770,20 @@ class AppController extends ChangeNotifier {
     return _tree!;
   }
 
-  List<ChatMessage> get visibleMessages =>
-      tree.pathTo(conversation?.activeLeafId);
+  ConversationTree? _visibleTree;
+  String? _visibleLeaf;
+  List<ChatMessage> _visibleMessages = const [];
+
+  List<ChatMessage> get visibleMessages {
+    final currentTree = tree;
+    final leaf = conversation?.activeLeafId;
+    if (!identical(_visibleTree, currentTree) || _visibleLeaf != leaf) {
+      _visibleMessages = List.unmodifiable(currentTree.pathTo(leaf));
+      _visibleTree = currentTree;
+      _visibleLeaf = leaf;
+    }
+    return _visibleMessages;
+  }
 
   void _emit() {
     if (!_disposed) {
@@ -892,19 +908,30 @@ class AppController extends ChangeNotifier {
     clientFactory: _denClientFactory,
   );
 
+  String? _refreshAfterGeneration;
+
+  Future<void> _reloadSyncedMessages(String id) async {
+    final loaded = await (
+      chats.getConversation(id),
+      chats.getMessages(id),
+    ).wait;
+    if (_disposed || conversation?.id != id) return;
+    conversation = loaded.$1;
+    messages = loaded.$1 == null ? [] : loaded.$2;
+  }
+
   /// Shows records another device changed. A reply in progress keeps its
   /// in-memory state; the chat reloads when it ends.
   Future<void> reloadAfterSync(ApplyResult result) async {
     if (_disposed) return;
     conversations = await chats.listConversations();
     final current = conversation;
-    if (current != null && result.conversations.contains(current.id) && !busy) {
-      final loaded = await (
-        chats.getConversation(current.id),
-        chats.getMessages(current.id),
-      ).wait;
-      conversation = loaded.$1;
-      messages = loaded.$1 == null ? [] : loaded.$2;
+    if (current != null && result.conversations.contains(current.id)) {
+      if (_generating) {
+        _refreshAfterGeneration = current.id;
+      } else if (!busy) {
+        await _reloadSyncedMessages(current.id);
+      }
     }
     if (result.settings) {
       personalization = PersonalizationSettings.fromJson(
@@ -1070,7 +1097,7 @@ class AppController extends ChangeNotifier {
     messages = loadedMessages;
     errorCode = null;
     providerError = null;
-    contextTrimmed = false;
+    contextCompacted = false;
   }
 
   /// [incognito] makes the next chat incognito: memory is off and the chat
@@ -1087,7 +1114,7 @@ class AppController extends ChangeNotifier {
     draftAttachments = [];
     errorCode = null;
     providerError = null;
-    contextTrimmed = false;
+    contextCompacted = false;
   }
 
   /// Leaving an incognito chat deletes it, including its chat approvals.
@@ -1677,6 +1704,7 @@ class AppController extends ChangeNotifier {
     final isNewConversation = conversation == null;
     _titleJobs[conversation?.id]?.cancel();
     _generating = true;
+    contextCompacted = false;
     errorCode = null;
     providerError = null;
     final token = _cancel = CancelToken();
@@ -1778,9 +1806,7 @@ class AppController extends ChangeNotifier {
       final parentId = editing == null
           ? conversation!.activeLeafId
           : editing.parentId;
-      final previous = parentId == null
-          ? null
-          : messages.firstWhere((m) => m.id == parentId);
+      final previous = parentId == null ? null : tree.messageById(parentId);
       final message = ChatMessage(
         id: newId(),
         conversationId: conversation!.id,
@@ -1802,9 +1828,8 @@ class AppController extends ChangeNotifier {
         ),
       );
       token.throwIfCancelled();
-      await chats.saveMessage(message);
       if (editing == null) draftAttachments = [];
-      await _refresh();
+      await _saveChatMessage(message);
       await _generate(provider, message.id);
       final answer = visibleMessages.lastOrNull;
       if (isNewConversation &&
@@ -1823,6 +1848,8 @@ class AppController extends ChangeNotifier {
     } catch (_) {
       errorCode = 'operationFailed';
     } finally {
+      await _applyDeferredChatSync();
+      if (!_disposed) liveResponse.value = null;
       _generating = false;
       _cancel = null;
       activeToolCallId = null;
@@ -1893,9 +1920,22 @@ class AppController extends ChangeNotifier {
     await _respondFrom(provider, leaf!);
   }
 
+  bool get canRetryContextCompaction =>
+      !busy &&
+      errorCode == 'contextCompactionFailed' &&
+      _compactionRetry != null &&
+      _compactionRetry!.active == conversation?.activeLeafId;
+
+  Future<void> retryContextCompaction() async {
+    final provider = selectedProvider;
+    if (_disposed || !canRetryContextCompaction || provider == null) return;
+    await _respondFrom(provider, _compactionRetry!.parent);
+  }
+
   Future<void> _respondFrom(ProviderConfig provider, String parentId) async {
     _titleJobs[conversation?.id]?.cancel();
     _generating = true;
+    contextCompacted = false;
     errorCode = null;
     providerError = null;
     final token = _cancel = CancelToken();
@@ -1914,6 +1954,8 @@ class AppController extends ChangeNotifier {
     } catch (_) {
       errorCode = 'operationFailed';
     } finally {
+      await _applyDeferredChatSync();
+      if (!_disposed) liveResponse.value = null;
       _generating = false;
       _cancel = null;
       activeToolCallId = null;
@@ -1940,6 +1982,38 @@ class AppController extends ChangeNotifier {
         block is ImageBlock ||
         block is FileBlock,
   );
+
+  Future<void> _applyDeferredChatSync() async {
+    final id = _refreshAfterGeneration;
+    _refreshAfterGeneration = null;
+    if (!_disposed && id != null && conversation?.id == id) {
+      try {
+        await _reloadSyncedMessages(id);
+      } catch (_) {
+        errorCode ??= 'operationFailed';
+      }
+    }
+  }
+
+  // The database remains the source of truth, but a local write already has
+  // the new node and leaf. Don't deserialize every prior turn after every round.
+  Future<void> _saveChatMessage(ChatMessage message) async {
+    final updated = await chats.saveMessage(message);
+    if (_disposed) return;
+    final index = messages.lastIndexWhere((m) => m.id == message.id);
+    messages = index < 0
+        ? [...messages, message]
+        : (List.of(messages)..[index] = message);
+    conversation = updated;
+    if (!updated.incognito && updated.automationRuleId == null) {
+      conversations = [
+        updated,
+        for (final other in conversations)
+          if (other.id != updated.id) other,
+      ];
+    }
+    _emit();
+  }
 
   Future<void> _refresh() async {
     final current = conversation;
@@ -2013,6 +2087,9 @@ class AppController extends ChangeNotifier {
       final adapter = await token.bind(
         adapterFor(provider.copyWith(reasoningMode: ReasoningMode.off)),
       );
+      // Bind only after checking: the adapter lookup can finish just as a
+      // rename or deletion cancels the title job.
+      token.throwIfCancelled();
       final title = await token.bind(_titleGenerator(adapter, path, token));
       token.throwIfCancelled();
       if (_disposed || title == null || title.trim().isEmpty) return false;
@@ -2070,6 +2147,7 @@ class AppController extends ChangeNotifier {
     for (final control in _controls) {
       control.removeListener(_emit);
     }
+    liveResponse.dispose();
     super.dispose();
   }
 }

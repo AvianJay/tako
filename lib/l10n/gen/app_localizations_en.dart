@@ -669,11 +669,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileUnavailable => 'This workspace file is unavailable.';
 
   @override
-  String get contextTrimmed => 'Older context trimmed for this model';
+  String get contextCompacted =>
+      'Older context summarized. Full history is kept.';
+
+  @override
+  String get contextCompacting => 'Summarizing earlier turns…';
+
+  @override
+  String get contextCompactionFailed =>
+      'Could not summarize earlier turns. Your full conversation is saved. Try again or switch models.';
 
   @override
   String get contextTooLarge =>
-      'This message exceeds the model’s context window. Shorten it or increase the context window in provider settings.';
+      'The latest turn and required context exceed this model’s context window. Shorten the message or use a model with a larger context window.';
 
   @override
   String get noProviderSelected => 'Select a provider in settings to continue.';

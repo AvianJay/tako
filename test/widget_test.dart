@@ -1814,6 +1814,75 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'long chat opens at the latest turn and live text does not jump history',
+    (tester) async {
+      final app = await boot(
+        tester,
+        locale: const Locale('en'),
+        size: const Size(390, 844),
+      );
+      final saved = await tester.runAsync(() async {
+        final date = DateTime.utc(2026, 1, 1);
+        const id = 'long-transcript';
+        await app.chats.createConversation(
+          Conversation(
+            id: id,
+            title: 'Long transcript',
+            createdAt: date,
+            updatedAt: date,
+            systemPrompt: 'Test',
+          ),
+        );
+        String? parent;
+        ChatMessage? tail;
+        for (var i = 0; i < 402; i++) {
+          tail = ChatMessage(
+            id: 'long-message-$i',
+            conversationId: id,
+            parentId: parent,
+            role: i.isEven ? MessageRole.user : MessageRole.assistant,
+            content: i == 401 ? const [] : [TextBlock('History item $i')],
+            createdAt: date.add(Duration(seconds: i)),
+            status: i == 401 ? MessageStatus.streaming : MessageStatus.done,
+          );
+          await app.chats.saveMessage(tail);
+          parent = tail.id;
+        }
+        await app.openConversation(id);
+        return tail!;
+      });
+      await tester.pump();
+      expect(app.visibleMessages, hasLength(402));
+      expect(find.text('History item 400'), findsOneWidget);
+      expect(find.text('History item 0'), findsNothing);
+      final history = find.byKey(const ValueKey('chat-history-list'));
+      final scrollable = find
+          .descendant(of: history, matching: find.byType(Scrollable))
+          .first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.pixels, 0);
+      await tester.drag(history, const Offset(0, 530));
+      await tester.pump(const Duration(milliseconds: 500));
+      final oldOffset = position.pixels;
+      expect(oldOffset, greaterThan(0));
+      final stablePath = app.visibleMessages;
+      app.liveResponse.value = saved!.copyWith(
+        content: const [TextBlock('Latest streaming reply')],
+      );
+      await tester.pump();
+      expect(position.pixels, oldOffset);
+      expect(identical(app.visibleMessages, stablePath), isTrue);
+      position.jumpTo(0);
+      await tester.pump();
+      expect(
+        find.text('Latest streaming reply', findRichText: true),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('open tool drawer receives results and appended calls live', (
     tester,
   ) async {

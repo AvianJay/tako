@@ -98,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -140,6 +140,20 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 4) await _createAutomationTables();
         if (from < 5) await _createSyncTables();
+      }
+      if (from < 6) {
+        // Derived, local-only data. Removing a branch removes its checkpoints.
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS chat_context_summaries (
+            resume_at TEXT PRIMARY KEY REFERENCES message_records(id) ON DELETE CASCADE,
+            conversation_id TEXT NOT NULL,
+            summary TEXT NOT NULL
+          )
+        ''');
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS chat_context_summaries_conversation '
+          'ON chat_context_summaries(conversation_id)',
+        );
       }
       // Commit the version with its schema, rather than in Drift's later step.
       await customStatement('PRAGMA user_version = $schemaVersion');

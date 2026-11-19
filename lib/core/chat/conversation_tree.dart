@@ -40,7 +40,13 @@ final class ConversationTree {
   final Map<String, ChatMessage> _nodes;
   final Map<String?, List<ChatMessage>> _children = {};
 
-  List<ChatMessage> pathTo(String? leafId) {
+  ChatMessage? messageById(String id) => _nodes[id];
+
+  /// Stops after [stopAt] matches, retaining that node in the result.
+  List<ChatMessage> pathTo(
+    String? leafId, {
+    bool Function(ChatMessage)? stopAt,
+  }) {
     final path = <ChatMessage>[];
     final visited = <String>{};
     var id = leafId;
@@ -53,6 +59,7 @@ final class ConversationTree {
         throw StateError('Missing message in conversation tree.');
       }
       path.add(node);
+      if (stopAt?.call(node) ?? false) break;
       id = node.parentId;
     }
     return path.reversed.toList(growable: false);

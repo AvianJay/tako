@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show compute;
 
+import '../core/chat/context_compaction.dart';
 import '../core/chat/conversation.dart';
 import '../core/chat/conversation_tree.dart';
 import '../core/chat/message.dart';
@@ -115,10 +117,47 @@ final class ChatRepository {
                 (t) => OrderingTerm.asc(t.id),
               ]))
             .get();
-    return rows
-        .map((r) => ChatMessage.fromJson(tryDecodeObject(r.data)!))
-        .toList();
+    final payloads = [for (final row in rows) row.data];
+    final large =
+        payloads.length >= 400 ||
+        payloads.fold(0, (size, payload) => size + payload.length) >=
+            256 * 1024;
+    return large
+        ? compute(_decodeMessages, payloads, debugLabel: 'chat-history')
+        : _decodeMessages(payloads);
   }
+
+  static List<ChatMessage> _decodeMessages(List<String> payloads) => [
+    for (final payload in payloads)
+      ChatMessage.fromJson(tryDecodeObject(payload)!),
+  ];
+
+  Future<Map<String, ContextSummary>> getContextSummaries(
+    String conversationId,
+  ) async {
+    final rows = await database
+        .customSelect(
+          'SELECT resume_at, summary FROM chat_context_summaries WHERE conversation_id = ?',
+          variables: [Variable.withString(conversationId)],
+        )
+        .get();
+    return {
+      for (final row in rows)
+        row.read<String>('resume_at'): ContextSummary(
+          resumeAt: row.read<String>('resume_at'),
+          text: row.read<String>('summary'),
+        ),
+    };
+  }
+
+  Future<void> saveContextSummary(
+    ContextSummary summary,
+  ) => database.customStatement(
+    'INSERT INTO chat_context_summaries(resume_at, conversation_id, summary) '
+    'SELECT id, conversation_id, ? FROM message_records WHERE id = ? '
+    'ON CONFLICT(resume_at) DO UPDATE SET summary = excluded.summary',
+    [summary.text, summary.resumeAt],
+  );
 
   Future<ChatMessage?> getMessage(String id) async {
     final row = await (database.select(
@@ -131,51 +170,53 @@ final class ChatRepository {
 
   /// Saving the node and moving the active leaf happen atomically. A user edit
   /// or assistant regeneration is a new node with the original node's parent.
-  Future<void> saveMessage(ChatMessage message, {bool activate = true}) =>
-      database.transaction(() async {
-        final conversation = await getConversation(message.conversationId);
-        if (conversation == null) {
-          throw ArgumentError('Conversation does not exist.');
-        }
-        final previous = await getMessage(message.id);
-        if (previous != null &&
-            (previous.conversationId != message.conversationId ||
-                previous.parentId != message.parentId ||
-                previous.role != message.role ||
-                previous.createdAt != message.createdAt ||
-                previous.contextEnvelope != message.contextEnvelope)) {
-          throw ArgumentError(
-            'A persisted message cannot be moved or re-timestamped.',
-          );
-        }
-        if (message.parentId == message.id) {
-          throw ArgumentError('A message cannot parent itself.');
-        }
-        if (message.parentId case final parentId?) {
-          final parent = await getMessage(parentId);
-          if (parent?.conversationId != message.conversationId) {
-            throw ArgumentError('Parent must belong to the same conversation.');
-          }
-        }
-        await database
-            .into(database.messageRecords)
-            .insertOnConflictUpdate(
-              MessageRecordsCompanion.insert(
-                id: message.id,
-                conversationId: message.conversationId,
-                parentId: Value(message.parentId),
-                status: message.status.name,
-                createdAt: message.createdAt,
-                data: jsonEncode(message.toJson()),
-              ),
-            );
-        await saveConversation(
-          conversation.copyWith(
-            activeLeafId: activate ? message.id : conversation.activeLeafId,
-            updatedAt: DateTime.now().toUtc(),
+  Future<Conversation> saveMessage(
+    ChatMessage message, {
+    bool activate = true,
+  }) => database.transaction(() async {
+    final conversation = await getConversation(message.conversationId);
+    if (conversation == null) {
+      throw ArgumentError('Conversation does not exist.');
+    }
+    final previous = await getMessage(message.id);
+    if (previous != null &&
+        (previous.conversationId != message.conversationId ||
+            previous.parentId != message.parentId ||
+            previous.role != message.role ||
+            previous.createdAt != message.createdAt ||
+            previous.contextEnvelope != message.contextEnvelope)) {
+      throw ArgumentError(
+        'A persisted message cannot be moved or re-timestamped.',
+      );
+    }
+    if (message.parentId == message.id) {
+      throw ArgumentError('A message cannot parent itself.');
+    }
+    if (message.parentId case final parentId?) {
+      final parent = await getMessage(parentId);
+      if (parent?.conversationId != message.conversationId) {
+        throw ArgumentError('Parent must belong to the same conversation.');
+      }
+    }
+    await database
+        .into(database.messageRecords)
+        .insertOnConflictUpdate(
+          MessageRecordsCompanion.insert(
+            id: message.id,
+            conversationId: message.conversationId,
+            parentId: Value(message.parentId),
+            status: message.status.name,
+            createdAt: message.createdAt,
+            data: jsonEncode(message.toJson()),
           ),
         );
-      });
+    final updated = conversation.copyWith(
+      activeLeafId: activate ? message.id : conversation.activeLeafId,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    await saveConversation(updated);
+    return updated;
+  });
 
   Future<void> setActiveLeaf(String conversationId, String? messageId) =>
       database.transaction(() async {

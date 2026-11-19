@@ -15,14 +15,15 @@ import '../util/json.dart';
   var changed = false;
   final result = List<ChatMessage>.of(messages);
   for (var index = messages.length - 1; index >= 0; index--) {
-    final content = messages[index].content.toList();
+    final content = messages[index].content;
+    List<ContentBlock>? updated;
     for (var b = content.length - 1; b >= 0; b--) {
       final block = content[b];
       // Isolated worker user messages contain generated seed/recovery screens,
       // not the main user's attachments.
       if (isolatedWorker && block is ImageBlock) {
         if (++images > 2) {
-          content.removeAt(b);
+          (updated ??= content.toList()).removeAt(b);
           changed = true;
         }
         continue;
@@ -53,7 +54,7 @@ import '../util/json.dart';
       final keep = (2 - images).clamp(0, attached.length);
       images += attached.length;
       if (keep == attached.length) continue;
-      content[b] = ToolResultBlock(
+      (updated ??= content.toList())[b] = ToolResultBlock(
         toolCallId: block.toolCallId,
         toolName: block.toolName,
         content:
@@ -67,7 +68,9 @@ import '../util/json.dart';
       );
       changed = true;
     }
-    result[index] = messages[index].copyWith(content: content);
+    if (updated != null) {
+      result[index] = messages[index].copyWith(content: updated);
+    }
   }
   return (messages: result, changed: changed);
 }

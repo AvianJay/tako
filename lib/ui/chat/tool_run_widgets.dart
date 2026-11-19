@@ -30,7 +30,9 @@ class _RunActivity {
       if (message.role != MessageRole.assistant) continue;
       // A newer answer or still-empty streaming node ends the old batch. Do
       // not find an older call merely because its ID was reused by the model.
-      if (message.content.any((block) => block is ToolCallBlock)) {
+      final live = app.liveResponse.value;
+      final response = live?.id == message.id ? live! : message;
+      if (response.content.any((block) => block is ToolCallBlock)) {
         ownerId = message.id;
       }
       break;
@@ -167,6 +169,7 @@ class ToolRunSummary extends StatelessWidget {
                 : null,
             builder: (_) => _ToolRunDrawer(
               runId: run.id,
+              firstMessageId: run.steps.first.message.id,
               conversationId: run.steps.first.message.conversationId,
               onAttachment: onAttachment,
               onMessageActions: onMessageActions,
@@ -232,31 +235,53 @@ class _StateIcon extends StatelessWidget {
 class _ToolRunDrawer extends ConsumerWidget {
   const _ToolRunDrawer({
     required this.runId,
+    required this.firstMessageId,
     required this.conversationId,
     required this.onAttachment,
     required this.onMessageActions,
   });
   final String runId;
+  final String firstMessageId;
   final String conversationId;
   final ValueChanged<ContentBlock> onAttachment;
   final ValueChanged<ChatMessage> onMessageActions;
-
-  ToolRunSegment? _currentRun(AppController app, List<ChatMessage> visible) {
-    if (app.conversation?.id != conversationId) return null;
-    for (final entry in buildChatTimeline(visible)) {
-      if (!entry.isAssistantTurn) continue;
-      for (final segment in buildAssistantSegments(entry.messages)) {
-        if (segment is ToolRunSegment && segment.id == runId) return segment;
-      }
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final app = ref.watch(appControllerProvider);
     final visible = app.visibleMessages;
-    final run = _currentRun(app, visible);
+    final entry = app.conversation?.id != conversationId
+        ? null
+        : buildChatTimeline(visible)
+              .where(
+                (entry) =>
+                    entry.isAssistantTurn &&
+                    entry.messages.any(
+                      (message) => message.id == firstMessageId,
+                    ),
+              )
+              .firstOrNull;
+    return ValueListenableBuilder<ChatMessage?>(
+      valueListenable: app.liveResponse,
+      builder: (context, live, _) {
+        final messages = entry?.withLiveResponse(live).messages;
+        final run = messages == null
+            ? null
+            : buildAssistantSegments(messages)
+                  .whereType<ToolRunSegment>()
+                  .where((segment) => segment.id == runId)
+                  .firstOrNull;
+        return _buildRun(context, app, visible, run);
+      },
+    );
+  }
+
+  Widget _buildRun(
+    BuildContext context,
+    AppController app,
+    List<ChatMessage> visible,
+    ToolRunSegment? run,
+  ) {
     final activity = _RunActivity.forApp(app, visibleMessages: visible);
     final l = AppLocalizations.of(context);
     final seenMessages = <String>{};

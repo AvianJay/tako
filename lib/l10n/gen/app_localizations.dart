@@ -1317,16 +1317,28 @@ abstract class AppLocalizations {
   /// **'此工作區檔案目前無法使用。'**
   String get fileUnavailable;
 
-  /// No description provided for @contextTrimmed.
+  /// No description provided for @contextCompacted.
   ///
   /// In zh, this message translates to:
-  /// **'已裁剪較舊的上下文以符合模型限制'**
-  String get contextTrimmed;
+  /// **'已摘要較早的對話，原始紀錄仍完整保留。'**
+  String get contextCompacted;
+
+  /// No description provided for @contextCompacting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在摘要較早的對話…'**
+  String get contextCompacting;
+
+  /// No description provided for @contextCompactionFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法摘要較早的對話。原始紀錄已保留，請重試或切換模型。'**
+  String get contextCompactionFailed;
 
   /// No description provided for @contextTooLarge.
   ///
   /// In zh, this message translates to:
-  /// **'此訊息超過模型上下文長度，請縮短訊息或在供應商設定中調整長度。'**
+  /// **'最新一輪與必要的上下文超出模型上限。請縮短訊息，或換用上下文視窗較大的模型。'**
   String get contextTooLarge;
 
   /// No description provided for @noProviderSelected.
