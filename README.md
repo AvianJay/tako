@@ -18,7 +18,9 @@ An iOS build is included and has been tested on a physical iPhone with iCTRL; se
   - Streaming replies with branches, edit and regenerate, and rewind.
   - Long chats automatically summarize earlier turns with the selected model.
     Recent turns are sent verbatim where they fit, and the full conversation
-    stays on the device. Summaries are reused on the same branch.
+    stays on the device. Settings → Automatic chat summaries selects 75%, 90%
+    (default), 95%, 100%, or Off, relative to the selected model’s available input
+    space. Off sends full history or reports that it will not fit, without trimming.
   - Automatic conversation titles after the first reply, with manual renaming.
     Incognito chats do not request titles.
   - Markdown and LaTeX rendering, plus highlighted (`==text==`, `<mark>`) and

@@ -347,6 +347,15 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> saveCompactionPolicy(CompactionPolicy value) =>
+      _mutate(() async {
+        await settings.setString(
+          CompactionPolicy.settingsKey,
+          '${value.percent}',
+        );
+        compactionPolicy = value;
+      });
+
   Future<void> saveToolSettings(ToolSettings value) => _mutate(() async {
     await settings.setString('tools.settings', jsonEncode(value.toJson()));
     toolSettings = value;
@@ -728,6 +737,8 @@ class AppController extends ChangeNotifier {
   bool _mutating = false;
   bool _probingHostedSearch = false;
   bool get busy => _generating || _mutating || _probingHostedSearch;
+  CompactionPolicy compactionPolicy = CompactionPolicy.at90;
+  bool contextCompactionDeferred = false;
   bool contextCompacted = false;
   bool isCompactingContext = false;
   final liveResponse = ValueNotifier<ChatMessage?>(null);
@@ -833,6 +844,9 @@ class AppController extends ChangeNotifier {
         providers = loaded.$1;
         conversations = loaded.$2;
         final preferences = loaded.$3;
+        compactionPolicy = CompactionPolicy.decode(
+          preferences[CompactionPolicy.settingsKey],
+        );
         permissionGate.policy = PermissionPolicy.decode(
           preferences[PermissionPolicy.settingsKey],
         );
@@ -1097,6 +1111,7 @@ class AppController extends ChangeNotifier {
     messages = loadedMessages;
     errorCode = null;
     providerError = null;
+    contextCompactionDeferred = false;
     contextCompacted = false;
   }
 
@@ -1114,6 +1129,7 @@ class AppController extends ChangeNotifier {
     draftAttachments = [];
     errorCode = null;
     providerError = null;
+    contextCompactionDeferred = false;
     contextCompacted = false;
   }
 
@@ -1330,7 +1346,7 @@ class AppController extends ChangeNotifier {
     selectedModelId = provider.model;
     await settings.setString('model', provider.model);
     conversation = updated;
-    errorCode = null;
+    if (!_hasRetryableCompactionTurn) errorCode = null;
     providerError = null;
   }
 
@@ -1704,6 +1720,7 @@ class AppController extends ChangeNotifier {
     final isNewConversation = conversation == null;
     _titleJobs[conversation?.id]?.cancel();
     _generating = true;
+    contextCompactionDeferred = false;
     contextCompacted = false;
     errorCode = null;
     providerError = null;
@@ -1920,9 +1937,15 @@ class AppController extends ChangeNotifier {
     await _respondFrom(provider, leaf!);
   }
 
-  bool get canRetryContextCompaction =>
-      !busy &&
-      errorCode == 'contextCompactionFailed' &&
+  bool get canRetryContextCompaction => !busy && _hasRetryableCompactionTurn;
+
+  bool get _hasRetryableCompactionTurn =>
+      const {
+        'contextCompactionFailed',
+        'contextCompactionInterrupted',
+        'contextCompactionTimeout',
+        'contextCompactionDisabled',
+      }.contains(errorCode) &&
       _compactionRetry != null &&
       _compactionRetry!.active == conversation?.activeLeafId;
 
@@ -1935,6 +1958,7 @@ class AppController extends ChangeNotifier {
   Future<void> _respondFrom(ProviderConfig provider, String parentId) async {
     _titleJobs[conversation?.id]?.cancel();
     _generating = true;
+    contextCompactionDeferred = false;
     contextCompacted = false;
     errorCode = null;
     providerError = null;

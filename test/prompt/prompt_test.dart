@@ -237,6 +237,34 @@ void main() {
   );
 
   test(
+    'threshold is relative to the available budget, not a fixed token count',
+    () {
+      final path = [
+        message('old', MessageRole.user, [TextBlock('x' * 2300)]),
+        message('new', MessageRole.user, const [TextBlock('continue')]),
+      ];
+      bool needs(CompactionPolicy policy, {int budget = 1000}) =>
+          ContextCompactionPlan.build(
+            path: path,
+            previous: null,
+            systemPrompt: '',
+            inputBudget: budget,
+            policy: policy,
+          ).needsSummary;
+      expect(needs(CompactionPolicy.at75), isTrue);
+      expect(needs(CompactionPolicy.at90), isFalse);
+      expect(needs(CompactionPolicy.whenFull), isFalse);
+      expect(needs(CompactionPolicy.off), isFalse);
+      expect(needs(CompactionPolicy.whenFull, budget: 700), isTrue);
+      expect(CompactionPolicy.decode(null), CompactionPolicy.at90);
+      expect(CompactionPolicy.decode('corrupt'), CompactionPolicy.at90);
+      for (final policy in CompactionPolicy.values) {
+        expect(CompactionPolicy.decode('${policy.percent}'), policy);
+      }
+    },
+  );
+
+  test(
     'compaction plans keep the newest whole turn without mutating history',
     () {
       final messages = [

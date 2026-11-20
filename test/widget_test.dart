@@ -12,6 +12,7 @@ import 'package:image/image.dart' as img;
 import 'package:tako/app/app.dart';
 import 'package:tako/app/app_controller.dart';
 import 'package:tako/core/chat/content_block.dart';
+import 'package:tako/core/chat/context_compaction.dart';
 import 'package:tako/core/chat/conversation.dart';
 import 'package:tako/core/chat/message.dart';
 import 'package:tako/core/files/workspace.dart';
@@ -27,6 +28,7 @@ import 'package:tako/ui/render/visuals/cards.dart';
 import 'package:tako/ui/render/visuals/timeline.dart';
 import 'package:tako/ui/render/visuals/visual_block.dart';
 import 'package:tako/ui/settings/provider_editor.dart';
+import 'package:tako/ui/settings/settings_screen.dart';
 import 'package:tako/ui/settings/tool_settings_screen.dart';
 
 const captureUi = bool.fromEnvironment('UPDATE_UI_SCREENSHOTS');
@@ -1466,6 +1468,37 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('settings expose the default threshold and persist Off', (
+    tester,
+  ) async {
+    final app = await boot(tester, locale: const Locale('en'));
+    final nav = tester.state<NavigatorState>(find.byType(Navigator));
+    final popped = nav.push<void>(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+    await tester.pumpAndSettle();
+    final tile = find.byKey(const ValueKey('settings-chat-compaction'));
+    await tester.ensureVisible(tile);
+    expect(find.text('At 90% of available space'), findsOneWidget);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(find.text('At 95% of available space'), findsOneWidget);
+    await tester.tap(find.text('Off – keep full history'));
+    await _waitForToolUi(
+      tester,
+      () => app.compactionPolicy == CompactionPolicy.off,
+    );
+    expect(
+      await tester.runAsync(
+        () => app.settings.getString(CompactionPolicy.settingsKey),
+      ),
+      '0',
+    );
+    nav.pop();
+    await tester.pumpAndSettle();
+    await popped;
+  });
 
   testWidgets('settings separate full permissions from high-risk opt-in', (
     tester,

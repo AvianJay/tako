@@ -11,7 +11,32 @@ final class ContextTooLarge implements Exception {
 }
 
 final class ContextCompactionFailed implements Exception {
-  const ContextCompactionFailed();
+  const ContextCompactionFailed([this.code = 'contextCompactionFailed']);
+  final String code;
+
+  factory ContextCompactionFailed.fromProvider(ProviderError failure) =>
+      ContextCompactionFailed(switch (failure) {
+        ProviderError(statusCode: 499) => 'contextCompactionInterrupted',
+        ProviderError(code: 'timeout') => 'contextCompactionTimeout',
+        _ => 'contextCompactionFailed',
+      });
+}
+
+/// Device preference. Percentages refer to the space left for conversation
+/// after reserving the system prompt, tool definitions and maximum output.
+enum CompactionPolicy {
+  off(0),
+  at75(75),
+  at90(90),
+  at95(95),
+  whenFull(100);
+
+  const CompactionPolicy(this.percent);
+  final int percent;
+  static const settingsKey = 'chat.compactionPercent';
+  static CompactionPolicy decode(String? value) =>
+      values.where((policy) => '${policy.percent}' == value).firstOrNull ??
+      at90;
 }
 
 /// The checkpoint summarizes only ancestors of the first retained user turn.
@@ -40,10 +65,15 @@ final class ContextSummary {
 /// Partitions only at user-turn boundaries. The latest request and every tool
 /// round belonging to it are kept intact even if the normal history target is exceeded.
 final class ContextCompactionPlan {
-  const ContextCompactionPlan._(this.keepFrom, this.summaryTokens);
+  const ContextCompactionPlan._(
+    this.keepFrom,
+    this.summaryTokens,
+    this.fitsWithoutNewSummary,
+  );
 
   final int keepFrom;
   final int summaryTokens;
+  final bool fitsWithoutNewSummary;
   bool get needsSummary => summaryTokens > 0;
 
   static ContextCompactionPlan build({
@@ -51,6 +81,7 @@ final class ContextCompactionPlan {
     required ContextSummary? previous,
     required String systemPrompt,
     required int inputBudget,
+    CompactionPolicy policy = CompactionPolicy.at90,
   }) {
     final systemTokens = ContextBudget.estimateTokens(systemPrompt);
     final available = inputBudget - systemTokens;
@@ -60,7 +91,7 @@ final class ContextCompactionPlan {
           available) {
         throw const ContextTooLarge();
       }
-      return const ContextCompactionPlan._(0, 0);
+      return const ContextCompactionPlan._(0, 0, true);
     }
     final costs = path.map(ContextBudget.messageTokens).toList(growable: false);
     var current = 0;
@@ -69,7 +100,7 @@ final class ContextCompactionPlan {
     }
     if (current > available) throw const ContextTooLarge();
     if (previous == null && latestUser == 0) {
-      return const ContextCompactionPlan._(0, 0);
+      return const ContextCompactionPlan._(0, 0, true);
     }
     final summaryOverhead =
         ContextBudget.estimateTokens(ContextSummary.instruction) + 24;
@@ -77,17 +108,21 @@ final class ContextCompactionPlan {
         ? 0
         : summaryOverhead + ContextBudget.estimateTokens(previous.text);
     final total = costs.fold(existingCost, (sum, cost) => sum + cost);
-    const historyTarget = 12000;
-    if (total <= math.min(available, current + historyTarget)) {
-      return const ContextCompactionPlan._(0, 0);
+    final fits = total <= available;
+    if (policy == CompactionPolicy.off && !fits) {
+      throw const ContextCompactionFailed('contextCompactionDisabled');
+    }
+    final trigger = available * policy.percent ~/ 100;
+    if (policy == CompactionPolicy.off || total <= trigger) {
+      return const ContextCompactionPlan._(0, 0, true);
     }
     final remaining = available - current - summaryOverhead;
-    if (remaining < 64) throw const ContextTooLarge();
+    if (remaining < 64) {
+      if (fits) return const ContextCompactionPlan._(0, 0, true);
+      throw const ContextTooLarge();
+    }
     final summaryTokens = math.min(1024, math.max(64, remaining ~/ 3));
-    final keepBudget =
-        math.min(available, current + historyTarget ~/ 2) -
-        summaryOverhead -
-        summaryTokens;
+    final keepBudget = trigger * 3 ~/ 4 - summaryOverhead - summaryTokens;
     var keepFrom = latestUser;
     var kept = current;
     for (var i = latestUser - 1; i >= 0; i--) {
@@ -95,7 +130,9 @@ final class ContextCompactionPlan {
       if (kept > keepBudget) break;
       if (path[i].role == MessageRole.user) keepFrom = i;
     }
-    return ContextCompactionPlan._(keepFrom, summaryTokens);
+    // Never rewrite an already compacted prefix solely to hit a soft target.
+    if (fits && keepFrom == 0) return const ContextCompactionPlan._(0, 0, true);
+    return ContextCompactionPlan._(keepFrom, summaryTokens, fits);
   }
 }
 
@@ -118,9 +155,10 @@ Future<String> summarizeContext({
   required int contextWindow,
   required int maxOutputTokens,
   required CancelToken cancel,
+  Duration idleTimeout = const Duration(minutes: 3),
 }) async {
   final sourceBudget = math.min(
-    4096,
+    32768,
     contextWindow -
         ContextBudget.estimateTokens(summaryPrompt) -
         96 -
@@ -131,7 +169,7 @@ Future<String> summarizeContext({
   }
   final token = CancelToken();
   cancel.addListener(token.cancel);
-  final timer = Timer(const Duration(seconds: 90), token.cancel);
+
   var summary = previous?.text ?? '';
   final previousTooLarge =
       ContextBudget.estimateTokens(summary) > maxOutputTokens;
@@ -143,7 +181,8 @@ Future<String> summarizeContext({
   }
 
   try {
-    final adapter = await token.bind(adapterFor());
+    token.throwIfCancelled();
+    final adapter = await token.bind(adapterFor().timeout(idleTimeout));
     final chunks = _historyChunks(source(), sourceBudget).iterator;
     if (previousTooLarge) summary = '';
     var hasChunk = chunks.moveNext();
@@ -156,6 +195,7 @@ Future<String> summarizeContext({
         role: MessageRole.user,
         content: [
           TextBlock(
+            'Aim for at most ${math.max(16, maxOutputTokens ~/ 2)} tokens.\n'
             'Prior notes:\n$summary\n\nNew conversation records:\n$chunk',
           ),
         ],
@@ -165,6 +205,7 @@ Future<String> summarizeContext({
         systemPrompt: summaryPrompt,
         messages: [input],
         maxTokens: maxOutputTokens,
+        responseStartTimeout: idleTimeout,
         replayOpaqueReasoning: false,
       );
       if (ContextBudget.messageTokens(input) +
@@ -177,7 +218,10 @@ Future<String> summarizeContext({
       final output = StringBuffer();
       var completed = false;
       try {
-        while (!token.isCancelled && await token.bind(events.moveNext())) {
+        // Time the wait, not the stream subscription: an async transport may
+        // need its cancel token fired before subscription cancellation finishes.
+        while (!token.isCancelled &&
+            await token.bind(events.moveNext()).timeout(idleTimeout)) {
           switch (events.current) {
             case TextDelta(:final text):
               output.write(text);
@@ -194,8 +238,9 @@ Future<String> summarizeContext({
                 'pause_turn',
                 'content_filter',
               }.contains(stopReason);
-            case ProviderError() ||
-                ToolCallStart() ||
+            case final ProviderError error:
+              throw ContextCompactionFailed.fromProvider(error);
+            case ToolCallStart() ||
                 ToolCallArgsDelta() ||
                 ToolCallEnd() ||
                 GeneratedImage() ||
@@ -221,12 +266,20 @@ Future<String> summarizeContext({
     } while (hasChunk);
     cancel.throwIfCancelled();
     return summary;
+  } on TimeoutException {
+    cancel.throwIfCancelled();
+    throw const ContextCompactionFailed('contextCompactionTimeout');
+  } on ProviderError catch (error) {
+    cancel.throwIfCancelled();
+    throw ContextCompactionFailed.fromProvider(error);
+  } on ContextCompactionFailed {
+    cancel.throwIfCancelled();
+    rethrow;
   } catch (_) {
     cancel.throwIfCancelled();
     throw const ContextCompactionFailed();
   } finally {
     token.cancel();
-    timer.cancel();
     cancel.removeListener(token.cancel);
   }
 }

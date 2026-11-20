@@ -30,6 +30,7 @@ class ChatRequest {
     this.builtInWebSearch = false,
     this.forceBuiltInWebSearch = false,
     this.cachePrompt = false,
+    this.responseStartTimeout,
   });
   final String systemPrompt;
   final List<ChatMessage> messages;
@@ -50,6 +51,9 @@ class ChatRequest {
 
   /// Opt-in cache breakpoints for a stable tool-worker prefix.
   final bool cachePrompt;
+
+  /// Transport-only override for long-prefill requests. Never sent on the wire.
+  final Duration? responseStartTimeout;
 }
 
 /// Official APIs are supported automatically; compatible custom endpoints
@@ -297,9 +301,11 @@ abstract class HttpProviderAdapter implements ProviderAdapter {
         client
             .send(outgoing)
             .timeout(
-              config.capabilities.imageGeneration == ImageGenerationMode.none
-                  ? const Duration(seconds: 45)
-                  : const Duration(minutes: 5),
+              request.responseStartTimeout ??
+                  (config.capabilities.imageGeneration ==
+                          ImageGenerationMode.none
+                      ? const Duration(seconds: 45)
+                      : const Duration(minutes: 5)),
             ),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {

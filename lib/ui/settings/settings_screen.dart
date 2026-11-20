@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/app_controller.dart';
 import '../../app/app_info.dart';
+import '../../core/chat/context_compaction.dart';
 import '../../core/providers/provider_config.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../../platform/android/app_updater.dart';
@@ -123,6 +125,73 @@ class SettingsScreen extends ConsumerWidget {
                   context,
                   MaterialPageRoute(builder: (_) => const MemoryScreen()),
                 ),
+              ),
+              ListTile(
+                key: const ValueKey('settings-chat-compaction'),
+                leading: const Icon(Icons.compress_outlined),
+                title: Text(l.contextCompactionSetting),
+                subtitle: Text(
+                  app.compactionPolicy == CompactionPolicy.off
+                      ? l.contextCompactionOff
+                      : l.contextCompactionAt(app.compactionPolicy.percent),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: app.busy
+                    ? null
+                    : () async {
+                        final selected = await showDialog<CompactionPolicy>(
+                          context: context,
+                          builder: (context) => SimpleDialog(
+                            title: Text(l.contextCompactionSetting),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  4,
+                                  24,
+                                  12,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(l.contextCompactionHelp),
+                                    if (app.selectedProvider
+                                        case final model?) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${model.model} · ${NumberFormat.decimalPattern(l.localeName).format(model.capabilities.contextWindow ?? 32768)} tokens',
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              for (final value in CompactionPolicy.values)
+                                SimpleDialogOption(
+                                  onPressed: () =>
+                                      Navigator.pop(context, value),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          value == CompactionPolicy.off
+                                              ? l.contextCompactionOff
+                                              : l.contextCompactionAt(
+                                                  value.percent,
+                                                ),
+                                        ),
+                                      ),
+                                      if (value == app.compactionPolicy)
+                                        const Icon(Icons.check),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                        if (selected != null && context.mounted) {
+                          await run(() => app.saveCompactionPolicy(selected));
+                        }
+                      },
               ),
               ListTile(
                 title: Text(l.personalization),

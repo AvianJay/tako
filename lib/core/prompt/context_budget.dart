@@ -12,7 +12,10 @@ abstract final class ContextBudget {
     return (units + 2) ~/ 3;
   }
 
-  static int messageTokens(ChatMessage message) =>
+  // Message nodes are immutable. Opening a larger model window may revisit
+  // the full branch, but should not retokenize megabytes on each send.
+  static final _costs = Expando<int>();
+  static int messageTokens(ChatMessage message) => _costs[message] ??=
       8 +
       estimateTokens(message.contextEnvelope ?? '') +
       message.content.fold(0, (total, block) => total + _blockTokens(block));

@@ -765,6 +765,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String _error(String? code, AppLocalizations l) => switch (code) {
     'contextTooLarge' => l.contextTooLarge,
     'contextCompactionFailed' => l.contextCompactionFailed,
+    'contextCompactionDisabled' => l.contextCompactionDisabled,
+    'contextCompactionInterrupted' => l.contextCompactionInterrupted,
+    'contextCompactionTimeout' => l.contextCompactionTimeout,
     'visionRequired' => l.visionRequired,
     'imageReferenceLimit' => l.imageReferenceLimit,
     'attachmentLimit' => l.attachmentLimit,
@@ -1875,12 +1878,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     onPressed: _chooseProvider,
                     child: Text(l.providerRemoved),
                   ),
-                if (app.isCompactingContext || app.contextCompacted)
+                if (app.isCompactingContext ||
+                    app.contextCompactionDeferred ||
+                    app.contextCompacted)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       app.isCompactingContext
                           ? l.contextCompacting
+                          : app.contextCompactionDeferred
+                          ? l.contextCompactionDeferred
                           : l.contextCompacted,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),

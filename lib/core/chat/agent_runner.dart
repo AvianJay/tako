@@ -485,17 +485,9 @@ extension AgentRunner on AppController {
     token.throwIfCancelled();
     final imagesOnly = provider.capabilities.imagesOnly;
     ContextSummary? summary;
-    final checkpoints = imagesOnly
-        ? const <String, ContextSummary>{}
-        : await chats.getContextSummaries(current.id);
-    token.throwIfCancelled();
     final history = tree.pathTo(
       parentId,
-      stopAt: (message) {
-        if (message.role != MessageRole.user) return false;
-        summary = checkpoints[message.id];
-        return imagesOnly || summary != null;
-      },
+      stopAt: imagesOnly ? (message) => message.role == MessageRole.user : null,
     );
     final screenHistory = limitRemoteScreenImages(history);
     var rawPath = imagesOnly
@@ -503,28 +495,59 @@ extension AgentRunner on AppController {
               .where((m) => m.role == MessageRole.user)
               .toList()
         : screenHistory.messages;
+    // A tool round is still part of the same user turn. An optional summary
+    // that just failed need not be requested again while the full path fits.
+    final deferredThisTurn = contextCompactionDeferred;
+    contextCompactionDeferred = false;
     if (!imagesOnly) {
       final contextWindow = provider.capabilities.contextWindow ?? 32768;
+      final inputBudget =
+          contextWindow -
+          provider.maxOutputTokens -
+          ContextBudget.estimateTokens(
+            jsonEncode([
+              for (final d in definitions) [d.name, d.description, d.schema],
+            ]),
+          );
+      ContextCompactionPlan planForPath() => ContextCompactionPlan.build(
+        path: rawPath,
+        previous: summary,
+        systemPrompt: systemPrompt,
+        inputBudget: inputBudget,
+        policy: compactionPolicy,
+      );
       try {
-        final plan = ContextCompactionPlan.build(
-          path: rawPath,
-          previous: summary,
-          systemPrompt: systemPrompt,
-          inputBudget:
-              contextWindow -
-              provider.maxOutputTokens -
-              ContextBudget.estimateTokens(
-                jsonEncode([
-                  for (final definition in definitions)
-                    [
-                      definition.name,
-                      definition.description,
-                      definition.schema,
-                    ],
-                ]),
-              ),
-        );
+        // A checkpoint from a smaller model (or the old fixed 12K threshold)
+        // must not hide original history that fits the current preference.
+        var plan = planForPath();
+        final fullHistoryFits = plan.fitsWithoutNewSummary;
+        var start = 0;
         if (plan.needsSummary) {
+          final checkpoints = await chats.getContextSummaries(current.id);
+          token.throwIfCancelled();
+          final index = history.lastIndexWhere(
+            (m) => m.role == MessageRole.user && checkpoints.containsKey(m.id),
+          );
+          if (index >= 0) {
+            start = index;
+            summary = checkpoints[history[index].id];
+            rawPath = rawPath.sublist(index);
+            try {
+              plan = planForPath();
+            } on ContextTooLarge {
+              // A checkpoint made with another model may itself be too big.
+              // Use the original plan, whose boundary does not depend on it.
+              summary = null;
+              rawPath = screenHistory.messages;
+              start = 0;
+            }
+          }
+        }
+        if (deferredThisTurn &&
+            plan.needsSummary &&
+            plan.fitsWithoutNewSummary) {
+          contextCompactionDeferred = true;
+        } else if (plan.needsSummary) {
           isCompactingContext = true;
           _emit();
           try {
@@ -534,7 +557,7 @@ extension AgentRunner on AppController {
                 provider.copyWith(reasoningMode: ReasoningMode.off),
               ),
               resumeAt: resumeAt,
-              history: history.sublist(0, plan.keepFrom),
+              history: history.sublist(start, start + plan.keepFrom),
               previous: summary,
               contextWindow: contextWindow,
               maxOutputTokens: plan.summaryTokens,
@@ -549,6 +572,17 @@ extension AgentRunner on AppController {
             token.throwIfCancelled();
             summary = checkpoint;
             rawPath = rawPath.sublist(plan.keepFrom);
+          } on ContextCompactionFailed {
+            token.throwIfCancelled();
+            // A soft threshold should not cost the user their turn. Never
+            // drop messages, and never send a known over-budget fallback.
+            if (fullHistoryFits) {
+              summary = null;
+              rawPath = screenHistory.messages;
+            } else if (!plan.fitsWithoutNewSummary) {
+              rethrow;
+            }
+            contextCompactionDeferred = true;
           } finally {
             isCompactingContext = false;
             _emit();
@@ -557,8 +591,8 @@ extension AgentRunner on AppController {
       } on ContextTooLarge {
         errorCode = 'contextTooLarge';
         return null;
-      } on ContextCompactionFailed {
-        errorCode = 'contextCompactionFailed';
+      } on ContextCompactionFailed catch (failure) {
+        errorCode = failure.code;
         _compactionRetry = (parent: parentId, active: current.activeLeafId);
         return null;
       }

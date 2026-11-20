@@ -528,6 +528,87 @@ void main() {
     },
   );
 
+  test(
+    'a 1M window keeps long original history even with an old checkpoint',
+    () async {
+      await app.saveProvider(config(context: 1000000));
+      final old = 'original text ' * 6000;
+      await app.send(old);
+      await app.send('Second question');
+      final second = app.visibleMessages[2];
+      await app.chats.saveContextSummary(
+        ContextSummary(resumeAt: second.id, text: 'Old 12K summary'),
+      );
+      await app.send('Follow-up');
+      expect(adapter.requests, hasLength(3));
+      expect(adapter.requests.last.messages.first.text, old.trim());
+      expect(app.contextCompacted, isFalse);
+    },
+  );
+
+  test(
+    'off ignores checkpoints, refuses oversize without a call and retries after switching model',
+    () async {
+      await app.saveCompactionPolicy(CompactionPolicy.off);
+      expect(await app.settings.getString(CompactionPolicy.settingsKey), '0');
+      await app.saveProvider(config(context: 2700));
+      await app.send('old ' * 1400);
+      await app.send('short');
+      final second = app.visibleMessages[2];
+      await app.chats.saveContextSummary(
+        ContextSummary(resumeAt: second.id, text: 'old summary'),
+      );
+      adapter.requests.clear();
+      await app.send('new ' * 800);
+      expect(app.errorCode, 'contextCompactionDisabled');
+      expect(adapter.requests, isEmpty);
+      final lastUser = app.visibleMessages.last;
+      final bigger = config(context: 1000000).copyWith(id: 'bigger');
+      await app.saveProvider(bigger);
+      await app.selectProvider(bigger.id);
+      expect(app.canRetryContextCompaction, isTrue);
+      await app.retryContextCompaction();
+      expect(app.errorCode, isNull);
+      expect(adapter.requests.single.messages.last.id, lastUser.id);
+      expect(
+        adapter.requests.single.messages.first.text,
+        ('old ' * 1400).trim(),
+      );
+    },
+  );
+
+  test(
+    '499 at the soft threshold sends the original path, but not above the hard limit',
+    () async {
+      await app.saveProvider(config(context: 2700));
+      await app.saveCompactionPolicy(CompactionPolicy.at75);
+      await app.send('a' * 4400);
+      adapter.requests.clear();
+      adapter.summaryEvents = const [
+        TextDelta('partial'),
+        ProviderError('Post context canceled', statusCode: 499),
+      ];
+      await app.send('b' * 1550);
+      expect(app.errorCode, isNull);
+      expect(app.contextCompactionDeferred, isTrue);
+      expect(adapter.requests, hasLength(2));
+      expect(adapter.requests.first.systemPrompt, summaryPrompt);
+      expect(
+        adapter.requests.last.messages.map((m) => m.id),
+        app.visibleMessages.take(3).map((m) => m.id),
+      );
+      adapter.requests.clear();
+      await app.send('c' * 1800);
+      expect(app.errorCode, 'contextCompactionInterrupted');
+      expect(app.canRetryContextCompaction, isTrue);
+      expect(adapter.requests.single.systemPrompt, summaryPrompt);
+      expect(
+        await app.chats.getContextSummaries(app.conversation!.id),
+        isEmpty,
+      );
+    },
+  );
+
   test('oversized latest turn is retained locally but never sent', () async {
     await app.saveProvider(config(context: 300));
     await app.send('A very long message ' * 100);

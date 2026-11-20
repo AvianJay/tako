@@ -1317,6 +1317,54 @@ abstract class AppLocalizations {
   /// **'此工作區檔案目前無法使用。'**
   String get fileUnavailable;
 
+  /// No description provided for @contextCompactionSetting.
+  ///
+  /// In zh, this message translates to:
+  /// **'自動摘要對話'**
+  String get contextCompactionSetting;
+
+  /// No description provided for @contextCompactionAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'在可用空間達到 {percent}% 時摘要'**
+  String contextCompactionAt(int percent);
+
+  /// No description provided for @contextCompactionOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'關閉，保留完整上下文'**
+  String get contextCompactionOff;
+
+  /// No description provided for @contextCompactionHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'套用至所有對話。從所選模型的上下文視窗扣除系統指令、工具和回覆預留空間，再依估計用量觸發摘要。關閉後若放不下完整對話，會提示而不裁剪。'**
+  String get contextCompactionHelp;
+
+  /// No description provided for @contextCompactionDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'完整對話超出模型可用空間。請到設定開啟「自動摘要對話」，或換用較大視窗的模型後重試。'**
+  String get contextCompactionDisabled;
+
+  /// No description provided for @contextCompactionInterrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'摘要請求已中止（HTTP 499）。沒有刪除訊息，可以重試或切換模型。'**
+  String get contextCompactionInterrupted;
+
+  /// No description provided for @contextCompactionTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待模型摘要逾時。沒有刪除訊息，可以重試或切換模型。'**
+  String get contextCompactionTimeout;
+
+  /// No description provided for @contextCompactionDeferred.
+  ///
+  /// In zh, this message translates to:
+  /// **'此次未完成摘要；原有上下文仍放得下，已原樣送出。'**
+  String get contextCompactionDeferred;
+
   /// No description provided for @contextCompacted.
   ///
   /// In zh, this message translates to:

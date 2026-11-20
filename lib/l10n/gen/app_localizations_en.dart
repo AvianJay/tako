@@ -669,6 +669,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileUnavailable => 'This workspace file is unavailable.';
 
   @override
+  String get contextCompactionSetting => 'Automatic chat summaries';
+
+  @override
+  String contextCompactionAt(int percent) {
+    return 'At $percent% of available space';
+  }
+
+  @override
+  String get contextCompactionOff => 'Off – keep full history';
+
+  @override
+  String get contextCompactionHelp =>
+      'Applies to all chats. The threshold uses the selected model’s context window after reserving space for instructions, tools and the reply. Usage is estimated. With summaries off, a turn that does not fit stops without trimming.';
+
+  @override
+  String get contextCompactionDisabled =>
+      'Full history exceeds this model’s available space. Turn on automatic chat summaries in Settings or choose a model with a larger context window, then retry.';
+
+  @override
+  String get contextCompactionInterrupted =>
+      'The summary request was canceled (HTTP 499). No messages were removed. Retry or switch models.';
+
+  @override
+  String get contextCompactionTimeout =>
+      'Timed out waiting for the model to summarize. No messages were removed. Retry or switch models.';
+
+  @override
+  String get contextCompactionDeferred =>
+      'Summary deferred. The existing context still fits and was sent without trimming.';
+
+  @override
   String get contextCompacted =>
       'Older context summarized. Full history is kept.';
 

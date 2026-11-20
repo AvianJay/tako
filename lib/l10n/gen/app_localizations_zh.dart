@@ -628,6 +628,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileUnavailable => '此工作區檔案目前無法使用。';
 
   @override
+  String get contextCompactionSetting => '自動摘要對話';
+
+  @override
+  String contextCompactionAt(int percent) {
+    return '在可用空間達到 $percent% 時摘要';
+  }
+
+  @override
+  String get contextCompactionOff => '關閉，保留完整上下文';
+
+  @override
+  String get contextCompactionHelp =>
+      '套用至所有對話。從所選模型的上下文視窗扣除系統指令、工具和回覆預留空間，再依估計用量觸發摘要。關閉後若放不下完整對話，會提示而不裁剪。';
+
+  @override
+  String get contextCompactionDisabled =>
+      '完整對話超出模型可用空間。請到設定開啟「自動摘要對話」，或換用較大視窗的模型後重試。';
+
+  @override
+  String get contextCompactionInterrupted =>
+      '摘要請求已中止（HTTP 499）。沒有刪除訊息，可以重試或切換模型。';
+
+  @override
+  String get contextCompactionTimeout => '等待模型摘要逾時。沒有刪除訊息，可以重試或切換模型。';
+
+  @override
+  String get contextCompactionDeferred => '此次未完成摘要；原有上下文仍放得下，已原樣送出。';
+
+  @override
   String get contextCompacted => '已摘要較早的對話，原始紀錄仍完整保留。';
 
   @override
@@ -2752,6 +2781,35 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get fileUnavailable => '此工作區檔案目前無法使用。';
+
+  @override
+  String get contextCompactionSetting => '自動摘要對話';
+
+  @override
+  String contextCompactionAt(int percent) {
+    return '在可用空間達到 $percent% 時摘要';
+  }
+
+  @override
+  String get contextCompactionOff => '關閉，保留完整上下文';
+
+  @override
+  String get contextCompactionHelp =>
+      '套用至所有對話。從所選模型的上下文視窗扣除系統指令、工具和回覆預留空間，再依估計用量觸發摘要。關閉後若放不下完整對話，會提示而不裁剪。';
+
+  @override
+  String get contextCompactionDisabled =>
+      '完整對話超出模型可用空間。請到設定開啟「自動摘要對話」，或換用較大視窗的模型後重試。';
+
+  @override
+  String get contextCompactionInterrupted =>
+      '摘要請求已中止（HTTP 499）。沒有刪除訊息，可以重試或切換模型。';
+
+  @override
+  String get contextCompactionTimeout => '等待模型摘要逾時。沒有刪除訊息，可以重試或切換模型。';
+
+  @override
+  String get contextCompactionDeferred => '此次未完成摘要；原有上下文仍放得下，已原樣送出。';
 
   @override
   String get contextCompacted => '已摘要較早的對話，原始紀錄仍完整保留。';
